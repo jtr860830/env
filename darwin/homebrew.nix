@@ -9,6 +9,7 @@
 
     casks = [
       "1password"
+      "alacritty"
       "burp-suite"
       "claude"
       "dash"
