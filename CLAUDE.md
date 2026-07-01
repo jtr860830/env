@@ -39,6 +39,8 @@ Custom minimal config managed by `programs.neovim` in `home/neovim.nix`. No Lazy
 
 Uses `vim.lsp.config` + `vim.lsp.enable` — no `require("lspconfig")` needed. nvim-lspconfig provides `lsp/` directory configs read automatically by `vim.lsp.enable`.
 
+LSP servers are managed in two places: binary in `home/neovim.nix` → `extraPackages`, and enabled in `nvim/lua/lsp.lua` → `vim.lsp.enable { ... }`. Both must be updated when adding a new server.
+
 ```lua
 vim.lsp.config("*", { capabilities = ... })   -- global config
 vim.lsp.config("lua_ls", { settings = ... })  -- per-server override
@@ -72,6 +74,11 @@ vim.fn.nr2char(0xea6c)  -- Codicon warning
 vim.fn.nr2char(0xea74)  -- Codicon info
 vim.fn.nr2char(0xea61)  -- Codicon lightbulb
 ```
+
+## Known nixpkgs Packaging Issues
+
+- `kubernetes-helm` (4.2.0): build fails with `substitute(): ERROR: file '...dependency_build_test.go' does not exist` — workaround: `(kubernetes-helm.overrideAttrs { doCheck = false; })`
+- `container` (Darwin): nixpkgs does not symlink `libexec/` into the nix profile — `container-apiserver` fails with `cannot find any plugins with type network`. Package is kept but non-functional until upstream fixes the packaging.
 
 ## Homebrew
 
@@ -174,6 +181,10 @@ indent = { char = "▏", scope = { char = "▏" } }               -- wrong, char
 ### fzf-lua Colors
 
 `fzf_colors = true` in `fzf.setup {}` auto-syncs all fzf UI colors (selection, highlights, prompt, border) from Neovim's current highlight groups — onedarkpro is picked up automatically.
+
+## Container Stack
+
+Fully migrated to podman. `podman machine` manages the Linux VM — no colima/Docker Desktop needed. lima is kept for general-purpose Linux VMs (not container-related). `podlet` converts existing container defs to Quadlet/k8s YAML format.
 
 ## Ghostty Shell Integration
 
