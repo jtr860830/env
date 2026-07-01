@@ -73,6 +73,7 @@
       claude-code
 
       # Container & Kubernetes
+      qemu
       lima
       podman
       skopeo

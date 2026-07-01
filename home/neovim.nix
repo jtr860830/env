@@ -29,6 +29,7 @@
       lua-language-server
       nixd
       nixfmt
+      helm-ls
       prettierd
       ruff
       shfmt

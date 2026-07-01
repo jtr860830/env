@@ -25,6 +25,7 @@ vim.lsp.enable {
   "taplo",
   "lua_ls",
   "nixd",
+  "helm_ls",
 }
 
 vim.api.nvim_create_autocmd("LspAttach", {
