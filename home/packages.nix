@@ -73,7 +73,6 @@
       claude-code
 
       # Container & Kubernetes
-      colima
       lima
       podman
       skopeo
