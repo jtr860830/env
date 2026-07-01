@@ -12,14 +12,15 @@
       ripgrep-all
       zoxide
       tealdeer
+      unar
+      rip2
+
+      # Search & analysis
       tokei
       cloc
       gdu
       erdtree
-      unar
-      rip2
       fastfetch
-      atac
 
       # System monitoring
       bottom
@@ -47,6 +48,9 @@
       bear
       gnumake
       gnused
+      llvm
+      clang-tools
+      buf
 
       # Languages & runtimes
       go
@@ -66,15 +70,22 @@
       gh
       jj
 
+      # API & testing
+      atac
+      k6
+
       # Security
       _1password-cli
+      openvpn
 
       # AI
       claude-code
 
-      # Container & Kubernetes
+      # Virtualization
       qemu
       lima
+
+      # Container & Kubernetes
       podman
       skopeo
       crane
@@ -82,19 +93,11 @@
       kubectl
       kubernetes-helm
       kind
-      k6
       clusterctl
 
       # Multimedia
       ffmpeg
       mpv
-
-      # Misc
-      buf
-      openvpn
-      less
-      llvm
-      clang-tools
     ]
     ++ lib.optionals pkgs.stdenv.isDarwin [
       mas
