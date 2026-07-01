@@ -73,10 +73,6 @@
       claude-code
 
       # Container & Kubernetes
-      docker
-      docker-buildx
-      docker-compose
-      docker-credential-helpers
       colima
       lima
       podman

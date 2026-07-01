@@ -131,7 +131,6 @@
       "gt=38;2;198;120;221" # git type change: purple
       "gi=38;2;92;99;112" # git ignored: comment gray
     ];
-    DOCKER_CONFIG = "${config.xdg.configHome}/docker";
     KUBECONFIG = "${config.xdg.configHome}/kube";
     KUBECACHEDIR = "${config.xdg.cacheHome}/kube";
     LIMA_HOME = "${config.xdg.dataHome}/lima";
