@@ -30,6 +30,7 @@
       iftop
 
       # Network
+      openssh
       curl
       wget
       xh
