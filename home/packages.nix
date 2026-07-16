@@ -12,7 +12,6 @@
       ripgrep-all
       zoxide
       tealdeer
-      unar
       rip2
 
       # Search & analysis
@@ -98,7 +97,6 @@
 
       # Multimedia
       ffmpeg
-      mpv
     ]
     ++ lib.optionals pkgs.stdenv.isDarwin [
       mas
