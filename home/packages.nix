@@ -103,6 +103,7 @@
     ++ lib.optionals pkgs.stdenv.isDarwin [
       mas
       container
+      iproute2mac
     ];
 
   xdg.configFile."npm/npmrc".text = ''
