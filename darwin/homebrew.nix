@@ -13,6 +13,7 @@
       "claude"
       "dash"
       "discord"
+      "drawio"
       "element"
       "firefox"
       "ghostty"
