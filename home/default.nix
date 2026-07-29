@@ -17,5 +17,9 @@
 
   programs.home-manager.enable = true;
 
+  # Target for system.defaults.screencapture.location in darwin/system.nix;
+  # screencapture does not create the directory itself.
+  home.file."Pictures/Screenshots/.keep".text = "";
+
   xdg.enable = true;
 }
