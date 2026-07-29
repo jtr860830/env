@@ -32,11 +32,6 @@
           "/Applications/1Password.app/Contents/MacOS/op-ssh-sign"
         else
           "/opt/1Password/op-ssh-sign";
-      "delta \"decorations\"" = {
-        commit-decoration-style = "bold yellow box ul";
-        file-style = "bold yellow ul";
-        file-decoration-style = "none";
-      };
     };
   };
 
@@ -47,6 +42,11 @@
       syntax-theme = "TwoDark";
       features = "side-by-side line-numbers decorations";
       whitespace-error-style = "22 reverse";
+      decorations = {
+        commit-decoration-style = "bold yellow box ul";
+        file-style = "bold yellow ul";
+        file-decoration-style = "none";
+      };
     };
   };
 }

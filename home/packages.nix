@@ -3,14 +3,12 @@
     with pkgs;
     [
       # CLI essentials
-      bat
       eza
       fd
       fzf
       fzy
       ripgrep
       ripgrep-all
-      zoxide
       tealdeer
       rip2
 

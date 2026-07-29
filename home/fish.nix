@@ -34,7 +34,6 @@
         /sbin
 
       fish_vi_key_bindings
-      zoxide init fish | source
 
       # One Dark Pro colors
       set -l foreground abb2bf
@@ -89,6 +88,13 @@
     '';
   };
 
+  programs.zoxide.enable = true;
+
+  programs.bat = {
+    enable = true;
+    config.theme = "TwoDark";
+  };
+
   home.sessionVariables = {
     LANG = "en_US.UTF-8";
     TERMINFO_DIRS = "${pkgs.ncurses}/share/terminfo";
@@ -104,7 +110,6 @@
     CARGO_HOME = "${config.xdg.dataHome}/cargo";
 
     WGETRC = "${config.xdg.configHome}/wgetrc";
-    BAT_THEME = "TwoDark";
     EZA_COLORS = builtins.concatStringsSep ":" [
       "di=38;2;97;175;239" # dir: blue
       "ln=38;2;86;182;194" # symlink: cyan
