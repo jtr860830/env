@@ -12,13 +12,17 @@
     ];
   };
 
+  fonts.packages = [ pkgs.maple-mono.NF-CN-unhinted ];
+
   nix.settings = {
     experimental-features = [
       "nix-command"
       "flakes"
     ];
+    use-xdg-base-directories = true;
   };
 
+  nixpkgs.config.allowUnfree = true;
   nixpkgs.hostPlatform = "x86_64-linux";
   system.stateVersion = "25.05";
 }
