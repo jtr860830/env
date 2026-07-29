@@ -86,6 +86,26 @@ vim.fn.nr2char(0xea61)  -- Codicon lightbulb
 
 Casks and Mac App Store apps are declared in `darwin/homebrew.nix`. `cleanup = "zap"` is intentional — removes anything not listed. Generates `Warning: --cleanup is deprecated` from Homebrew; nix-darwin upstream issue, functional but unfixable without upstream change.
 
+### Activation Environment
+
+The activation script runs `sudo --preserve-env=PATH --user=… env brew bundle`, so **only `PATH` survives** — every other variable set for the interactive shell is absent when brew runs. This is hardcoded in nix-darwin's module; there is no option to inject environment variables.
+
+Consequence: brew fell back to `$HOME/.homebrew` for its user config (it prefers `XDG_CONFIG_HOME`, which sudo drops), creating that directory on every rebuild while `brew` run by hand did not. Fixed by writing `/etc/homebrew/brew.env` via `environment.etc`, which brew loads at `bin/brew:151` — before it decides the path at `:163`:
+
+```nix
+environment.etc."homebrew/brew.env".text = ''
+  HOMEBREW_XDG_CONFIG_HOME=${homeDir}/.config
+'';
+```
+
+The `brew.env` hierarchy (`/etc/homebrew` → `$HOMEBREW_PREFIX/etc/homebrew` → user) is supported upstream and filters to `HOMEBREW_*` only. `HOMEBREW_XDG_CONFIG_HOME` itself is undocumented and unsettled — Homebrew/brew#20250 was closed unmerged with a maintainer preferring a new `HOMEBREW_CONFIG_HOME`. Variables in `BIN_BREW_EXPORTED_VARS` (including `HOMEBREW_USER_CONFIG_HOME`) cannot be set this way.
+
+Check what brew actually resolves with:
+
+```sh
+brew ruby -e 'puts ENV["HOMEBREW_USER_CONFIG_HOME"]'
+```
+
 ## Git Conventions
 
 - Commit style: `type: description` (e.g. `feat:`, `chore:`, `fix:`)
