@@ -15,7 +15,6 @@ opt.wrap = false
 
 opt.ignorecase = true
 opt.smartcase = true
-opt.hlsearch = true
 
 opt.splitbelow = true
 opt.splitright = true
@@ -37,11 +36,6 @@ opt.updatetime = 250
 opt.timeoutlen = 300
 
 opt.clipboard = "unnamedplus"
-
-if vim.fn.executable "rg" == 1 then
-  opt.grepprg = "rg --vimgrep"
-  opt.grepformat = "%f:%l:%c:%m"
-end
 
 vim.filetype.add {
   pattern = {

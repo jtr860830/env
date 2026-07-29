@@ -20,6 +20,7 @@ require("mini.surround").setup()
 
 local clue = require "mini.clue"
 clue.setup {
+  -- Every clue set below needs a matching trigger or it can never be shown.
   triggers = {
     { mode = "n", keys = "<leader>" },
     { mode = "v", keys = "<leader>" },
@@ -28,6 +29,16 @@ clue.setup {
     { mode = "n", keys = "[" },
     { mode = "n", keys = "]" },
     { mode = "n", keys = "<C-w>" },
+    { mode = "n", keys = "z" },
+    { mode = "v", keys = "z" },
+    { mode = "n", keys = "'" },
+    { mode = "v", keys = "'" },
+    { mode = "n", keys = "`" },
+    { mode = "v", keys = "`" },
+    { mode = "n", keys = '"' },
+    { mode = "v", keys = '"' },
+    { mode = "i", keys = "<C-r>" },
+    { mode = "c", keys = "<C-r>" },
   },
   clues = {
     clue.gen_clues.g(),
