@@ -41,6 +41,8 @@ Uses `vim.lsp.config` + `vim.lsp.enable` — no `require("lspconfig")` needed. n
 
 LSP servers are managed in two places: binary in `home/packages.nix` (`# LSP servers`), and enabled in `nvim/lua/lsp.lua` → `vim.lsp.enable { ... }`. Both must be updated when adding a new server.
 
+A server only attaches to the filetypes its `lsp/<name>.lua` claims, so check them against `vim.filetype.add` in `options.lua`. `helm_ls` claims `helm` and `yaml.helm-values` — mapping Helm templates to `gotmpl` silently left them with no LSP. The `helm` parser inherits `gotmpl` and additionally injects `yaml`, so it is the better choice anyway (parse tree becomes `[helm, yaml]`).
+
 `programs.neovim.extraPackages` is intentionally NOT used — it wraps binaries into neovim's own PATH (appended as a suffix), making them invisible to the shell and to other editors. `helix` is installed and resolves LSP servers from PATH, so everything lives in `home.packages` instead. Note `clangd`/`clang-format` come from `clang-tools` under `# Build & dev tools`, which is also used directly as a CLI tool.
 
 ```lua
@@ -65,6 +67,15 @@ vim.api.nvim_create_autocmd("InsertEnter", { group = hint_group, buffer = bufnr,
 - `vim.diagnostic.count(0)` — efficient per-buffer count
 - `vim.treesitter.start()` via FileType autocmd — nvim-treesitter 0.10+ removed configs module
 - `vim.fs.root(0, { ".git", ... })` — find project root without shell spawn
+- `an`/`in` in visual and operator-pending are **built-in** treesitter node selection ("select parent/child node"). With a count they reproduce mini.ai's structural textobjects — `dan` deletes an argument, `d3an` a whole function call, at the same depth in lua, python and go. Do not add `mini.ai` on the grounds that vanilla lacks `ia`/`af`.
+
+### mini.nvim Modules
+
+Each module is an independent sub-plugin — there is no unified enable, and every one needs its own `setup()`. In use: `icons` `diff` `move` `pairs` `surround` `clue` `statusline`.
+
+- **`mini.icons` must be `setup()`**, not merely required. `require("mini.icons").get(...)` works without it, but fzf-lua detects the provider through the `MiniIcons` global — without `setup()` it falls back to `nvim-web-devicons`, which is not installed, and shows *no* icons at all. dropbar never looks for mini.icons, only `nvim-web-devicons`, and degrades to one generic glyph for every filetype, hence `MiniIcons.mock_nvim_web_devicons()`. Two calls, and stylua splits a semicolon one-liner back apart.
+- **`mini.statusline` never calls `content.inactive` when `laststatus = 3`** — its own expression is `(… || &laststatus==3) ? active() : inactive()`. Its default inactive still uses `MiniStatuslineInactive`, so keep that highlight in `theme.lua` even with no custom inactive content.
+- `mini.move` replaces hand-rolled `:m .+1`-style mappings: same reindent behaviour, but respects a count and does not raise `E16` at the last line.
 
 ### Nerd Font Icons
 
@@ -204,6 +215,8 @@ indent = { char = "▏", scope = { char = "▏" } }               -- wrong, char
 
 `fzf_colors = true` in `fzf.setup {}` auto-syncs all fzf UI colors (selection, highlights, prompt, border) from Neovim's current highlight groups — onedarkpro is picked up automatically.
 
+Every picker is reachable as `:FzfLua <name>` with Tab completion, so the `<leader>f` mappings are shortcuts, not the only access. That includes twelve git pickers (`git_blame` `git_bcommits` `git_status` `git_hunks` …) — `git_status` even stages with left/right. Only `git log -L` style range history is missing, which is the one thing `mini.git` would add.
+
 ## Container Stack
 
 Fully migrated to podman. `podman machine` manages the Linux VM — no colima/Docker Desktop needed. lima is kept for general-purpose Linux VMs (not container-related). `podlet` converts existing container defs to Quadlet/k8s YAML format.
@@ -281,6 +294,8 @@ fzf-lua has no native lazy loading — requires lazy.nvim; not worth adding at c
 - Nix: `nixfmt <files>` — on PATH via `home/packages.nix`, no `nix run` needed
 
 conform is configured without `format_on_save` — format manually with `<leader>cf`.
+
+`smartindent` is deliberately **not** set. `indentexpr` overrules it, so it was a no-op for python, yaml, lua, go and sh, while nix has no `indentexpr` and there it treated a leading `#` as a preprocessor directive and stripped the indentation off every comment. `autoindent` is on by default and keeps ordinary lines indented.
 
 ## Keymap Organisation
 
