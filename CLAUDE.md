@@ -39,7 +39,9 @@ Custom minimal config managed by `programs.neovim` in `home/neovim.nix`. No Lazy
 
 Uses `vim.lsp.config` + `vim.lsp.enable` — no `require("lspconfig")` needed. nvim-lspconfig provides `lsp/` directory configs read automatically by `vim.lsp.enable`.
 
-LSP servers are managed in two places: binary in `home/neovim.nix` → `extraPackages`, and enabled in `nvim/lua/lsp.lua` → `vim.lsp.enable { ... }`. Both must be updated when adding a new server.
+LSP servers are managed in two places: binary in `home/packages.nix` (`# LSP servers`), and enabled in `nvim/lua/lsp.lua` → `vim.lsp.enable { ... }`. Both must be updated when adding a new server.
+
+`programs.neovim.extraPackages` is intentionally NOT used — it wraps binaries into neovim's own PATH (appended as a suffix), making them invisible to the shell and to other editors. `helix` is installed and resolves LSP servers from PATH, so everything lives in `home.packages` instead. Note `clangd`/`clang-format` come from `clang-tools` under `# Build & dev tools`, which is also used directly as a CLI tool.
 
 ```lua
 vim.lsp.config("*", { capabilities = ... })   -- global config
@@ -217,7 +219,7 @@ fzf-lua has no native lazy loading — requires lazy.nvim; not worth adding at c
 ## Formatters
 
 - Lua: `stylua` (config at `nvim/.stylua.toml`)
-- Nix: `nixfmt` (`nix run nixpkgs#nixfmt -- <files>`)
+- Nix: `nixfmt <files>` — on PATH via `home/packages.nix`, no `nix run` needed
 
 conform is configured without `format_on_save` — format manually with `<leader>cf`.
 

@@ -64,6 +64,24 @@
       # Editors
       helix
 
+      # LSP servers
+      bash-language-server
+      gopls
+      helm-ls
+      lua-language-server
+      nixd
+      pyright
+      taplo
+      typescript-language-server
+      yaml-language-server
+
+      # Formatters & linters
+      nixfmt
+      prettierd
+      ruff
+      shfmt
+      stylua
+
       # Git
       gh
       jj

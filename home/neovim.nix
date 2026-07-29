@@ -18,23 +18,6 @@
       snacks-nvim
       conform-nvim
     ];
-
-    extraPackages = with pkgs; [
-      gopls
-      typescript-language-server
-      pyright
-      bash-language-server
-      yaml-language-server
-      taplo
-      lua-language-server
-      nixd
-      nixfmt
-      helm-ls
-      prettierd
-      ruff
-      shfmt
-      stylua
-    ];
   };
 
   xdg.configFile."nvim/lua".source = ../nvim/lua;
