@@ -1,9 +1,18 @@
+-- setup() is what lets fzf-lua detect mini.icons; without it fzf-lua finds no
+-- provider at all. dropbar only ever reads nvim-web-devicons, falling back to a
+-- single generic glyph for every filetype, so it needs the mock as well.
+require("mini.icons").setup()
+MiniIcons.mock_nvim_web_devicons()
+
 require("mini.diff").setup {
   view = {
     style = "sign",
     signs = { add = "▎", change = "▎", delete = "▎" },
   },
 }
+
+-- <A-hjkl> in normal and visual; respects count and stops at buffer edges
+require("mini.move").setup()
 
 require("mini.pairs").setup()
 

@@ -10,7 +10,6 @@ opt.sidescrolloff = 8
 opt.tabstop = 2
 opt.shiftwidth = 2
 opt.expandtab = true
-opt.smartindent = true
 
 opt.wrap = false
 
@@ -40,8 +39,10 @@ end
 
 vim.filetype.add {
   pattern = {
-    [".*/templates/.*%.yaml"] = "gotmpl",
-    [".*/templates/.*%.tpl"] = "gotmpl",
+    -- helm_ls claims "helm" and "yaml.helm-values"; the helm parser inherits
+    -- gotmpl and additionally injects yaml, so "gotmpl" would lose both.
+    [".*/templates/.*%.yaml"] = "helm",
+    [".*/templates/.*%.tpl"] = "helm",
     [".*values.*%.yaml"] = "yaml.helm-values",
     ["%.gitlab%-ci%.yml"] = "yaml.gitlab",
     ["%.gitlab%-ci%.yaml"] = "yaml.gitlab",

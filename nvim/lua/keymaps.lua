@@ -3,11 +3,6 @@ local map = vim.keymap.set
 map("v", "<", "<gv")
 map("v", ">", ">gv")
 
-map("n", "<A-j>", "<cmd>m .+1<CR>==", { desc = "Move line down" })
-map("n", "<A-k>", "<cmd>m .-2<CR>==", { desc = "Move line up" })
-map("v", "<A-j>", ":m '>+1<CR>gv=gv", { desc = "Move selection down" })
-map("v", "<A-k>", ":m '<-2<CR>gv=gv", { desc = "Move selection up" })
-
 map("n", "<Esc>", "<cmd>nohlsearch<CR>", { desc = "Clear search" })
 
 map("n", "<leader>w", "<cmd>w<CR>", { desc = "Save" })
