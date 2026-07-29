@@ -100,11 +100,9 @@ require("mini.statusline").setup {
       table.insert(groups, { hl = "MiniStatuslineFilename", strings = { filetype } })
       return MiniStatusline.combine_groups(groups)
     end,
-    inactive = function()
-      return MiniStatusline.combine_groups {
-        { hl = "MiniStatuslineInactive", strings = { statusline_filename() } },
-      }
-    end,
+    -- No `inactive`: mini.statusline short-circuits to `active` when
+    -- laststatus is 3, so it would never be called. Its own default still
+    -- uses the MiniStatuslineInactive highlight set in theme.lua.
   },
 }
 

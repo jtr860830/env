@@ -19,6 +19,9 @@ opt.hlsearch = true
 
 opt.splitbelow = true
 opt.splitright = true
+-- Default "cursor" scrolls the text to keep the cursor on the same screen row,
+-- so opening any window jolts the one below it.
+opt.splitkeep = "screen"
 
 opt.showmode = false
 opt.laststatus = 3
@@ -26,6 +29,9 @@ opt.cmdheight = 0
 
 opt.undofile = true
 opt.swapfile = false
+-- Prompt instead of failing with E37; <leader>q would otherwise error, and
+-- cmdheight = 0 makes that flash the command line. `:q!` is unaffected.
+opt.confirm = true
 
 opt.updatetime = 250
 opt.timeoutlen = 300
