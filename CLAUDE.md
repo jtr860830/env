@@ -204,6 +204,27 @@ TERMINFO_DIRS = "${pkgs.ncurses}/share/terminfo";
 
 Referencing `${pkgs.ncurses}` in a nix expression automatically includes it in the closure — no need to add it to `home.packages`.
 
+## Modules vs `home.packages`
+
+`programs.<x>.enable = true` installs the package itself — **never also list it in `home/packages.nix`**. `home.path` uses `pkgs.buildEnv` without `ignoreCollisions`, and some modules install a wrapped derivation (`delta` uses `cfg.finalPackage`), so a duplicate can become a hard build failure if the wrapped and plain packages ever diverge.
+
+Currently enabled: `bat` `delta` `fish` `git` `neovim` `ssh` `tmux` `zoxide`.
+
+`programs.ssh` is the **only exception** — its `package` defaults to `null` ("use the system client"), so `home/ssh.nix` sets `package = pkgs.openssh;` explicitly.
+
+## Shadowing macOS System Binaries
+
+**Intentional — do not "fix" this.** `/etc/profiles/per-user/$USER/bin` sits before `/usr/bin` in the fish PATH, so nix-provided tools win. Both newer upstream versions and GNU-over-BSD behavior are wanted.
+
+Notable overrides: `make` (GNU 4.4.1 vs macOS 3.81), `sed` (GNU vs BSD — GNU `sed -i` takes no argument), `ssh` (OpenSSH 10.4p1/OpenSSL vs 10.2p1/LibreSSL), `git`, `curl`, `python3`, `clangd`, the `java`/`j*` set (from `jdk`), and `ping`/`hostname`/`ifconfig`/`whois`/`traceroute` (from `inetutils`).
+
+List the full set with:
+
+```sh
+P=/etc/profiles/per-user/$USER/bin
+for f in "$P"/*; do b=$(basename "$f"); for d in /usr/bin /bin /usr/sbin /sbin; do [ -e "$d/$b" ] && echo "$b -> $d/$b" && break; done; done
+```
+
 ## Cross-Platform Nix Patterns
 
 - Platform conditionals: `if pkgs.stdenv.isDarwin then ... else ...`
