@@ -69,6 +69,14 @@ vim.api.nvim_create_autocmd("InsertEnter", { group = hint_group, buffer = bufnr,
 - `vim.fs.root(0, { ".git", ... })` — find project root without shell spawn
 - `an`/`in` in visual and operator-pending are **built-in** treesitter node selection ("select parent/child node"). With a count they reproduce mini.ai's structural textobjects — `dan` deletes an argument, `d3an` a whole function call, at the same depth in lua, python and go. Do not add `mini.ai` on the grounds that vanilla lacks `ia`/`af`.
 
+### Deliberately Absent
+
+Do not "helpfully" re-add these — each was removed after checking:
+
+- **`opt.hlsearch` / `opt.grepformat`** — identical to Neovim's defaults. Neovim also picks `grepprg` itself: `"rg --vimgrep -uu "` when rg is on PATH, `"grep -HIn $* /dev/null"` otherwise, so an `executable("rg")` guard duplicates it. Nothing here uses `:grep`; fzf-lua builds its own rg invocation and never reads `grepprg`.
+- **blink's `snippets` source** — it serves snippet *libraries* found on the runtimepath, and none are installed, so it returned nothing on every keystroke. LSP snippets arrive through the `lsp` source instead; `snippetSupport = true` is hardcoded in blink (`sources/lib/init.lua`), not an option. Snippet libraries are unwanted; LSP-driven completion is.
+- **`nvim-treesitter` is never `require`d but must stay** — `treesitter.lua` uses the native `vim.treesitter.start()`, parsers come from `nvim-treesitter-grammars`, but the *queries* come from this plugin. Neovim bundles queries for only 7 languages (`c lua markdown markdown_inline query vim vimdoc`); go, nix, python, typescript, yaml and helm all rely on the 323 sets it ships.
+
 ### mini.nvim Modules
 
 Each module is an independent sub-plugin — there is no unified enable, and every one needs its own `setup()`. In use: `icons` `diff` `move` `pairs` `surround` `clue` `statusline`.
@@ -313,6 +321,8 @@ mini.clue group labels are declared in `clues` to show prefix descriptions at th
 - While popup is visible, key timeout is paused; without a trigger in that mode, pure `timeoutlen` applies
 - Available `gen_clues`: `g`, `marks`, `registers`, `windows`, `z`, `square_brackets`, `builtin_completion`
 - `gen_clues.g()` on nvim 0.11+ auto-includes visual mode `gr = '+LSP'` clue
+- **A clue set with no matching trigger is silently inert.** `z()` needs a `z` trigger, `marks()` needs `'` and `` ` ``, `registers()` needs `"` plus `<C-r>` in insert and cmdline. Adding the sets without the triggers left ~187 entries unreachable. Adding a trigger does not shadow the key itself — `zz`, `zf`/`za`, `'a` and `"qp` all still work, the popup only appears after the 300ms delay.
+- Inspect what is actually wired up with `nvim_buf_get_keymap` after a `BufEnter`; the triggers are buffer-local, so `maparg` shows nothing
 
 ```lua
 { mode = "n", keys = "<leader>f", desc = "+find" },
