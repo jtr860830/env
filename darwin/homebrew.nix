@@ -16,6 +16,7 @@
       "drawio"
       "element"
       "firefox"
+      "firefox@nightly"
       "ghostty"
       "google-chrome"
       "iina"
