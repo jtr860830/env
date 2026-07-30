@@ -7,6 +7,27 @@ in
     hostName = hostname;
     computerName = hostname;
     localHostName = hostname;
+
+    # A deterministic resolver instead of whatever DHCP hands out. This is only
+    # the fallback: Tailscale runs with accept-dns and its admin console has
+    # "Override Local DNS" on, so live queries go to 100.100.100.100 and the
+    # upstreams come from the tailnet, not from here.
+    #
+    # `dns` only touches the services named here, and a name that matches
+    # nothing is skipped silently — so a typo fails quietly. Copy names from
+    # `networksetup -listallnetworkservices`. Tailscale's own service is
+    # deliberately left out.
+    #
+    # v6 entries come last on purpose: macOS queries nameservers in order, so
+    # on an IPv4-only network the v4 pair answers first and the v6 pair is
+    # never tried. Keeping them means an IPv6-capable network needs no change.
+    knownNetworkServices = [ "Wi-Fi" ];
+    dns = [
+      "1.1.1.1"
+      "1.0.0.1"
+      "2606:4700:4700::1111"
+      "2606:4700:4700::1001"
+    ];
   };
 
   system.defaults = {
