@@ -2,121 +2,88 @@
   home.packages =
     with pkgs;
     [
-      # CLI essentials
+      _1password-cli
+      atac
+      bash-language-server
+      bear
+      bottom
+      buf
+      clang-tools
+      claude-code
+      cloc
+      clusterctl
+      crane
+      curl
+      deno
+      erdtree
       eza
+      fastfetch
       fd
+      ffmpeg
+      fx
       fzf
       fzy
-      ripgrep
-      ripgrep-all
-      tealdeer
-      rip2
-
-      # Search & analysis
-      tokei
-      cloc
       gdu
-      erdtree
-      fastfetch
-
-      # System monitoring
-      bottom
-      htop
-      procs
-      hwatch
-      iftop
-
-      # Network
-      curl
-      wget
-      xh
-      mosh
-      nmap
-      tcpdump
-      ipcalc
-      inetutils
-
-      # Data
-      jq
-      fx
-
-      # Build & dev tools
-      just
-      bear
+      gh
       gnumake
       gnused
-      llvm
-      clang-tools
-      buf
-
-      # Languages & runtimes
       go
-      rustup
-      zig
-      lua
-      nodejs
-      deno
-      uv
-      python3
-      jdk
-
-      # Editors
-      helix
-
-      # LSP servers
-      bash-language-server
       gopls
+      helix
       helm-ls
-      lua-language-server
-      nixd
-      pyright
-      taplo
-      typescript-language-server
-      yaml-language-server
-
-      # Formatters & linters
-      nixfmt
-      prettierd
-      ruff
-      shfmt
-      stylua
-
-      # Git
-      gh
+      htop
+      hwatch
+      iftop
+      inetutils
+      ipcalc
+      jdk
       jj
-
-      # API & testing
-      atac
+      jq
+      just
       k6
-
-      # Security
-      _1password-cli
-      openvpn
-
-      # AI
-      claude-code
-
-      # Virtualization
-      qemu
-      lima
-
-      # Container & Kubernetes
-      podman
-      skopeo
-      crane
-      podlet
+      kind
       kubectl
       kubernetes-helm
-      kind
-      clusterctl
-
-      # Multimedia
-      ffmpeg
+      lima
+      llvm
+      lua
+      lua-language-server
+      mosh
+      nixd
+      nixfmt
+      nmap
+      nodejs
+      openvpn
+      podlet
+      podman
+      prettierd
+      procs
+      pyright
+      python3
+      qemu
+      rip2
+      ripgrep
+      ripgrep-all
+      ruff
+      rustup
+      shfmt
+      skopeo
+      stylua
+      taplo
+      tcpdump
+      tealdeer
+      tokei
+      typescript-language-server
+      uv
+      wget
+      xh
+      yaml-language-server
+      zig
     ]
     ++ lib.optionals pkgs.stdenv.isDarwin [
-      mas
       container
       iproute2mac
+      mas
     ];
 
   xdg.configFile."npm/npmrc".text = ''
