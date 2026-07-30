@@ -2,7 +2,6 @@ local capabilities = require("blink.cmp").get_lsp_capabilities()
 
 vim.lsp.config("*", { capabilities = capabilities })
 
--- lua_ls: teach it about neovim runtime so `vim.*` globals are recognized
 vim.lsp.config("lua_ls", {
   settings = {
     Lua = {

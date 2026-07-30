@@ -15,7 +15,6 @@
       set -g set-clipboard on
       set -g history-limit 50000
 
-      # Keybindings
       bind-key a send-prefix
       bind r source-file "$XDG_CONFIG_HOME/tmux/tmux.conf"
       bind w kill-window
@@ -27,7 +26,6 @@
       bind l select-pane -R
       bind -n S-Enter send-keys Escape "[13;2u"
 
-      # Theme
       set -g status-position       bottom
       set -g status-justify        absolute-centre
       set -g status-style          "bg=#22262d"

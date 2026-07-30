@@ -9,7 +9,6 @@
     enable = true;
     enableDefaultConfig = false;
 
-    # Override macOS's older system ssh; see "Shadowing macOS System Binaries"
     package = pkgs.openssh;
 
     includes = lib.optionals pkgs.stdenv.isDarwin [

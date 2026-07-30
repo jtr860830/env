@@ -1,6 +1,3 @@
--- setup() is what lets fzf-lua detect mini.icons; without it fzf-lua finds no
--- provider at all. dropbar only ever reads nvim-web-devicons, falling back to a
--- single generic glyph for every filetype, so it needs the mock as well.
 require("mini.icons").setup()
 MiniIcons.mock_nvim_web_devicons()
 
@@ -11,7 +8,6 @@ require("mini.diff").setup {
   },
 }
 
--- <A-hjkl> in normal and visual; respects count and stops at buffer edges
 require("mini.move").setup()
 
 require("mini.pairs").setup()
@@ -20,7 +16,6 @@ require("mini.surround").setup()
 
 local clue = require "mini.clue"
 clue.setup {
-  -- Every clue set below needs a matching trigger or it can never be shown.
   triggers = {
     { mode = "n", keys = "<leader>" },
     { mode = "v", keys = "<leader>" },
@@ -111,9 +106,6 @@ require("mini.statusline").setup {
       table.insert(groups, { hl = "MiniStatuslineFilename", strings = { filetype } })
       return MiniStatusline.combine_groups(groups)
     end,
-    -- No `inactive`: mini.statusline short-circuits to `active` when
-    -- laststatus is 3, so it would never be called. Its own default still
-    -- uses the MiniStatuslineInactive highlight set in theme.lua.
   },
 }
 

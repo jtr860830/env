@@ -9,8 +9,6 @@ require("blink.cmp").setup {
   },
   appearance = { nerd_font_variant = "mono" },
   sources = {
-    -- No "snippets" source: that reads snippet libraries off the runtimepath
-    -- and none are installed. LSP snippets arrive through "lsp" regardless.
     default = { "lsp", "path", "buffer" },
   },
   signature = {
