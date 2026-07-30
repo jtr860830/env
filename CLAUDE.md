@@ -104,6 +104,17 @@ vim.fn.nr2char(0xea74)  -- Codicon info
 vim.fn.nr2char(0xea61)  -- Codicon lightbulb
 ```
 
+Only four symbols are used in the whole repo: `▎` (U+258E, mini.diff signs), `▏` (U+258F, snacks indent), `○`/`●` (U+25CB/25CF, tmux windows), plus `■` (U+25A0, tmux zoom). Two things to check before adding a fifth:
+
+- **Is the glyph in Maple Mono?** macOS falls back to another font when it is not, so it renders but with a mismatched weight and no guarantee on another machine. `▣` (U+25A3), `⛶`, `⤢` and `⊞` are all absent; `■`, `█`, `◉`, `◎` are present. Check with:
+  ```sh
+  nix shell --impure --expr 'let p = (builtins.getFlake "nixpkgs").legacyPackages.aarch64-darwin;
+    in p.python3.withPackages (ps: [ ps.fonttools ])' --command python3 -c \
+    "from fontTools.ttLib import TTFont; print(0x25A0 in TTFont('<font>.ttf', fontNumber=0).getBestCmap())"
+  ```
+- **`bold` does nothing to geometric shapes.** `●` has an identical glyph and advance width in the Regular and Bold faces, so `#[fg=…,bold]` on one is dead styling.
+- Every symbol in use is East Asian Width **Ambiguous**, i.e. one cell only because `LANG=en_US.UTF-8`. Switching to a CJK locale would make them two cells wide and break both the tmux status bar and the sign column. `◉` (U+25C9) is the one Neutral alternative.
+
 ## Known nixpkgs Packaging Issues
 
 - `kubernetes-helm` (4.2.0): build fails with `substitute(): ERROR: file '...dependency_build_test.go' does not exist` — workaround: `(kubernetes-helm.overrideAttrs { doCheck = false; })`
@@ -149,10 +160,25 @@ Access palette via `require("onedarkpro.helpers").get_colors()`. Key colors:
 
 - `c.bg_statusline` (`#22262d`) — statusline/tmux bar background
 - `c.selection` (`#414858`) — selection/highlight background
-- `c.fg_gutter` (`#3d4350`) — pane borders, dim separators
+- `c.fg_gutter` (`#3d4350`) — dim separators
+- `c.gray` (`#5c6370`) — structural lines (`WinSeparator`, tmux pane borders)
+- `c.comment` (`#7f848e`) — secondary text
 - `c.indentline` (`#3b4048`) — static indent guide lines
 
-Tmux colors must be set manually (no Lua access) — align with palette values above.
+Tmux has no Lua access, so its colors are hardcoded. Pick each one by finding the Neovim highlight for the same concept rather than by eye:
+
+| tmux | Neovim |
+|------|--------|
+| `mode-style` | `Visual` |
+| `copy-mode-match-style` / `-current-match-style` | `Search` / `CurSearch` |
+| `pane-border-style` | `WinSeparator` |
+| `message-style` | `MsgArea` |
+| current window | `TabLineSel` |
+| status-right idle / prefix / copy-mode | `MiniStatuslineMode` Normal / Command / Other |
+
+**Copying the exact hex is not always right — copy the intent.** nvim popups sit on `#282c34` and rely on `FloatBorder` to delineate; a tmux message has no border and sits on the darker status bar, so the same `float_bg` would vanish. Verify a choice by contrast ratio against its actual backdrop, not against nvim's.
+
+**One hue legitimately carries several meanings.** onedarkpro itself puts purple on `Keyword`, `Statement`, `Conditional`, `@punctuation.bracket` *and* `TabLineSel`, all visible at once. Position and context disambiguate — "this color is already used" is not an argument against reusing it.
 
 ### onedarkpro Plugin Integrations
 
@@ -171,14 +197,24 @@ Ghostty requires `macos-option-as-alt = true` (set under `lib.optionalString pkg
 ## Tmux Quirks
 
 - Mode detection without plugins: `#{?client_prefix,...}` and `#{?pane_in_mode,...}` are built-in tmux format strings
-- `pane-border-style` and `pane-active-border-style` set to same color (`fg_gutter #3d4350`) — avoids half-active half-inactive visual artifact on shared border line
+- `pane-border-style` and `pane-active-border-style` set to the same color — a shared border between an active and an inactive pane renders half in each style. Re-verified on tmux 3.7b, so do not try giving the active border its own color again
+- **`message-style` needs `fill=`, not just `bg=`.** tmux draws the message over the existing status line and only paints the cells the text occupies, so the rest of the row shows through — `display-message HELLO` over `jtr860830@…` rendered as `HELLO60830@…`. `fill` makes it clear to end of line
+- **Options the module already covers must not be repeated in `extraConfig`.** `escapeTime`, `historyLimit`, `focusEvents` each ended up emitted twice, with `extraConfig` winning only by line order; `baseIndex` alone sets both `base-index` and `pane-base-index`. Check with:
+  ```sh
+  nix eval --raw '.#darwinConfigurations.pro-darwin.config.home-manager.users.jtr860830.xdg.configFile."tmux/tmux.conf".text' \
+    | grep -oE '^set(w)? +(-[a-z]+ +)*[a-z-]+' | awk '{print $NF}' | sort | uniq -d
+  ```
 - Split keybinds need `-c "#{pane_current_path}"` to inherit current directory; omitting it always opens in `$HOME`
 - `window-style = "dim"` does NOT work with truecolor apps — SGR dim only affects 16-color ANSI; truecolor RGB values are unaffected. Background color difference is the only reliable inactive-pane visual cue, but Neovim overrides it too.
 - `set -g set-clipboard on` enables OSC 52 clipboard sync (replaces yank plugin; requires terminal support e.g. Ghostty)
 - `status-justify absolute-centre` centers window list by terminal width; `centre` centers between left/right content
 - `#{client_user}` (tmux 3.4+) replaces `#(whoami)` — built-in, no shell spawn
-- `#[fg=...]` attributes inside `#{?condition,...}` conditionals can fail to parse; place them outside the conditional instead
+- `#[fg=...]` inside `#{?…}` works fine, including hex colors — `status-right` relies on it. When testing with `display -p`, note that `#{?1,a,b}` looks *1* up as a variable name, finds nothing and takes the `b` branch; use `#{?#{==:1,1},a,b}` or a real variable or the conditional will look broken
 - `#{==:#{session_windows},1}` to detect single-window sessions (e.g. hide window list)
+- Shift+Enter reaches applications through `extended-keys`, not a `send-keys` binding. tmux only requests extended keys from the outer terminal when that terminal advertises `extkeys`, and no built-in `terminal-features` entry does — hence `set -as terminal-features "xterm*:extkeys"`. A client negotiates this at attach time, so `tmux kill-server` (or detach/attach) is required after changing it; confirm with `tmux display -p '#{client_termfeatures}'`. `extended-keys-format csi-u` gives `CSI 13;2u`, the `xterm` default gives `CSI 27;2;13~`
+- `terminal-overrides ",xterm*:RGB"` is unnecessary: `xterm-ghostty`'s terminfo declares `Tc` and tmux reports `RGB` in `client_termfeatures` without it
+- Default `prefix w` is `choose-tree -Zw` and `prefix &` kills the window *with* confirmation. Do not rebind `w` to `kill-window` — with a single window that takes the whole server down, silently
+- Built-in `prefix ←↑↓→` pane navigation carries `-r`, so it repeats within `repeat-time` without re-pressing the prefix; hand-rolled `bind h/j/k/l` does not. `prefix q` jumps by pane number, `prefix ;` toggles the last pane
 
 ## Fish Color Variables
 
