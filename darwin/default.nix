@@ -1,4 +1,8 @@
-{ pkgs, ... }: {
+{ pkgs, config, ... }:
+let
+  homeDir = config.users.users.jtr860830.home;
+in
+{
   imports = [
     ./system.nix
     ./homebrew.nix
@@ -6,6 +10,11 @@
 
   environment.shells = [ pkgs.fish ];
   programs.fish.enable = true;
+
+  programs.zsh = {
+    histFile = "${homeDir}/.local/state/zsh/history";
+    enableGlobalCompInit = false;
+  };
 
   users.users.jtr860830 = {
     shell = pkgs.fish;
