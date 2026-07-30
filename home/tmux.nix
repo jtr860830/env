@@ -22,6 +22,10 @@
       bind - split-window -v -c "#{pane_current_path}"
       bind | split-window -h -c "#{pane_current_path}"
 
+      bind -T copy-mode-vi v   send-keys -X begin-selection
+      bind -T copy-mode-vi y   send-keys -X copy-pipe-and-cancel
+      bind -T copy-mode-vi C-v send-keys -X rectangle-toggle
+
       set -g status-position       bottom
       set -g status-justify        absolute-centre
       set -g status-style          "bg=#22262d"
