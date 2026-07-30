@@ -35,6 +35,197 @@ darwin-rebuild switch --flake ~/.config/env
 - Touch ID for sudo: `security.pam.services.sudo_local.touchIdAuth = true`
 - Nix flakes only include git-tracked files — must `git add` new files before rebuild
 
+## Modules vs `home.packages`
+
+`programs.<x>.enable = true` installs the package itself — **never also list it in `home/packages.nix`**. `home.path` uses `pkgs.buildEnv` without `ignoreCollisions`, and some modules install a wrapped derivation (`delta` uses `cfg.finalPackage`), so a duplicate can become a hard build failure if the wrapped and plain packages ever diverge.
+
+Currently enabled: `bat` `delta` `fish` `git` `neovim` `ssh` `tmux` `zoxide`.
+
+`programs.ssh` is the **only exception** — its `package` defaults to `null` ("use the system client"), so `home/ssh.nix` sets `package = pkgs.openssh;` explicitly.
+
+## Cross-Platform Nix Patterns
+
+- Platform conditionals: `if pkgs.stdenv.isDarwin then ... else ...`
+- Conditional lists: `lib.optionals pkgs.stdenv.isDarwin [ ... ]`
+- 1Password SSH sign path: macOS `/Applications/1Password.app/Contents/MacOS/op-ssh-sign`, Linux `/opt/1Password/op-ssh-sign`
+
+## Known nixpkgs Packaging Issues
+
+- `kubernetes-helm` (4.2.0): build fails with `substitute(): ERROR: file '...dependency_build_test.go' does not exist` — workaround: `(kubernetes-helm.overrideAttrs { doCheck = false; })`
+- `container` (Darwin): nixpkgs does not symlink `libexec/` into the nix profile — `container-apiserver` fails with `cannot find any plugins with type network`. Package is kept but non-functional until upstream fixes the packaging.
+
+## Git Conventions
+
+- Commit style: `type: description` (e.g. `feat:`, `chore:`, `fix:`)
+- Git signs commits via 1Password SSH agent (ED25519)
+- Default branch is `main`; this repo uses `master`
+
+## Homebrew
+
+Casks and Mac App Store apps are declared in `darwin/homebrew.nix`. `cleanup = "zap"` is intentional — removes anything not listed. Generates `Warning: --cleanup is deprecated` from Homebrew; nix-darwin upstream issue, functional but unfixable without upstream change.
+
+### Activation Environment
+
+The activation script runs `sudo --preserve-env=PATH --user=… env brew bundle`, so **only `PATH` survives** — every other variable set for the interactive shell is absent when brew runs. This is hardcoded in nix-darwin's module; there is no option to inject environment variables.
+
+Consequence: brew fell back to `$HOME/.homebrew` for its user config (it prefers `XDG_CONFIG_HOME`, which sudo drops), creating that directory on every rebuild while `brew` run by hand did not. Fixed by writing `/etc/homebrew/brew.env` via `environment.etc`, which brew loads at `bin/brew:151` — before it decides the path at `:163`:
+
+```nix
+environment.etc."homebrew/brew.env".text = ''
+  HOMEBREW_XDG_CONFIG_HOME=${homeDir}/.config
+'';
+```
+
+The `brew.env` hierarchy (`/etc/homebrew` → `$HOMEBREW_PREFIX/etc/homebrew` → user) is supported upstream and filters to `HOMEBREW_*` only. `HOMEBREW_XDG_CONFIG_HOME` itself is undocumented and unsettled — Homebrew/brew#20250 was closed unmerged with a maintainer preferring a new `HOMEBREW_CONFIG_HOME`. Variables in `BIN_BREW_EXPORTED_VARS` (including `HOMEBREW_USER_CONFIG_HOME`) cannot be set this way.
+
+Check what brew actually resolves with:
+
+```sh
+brew ruby -e 'puts ENV["HOMEBREW_USER_CONFIG_HOME"]'
+```
+
+## Shadowing macOS System Binaries
+
+**Intentional — do not "fix" this.** `/etc/profiles/per-user/$USER/bin` sits before `/usr/bin` in the fish PATH, so nix-provided tools win. Both newer upstream versions and GNU-over-BSD behavior are wanted.
+
+Notable overrides: `make` (GNU 4.4.1 vs macOS 3.81), `sed` (GNU vs BSD — GNU `sed -i` takes no argument), `ssh` (OpenSSH 10.4p1/OpenSSL vs 10.2p1/LibreSSL), `git`, `curl`, `python3`, `clangd`, the `java`/`j*` set (from `jdk`), and `ping`/`hostname`/`ifconfig`/`whois`/`traceroute` (from `inetutils`).
+
+List the full set with:
+
+```sh
+P=/etc/profiles/per-user/$USER/bin
+for f in "$P"/*; do b=$(basename "$f"); for d in /usr/bin /bin /usr/sbin /sbin; do [ -e "$d/$b" ] && echo "$b -> $d/$b" && break; done; done
+```
+
+## Container Stack
+
+Fully migrated to podman. `podman machine` manages the Linux VM — no colima/Docker Desktop needed. lima is kept for general-purpose Linux VMs (not container-related). `podlet` converts existing container defs to Quadlet/k8s YAML format.
+
+## Theme Consistency
+
+One Dark Pro (`onedarkpro_onedark`) across all tools: Neovim (`nvim/lua/theme.lua`), Tmux (inline in `home/tmux.nix`), Fish (inline in `home/fish.nix`), Ghostty (`home/ghostty.nix`).
+
+### onedarkpro Colors
+
+Access palette via `require("onedarkpro.helpers").get_colors()`. Key colors:
+
+- `c.bg_statusline` (`#22262d`) — statusline/tmux bar background
+- `c.selection` (`#414858`) — selection/highlight background
+- `c.fg_gutter` (`#3d4350`) — dim separators
+- `c.gray` (`#5c6370`) — structural lines (`WinSeparator`, tmux pane borders)
+- `c.comment` (`#7f848e`) — secondary text
+- `c.indentline` (`#3b4048`) — static indent guide lines
+
+Tmux has no Lua access, so its colors are hardcoded. Pick each one by finding the Neovim highlight for the same concept rather than by eye:
+
+| tmux | Neovim |
+|------|--------|
+| `mode-style` | `Visual` |
+| `copy-mode-match-style` / `-current-match-style` | `Search` / `CurSearch` |
+| `pane-border-style` | `WinSeparator` |
+| `message-style` | `MsgArea` |
+| current window | `TabLineSel` |
+| status-right idle / prefix / copy-mode | `MiniStatuslineMode` Normal / Command / Other |
+
+**Copying the exact hex is not always right — copy the intent.** nvim popups sit on `#282c34` and rely on `FloatBorder` to delineate; a tmux message has no border and sits on the darker status bar, so the same `float_bg` would vanish. Verify a choice by contrast ratio against its actual backdrop, not against nvim's.
+
+**One hue legitimately carries several meanings.** onedarkpro itself puts purple on `Keyword`, `Statement`, `Conditional`, `@punctuation.bracket` *and* `TabLineSel`, all visible at once. Position and context disambiguate — "this color is already used" is not an argument against reusing it.
+
+### onedarkpro Plugin Integrations
+
+Enable in `setup()` to let theme manage highlight groups:
+
+```lua
+plugins = { blink_cmp = true, mini_diff = true, mini_icons = true, snacks = true, nvim_lsp = true, treesitter = true }
+```
+
+## Ghostty Shell Integration
+
+`shell-integration = none` — disabled; tmux handles working directory and pane management, making all features redundant.
+Available features: `cursor`, `sudo`, `title`, `ssh-env`, `ssh-terminfo`, `path`. In tmux `TERM=tmux-256color` so `ssh-env` TERM conversion does not trigger.
+Verify integration is actually loaded: `fish -c 'functions __ghostty_setup'` — returns "not loaded" if disabled correctly. `$GHOSTTY_SHELL_FEATURES` is set by Ghostty process itself and is not a reliable indicator.
+
+## Key Keybinding Patterns
+
+Tmux handles all split and pane management. No custom Ghostty keybindings — tmux workflow makes them redundant. Tmux prefix is `Ctrl+B`.
+
+Ghostty requires `macos-option-as-alt = true` (set under `lib.optionalString pkgs.stdenv.isDarwin`) for `<A-*>` keybindings to work in Neovim on macOS — without it, Option sends special characters instead.
+
+## Tmux Quirks
+
+- Mode detection without plugins: `#{?client_prefix,...}` and `#{?pane_in_mode,...}` are built-in tmux format strings
+- `pane-border-style` and `pane-active-border-style` set to the same color — a shared border between an active and an inactive pane renders half in each style. Re-verified on tmux 3.7b, so do not try giving the active border its own color again
+- **`message-style` needs `fill=`, not just `bg=`.** tmux draws the message over the existing status line and only paints the cells the text occupies, so the rest of the row shows through — `display-message HELLO` over `jtr860830@…` rendered as `HELLO60830@…`. `fill` makes it clear to end of line
+- **Options the module already covers must not be repeated in `extraConfig`.** `escapeTime`, `historyLimit`, `focusEvents` each ended up emitted twice, with `extraConfig` winning only by line order; `baseIndex` alone sets both `base-index` and `pane-base-index`. Check with:
+  ```sh
+  nix eval --raw '.#darwinConfigurations.pro-darwin.config.home-manager.users.jtr860830.xdg.configFile."tmux/tmux.conf".text' \
+    | grep -oE '^set(w)? +(-[a-z]+ +)*[a-z-]+' | awk '{print $NF}' | sort | uniq -d
+  ```
+- Split keybinds need `-c "#{pane_current_path}"` to inherit current directory; omitting it always opens in `$HOME`
+- `window-style = "dim"` does NOT work with truecolor apps — SGR dim only affects 16-color ANSI; truecolor RGB values are unaffected. Background color difference is the only reliable inactive-pane visual cue, but Neovim overrides it too.
+- `set -g set-clipboard on` enables OSC 52 clipboard sync (replaces yank plugin; requires terminal support e.g. Ghostty)
+- `status-justify absolute-centre` centers window list by terminal width; `centre` centers between left/right content
+- `#{client_user}` (tmux 3.4+) replaces `#(whoami)` — built-in, no shell spawn
+- `#[fg=...]` inside `#{?…}` works fine, including hex colors — `status-right` relies on it. When testing with `display -p`, note that `#{?1,a,b}` looks *1* up as a variable name, finds nothing and takes the `b` branch; use `#{?#{==:1,1},a,b}` or a real variable or the conditional will look broken
+- `#{==:#{session_windows},1}` to detect single-window sessions (e.g. hide window list)
+- Shift+Enter reaches applications through `extended-keys`, not a `send-keys` binding. tmux only requests extended keys from the outer terminal when that terminal advertises `extkeys`, and no built-in `terminal-features` entry does — hence `set -as terminal-features "xterm*:extkeys"`. A client negotiates this at attach time, so `tmux kill-server` (or detach/attach) is required after changing it; confirm with `tmux display -p '#{client_termfeatures}'`. `extended-keys-format csi-u` gives `CSI 13;2u`, the `xterm` default gives `CSI 27;2;13~`
+- `terminal-overrides ",xterm*:RGB"` is unnecessary: `xterm-ghostty`'s terminfo declares `Tc` and tmux reports `RGB` in `client_termfeatures` without it
+- Default `prefix w` is `choose-tree -Zw` and `prefix &` kills the window *with* confirmation. Do not rebind `w` to `kill-window` — with a single window that takes the whole server down, silently
+- Built-in `prefix ←↑↓→` pane navigation carries `-r`, so it repeats within `repeat-time` without re-pressing the prefix; hand-rolled `bind h/j/k/l` does not. `prefix q` jumps by pane number, `prefix ;` toggles the last pane
+
+## Fish Color Variables
+
+Valid fish color variables (fish 4.x): `fish_color_{normal,command,keyword,quote,redirection,end,option,error,param,comment,selection,search_match,operator,escape,autosuggestion,cwd,user,host,valid_path,prefix,history_current,status}`. Note: `fish_color_history_current_command`, `fish_color_history_duration`, and `fish_color_error_background` do NOT exist.
+
+### pure.fish Colors
+
+pure.fish uses `pure_color_*` variables set with `(set_color $hex)` syntax. Base colors cascade to derived ones — only override what deviates from the semantic base:
+
+```fish
+set -g pure_color_primary (set_color $blue)    # CWD path, ❯ on success (via pure_color_prompt_on_success)
+set -g pure_color_success (set_color $green)   # prompt ❯ success state, clean git
+set -g pure_color_danger  (set_color $red)     # prompt ❯ error state
+set -g pure_color_warning (set_color $yellow)  # command duration, AWS profile
+set -g pure_color_info    (set_color $cyan)    # git stash/upstream, k8s prefix
+set -g pure_color_mute    (set_color $comment) # SSH hostname, username
+set -g pure_color_normal  (set_color $foreground)
+# Override derived colors that default to pure_color_mute (too dim):
+set -g pure_color_git_branch (set_color $cyan)
+set -g pure_color_git_dirty  (set_color $yellow)
+```
+
+### EZA Colors
+
+`EZA_COLORS` uses the same format as `LS_COLORS`: `key=attrs:key=attrs:...`. Use truecolor ANSI codes (`38;2;R;G;B`), `2;38;2;R;G;B` for dim variants. Set via `builtins.concatStringsSep ":" [...]` in `home.sessionVariables` for readability. Key names: `di` (dir), `ln` (symlink), `ex` (executable), `or` (broken symlink), `da` (date), `sn`/`sb` (size number/unit), `hd` (header), `ur`/`uw`/`ux` (user perms), `gr`/`gw`/`gx` (group perms, use dim), `ga`/`gm`/`gd`/`gv`/`gt` (git added/modified/deleted/renamed/type).
+
+## Terminfo
+
+Managed via `pkgs.ncurses` in nix — no manual `~/.local/share/terminfo/` needed. Set in `home/fish.nix`:
+
+```nix
+TERMINFO_DIRS = "${pkgs.ncurses}/share/terminfo";
+```
+
+Referencing `${pkgs.ncurses}` in a nix expression automatically includes it in the closure — no need to add it to `home.packages`.
+
+## Man Pages
+
+`programs.man.mandoc.enable = true` with `man-db.enable = false` (in `home/neovim.nix`). man-db writes `~/.manpath` — a hardcoded path with no XDG support upstream — which was the only entry in `$HOME` outside `.cache` `.config` `.local` `.ssh` `.Trash`. mandoc keeps its cache in `~/.local/share/mandoc/man` instead, so `apropos` still works with nothing left in the home directory.
+
+- fish enables `programs.man.generateCaches` via `mkDefault true` so `man` completion can use `apropos`; a plain assignment overrides it
+- mandoc ignores `MANWIDTH`, so `:Man` pages hard-wrap at 80 columns instead of filling the window — the only functional difference. Lookup, rendering, headings, cross-references and overstrike highlighting are unchanged
+- man-db derives its search path from `$PATH` automatically; **mandoc requires `MANPATH`**, which the module sets via `home.sessionSearchVariables`
+
+## Stale `__HM_SESS_VARS_SOURCED`
+
+`hm-session-vars.fish` returns early when the exported `__HM_SESS_VARS_SOURCED` is already set — a guard against repeatedly prepending to `PATH`. A long-lived tmux server therefore pins the session variables from whenever it started: after adding or changing one, new panes still inherit the stale value and never pick it up. Symptom is a newly declared variable being simply absent.
+
+`tmux kill-server` is the clean fix (fish re-creates the session via its `exec tmux new-session -A -s main`). To verify a variable is declared correctly rather than merely stale:
+
+```sh
+env -u __HM_SESS_VARS_SOURCED fish -c 'echo $MANPATH'
+```
+
 ## Neovim
 
 Custom minimal config managed by `programs.neovim` in `home/neovim.nix`. No Lazy.nvim — plugins installed via `programs.neovim.plugins` (uses nixpkgs vimPlugins, placed in packpath).
@@ -115,132 +306,6 @@ Only four symbols are used in the whole repo: `▎` (U+258E, mini.diff signs), `
 - **`bold` does nothing to geometric shapes.** `●` has an identical glyph and advance width in the Regular and Bold faces, so `#[fg=…,bold]` on one is dead styling.
 - Every symbol in use is East Asian Width **Ambiguous**, i.e. one cell only because `LANG=en_US.UTF-8`. Switching to a CJK locale would make them two cells wide and break both the tmux status bar and the sign column. `◉` (U+25C9) is the one Neutral alternative.
 
-## Known nixpkgs Packaging Issues
-
-- `kubernetes-helm` (4.2.0): build fails with `substitute(): ERROR: file '...dependency_build_test.go' does not exist` — workaround: `(kubernetes-helm.overrideAttrs { doCheck = false; })`
-- `container` (Darwin): nixpkgs does not symlink `libexec/` into the nix profile — `container-apiserver` fails with `cannot find any plugins with type network`. Package is kept but non-functional until upstream fixes the packaging.
-
-## Homebrew
-
-Casks and Mac App Store apps are declared in `darwin/homebrew.nix`. `cleanup = "zap"` is intentional — removes anything not listed. Generates `Warning: --cleanup is deprecated` from Homebrew; nix-darwin upstream issue, functional but unfixable without upstream change.
-
-### Activation Environment
-
-The activation script runs `sudo --preserve-env=PATH --user=… env brew bundle`, so **only `PATH` survives** — every other variable set for the interactive shell is absent when brew runs. This is hardcoded in nix-darwin's module; there is no option to inject environment variables.
-
-Consequence: brew fell back to `$HOME/.homebrew` for its user config (it prefers `XDG_CONFIG_HOME`, which sudo drops), creating that directory on every rebuild while `brew` run by hand did not. Fixed by writing `/etc/homebrew/brew.env` via `environment.etc`, which brew loads at `bin/brew:151` — before it decides the path at `:163`:
-
-```nix
-environment.etc."homebrew/brew.env".text = ''
-  HOMEBREW_XDG_CONFIG_HOME=${homeDir}/.config
-'';
-```
-
-The `brew.env` hierarchy (`/etc/homebrew` → `$HOMEBREW_PREFIX/etc/homebrew` → user) is supported upstream and filters to `HOMEBREW_*` only. `HOMEBREW_XDG_CONFIG_HOME` itself is undocumented and unsettled — Homebrew/brew#20250 was closed unmerged with a maintainer preferring a new `HOMEBREW_CONFIG_HOME`. Variables in `BIN_BREW_EXPORTED_VARS` (including `HOMEBREW_USER_CONFIG_HOME`) cannot be set this way.
-
-Check what brew actually resolves with:
-
-```sh
-brew ruby -e 'puts ENV["HOMEBREW_USER_CONFIG_HOME"]'
-```
-
-## Git Conventions
-
-- Commit style: `type: description` (e.g. `feat:`, `chore:`, `fix:`)
-- Git signs commits via 1Password SSH agent (ED25519)
-- Default branch is `main`; this repo uses `master`
-
-## Theme Consistency
-
-One Dark Pro (`onedarkpro_onedark`) across all tools: Neovim (`nvim/lua/theme.lua`), Tmux (inline in `home/tmux.nix`), Fish (inline in `home/fish.nix`), Ghostty (`home/ghostty.nix`).
-
-### onedarkpro Colors
-
-Access palette via `require("onedarkpro.helpers").get_colors()`. Key colors:
-
-- `c.bg_statusline` (`#22262d`) — statusline/tmux bar background
-- `c.selection` (`#414858`) — selection/highlight background
-- `c.fg_gutter` (`#3d4350`) — dim separators
-- `c.gray` (`#5c6370`) — structural lines (`WinSeparator`, tmux pane borders)
-- `c.comment` (`#7f848e`) — secondary text
-- `c.indentline` (`#3b4048`) — static indent guide lines
-
-Tmux has no Lua access, so its colors are hardcoded. Pick each one by finding the Neovim highlight for the same concept rather than by eye:
-
-| tmux | Neovim |
-|------|--------|
-| `mode-style` | `Visual` |
-| `copy-mode-match-style` / `-current-match-style` | `Search` / `CurSearch` |
-| `pane-border-style` | `WinSeparator` |
-| `message-style` | `MsgArea` |
-| current window | `TabLineSel` |
-| status-right idle / prefix / copy-mode | `MiniStatuslineMode` Normal / Command / Other |
-
-**Copying the exact hex is not always right — copy the intent.** nvim popups sit on `#282c34` and rely on `FloatBorder` to delineate; a tmux message has no border and sits on the darker status bar, so the same `float_bg` would vanish. Verify a choice by contrast ratio against its actual backdrop, not against nvim's.
-
-**One hue legitimately carries several meanings.** onedarkpro itself puts purple on `Keyword`, `Statement`, `Conditional`, `@punctuation.bracket` *and* `TabLineSel`, all visible at once. Position and context disambiguate — "this color is already used" is not an argument against reusing it.
-
-### onedarkpro Plugin Integrations
-
-Enable in `setup()` to let theme manage highlight groups:
-
-```lua
-plugins = { blink_cmp = true, mini_diff = true, mini_icons = true, snacks = true, nvim_lsp = true, treesitter = true }
-```
-
-## Key Keybinding Patterns
-
-Tmux handles all split and pane management. No custom Ghostty keybindings — tmux workflow makes them redundant. Tmux prefix is `Ctrl+B`.
-
-Ghostty requires `macos-option-as-alt = true` (set under `lib.optionalString pkgs.stdenv.isDarwin`) for `<A-*>` keybindings to work in Neovim on macOS — without it, Option sends special characters instead.
-
-## Tmux Quirks
-
-- Mode detection without plugins: `#{?client_prefix,...}` and `#{?pane_in_mode,...}` are built-in tmux format strings
-- `pane-border-style` and `pane-active-border-style` set to the same color — a shared border between an active and an inactive pane renders half in each style. Re-verified on tmux 3.7b, so do not try giving the active border its own color again
-- **`message-style` needs `fill=`, not just `bg=`.** tmux draws the message over the existing status line and only paints the cells the text occupies, so the rest of the row shows through — `display-message HELLO` over `jtr860830@…` rendered as `HELLO60830@…`. `fill` makes it clear to end of line
-- **Options the module already covers must not be repeated in `extraConfig`.** `escapeTime`, `historyLimit`, `focusEvents` each ended up emitted twice, with `extraConfig` winning only by line order; `baseIndex` alone sets both `base-index` and `pane-base-index`. Check with:
-  ```sh
-  nix eval --raw '.#darwinConfigurations.pro-darwin.config.home-manager.users.jtr860830.xdg.configFile."tmux/tmux.conf".text' \
-    | grep -oE '^set(w)? +(-[a-z]+ +)*[a-z-]+' | awk '{print $NF}' | sort | uniq -d
-  ```
-- Split keybinds need `-c "#{pane_current_path}"` to inherit current directory; omitting it always opens in `$HOME`
-- `window-style = "dim"` does NOT work with truecolor apps — SGR dim only affects 16-color ANSI; truecolor RGB values are unaffected. Background color difference is the only reliable inactive-pane visual cue, but Neovim overrides it too.
-- `set -g set-clipboard on` enables OSC 52 clipboard sync (replaces yank plugin; requires terminal support e.g. Ghostty)
-- `status-justify absolute-centre` centers window list by terminal width; `centre` centers between left/right content
-- `#{client_user}` (tmux 3.4+) replaces `#(whoami)` — built-in, no shell spawn
-- `#[fg=...]` inside `#{?…}` works fine, including hex colors — `status-right` relies on it. When testing with `display -p`, note that `#{?1,a,b}` looks *1* up as a variable name, finds nothing and takes the `b` branch; use `#{?#{==:1,1},a,b}` or a real variable or the conditional will look broken
-- `#{==:#{session_windows},1}` to detect single-window sessions (e.g. hide window list)
-- Shift+Enter reaches applications through `extended-keys`, not a `send-keys` binding. tmux only requests extended keys from the outer terminal when that terminal advertises `extkeys`, and no built-in `terminal-features` entry does — hence `set -as terminal-features "xterm*:extkeys"`. A client negotiates this at attach time, so `tmux kill-server` (or detach/attach) is required after changing it; confirm with `tmux display -p '#{client_termfeatures}'`. `extended-keys-format csi-u` gives `CSI 13;2u`, the `xterm` default gives `CSI 27;2;13~`
-- `terminal-overrides ",xterm*:RGB"` is unnecessary: `xterm-ghostty`'s terminfo declares `Tc` and tmux reports `RGB` in `client_termfeatures` without it
-- Default `prefix w` is `choose-tree -Zw` and `prefix &` kills the window *with* confirmation. Do not rebind `w` to `kill-window` — with a single window that takes the whole server down, silently
-- Built-in `prefix ←↑↓→` pane navigation carries `-r`, so it repeats within `repeat-time` without re-pressing the prefix; hand-rolled `bind h/j/k/l` does not. `prefix q` jumps by pane number, `prefix ;` toggles the last pane
-
-## Fish Color Variables
-
-Valid fish color variables (fish 4.x): `fish_color_{normal,command,keyword,quote,redirection,end,option,error,param,comment,selection,search_match,operator,escape,autosuggestion,cwd,user,host,valid_path,prefix,history_current,status}`. Note: `fish_color_history_current_command`, `fish_color_history_duration`, and `fish_color_error_background` do NOT exist.
-
-### pure.fish Colors
-
-pure.fish uses `pure_color_*` variables set with `(set_color $hex)` syntax. Base colors cascade to derived ones — only override what deviates from the semantic base:
-
-```fish
-set -g pure_color_primary (set_color $blue)    # CWD path, ❯ on success (via pure_color_prompt_on_success)
-set -g pure_color_success (set_color $green)   # prompt ❯ success state, clean git
-set -g pure_color_danger  (set_color $red)     # prompt ❯ error state
-set -g pure_color_warning (set_color $yellow)  # command duration, AWS profile
-set -g pure_color_info    (set_color $cyan)    # git stash/upstream, k8s prefix
-set -g pure_color_mute    (set_color $comment) # SSH hostname, username
-set -g pure_color_normal  (set_color $foreground)
-# Override derived colors that default to pure_color_mute (too dim):
-set -g pure_color_git_branch (set_color $cyan)
-set -g pure_color_git_dirty  (set_color $yellow)
-```
-
-### EZA Colors
-
-`EZA_COLORS` uses the same format as `LS_COLORS`: `key=attrs:key=attrs:...`. Use truecolor ANSI codes (`38;2;R;G;B`), `2;38;2;R;G;B` for dim variants. Set via `builtins.concatStringsSep ":" [...]` in `home.sessionVariables` for readability. Key names: `di` (dir), `ln` (symlink), `ex` (executable), `or` (broken symlink), `da` (date), `sn`/`sb` (size number/unit), `hd` (header), `ur`/`uw`/`ux` (user perms), `gr`/`gw`/`gx` (group perms, use dim), `ga`/`gm`/`gd`/`gv`/`gt` (git added/modified/deleted/renamed/type).
-
 ### LSP Status
 
 - `:checkhealth lsp` — check LSP status with native API (`:LspInfo` is nvim-lspconfig's command, not native)
@@ -269,87 +334,7 @@ indent = { char = "▏", scope = { char = "▏" } }               -- wrong, char
 
 Every picker is reachable as `:FzfLua <name>` with Tab completion, so the `<leader>f` mappings are shortcuts, not the only access. That includes twelve git pickers (`git_blame` `git_bcommits` `git_status` `git_hunks` …) — `git_status` even stages with left/right. Only `git log -L` style range history is missing, which is the one thing `mini.git` would add.
 
-## Container Stack
-
-Fully migrated to podman. `podman machine` manages the Linux VM — no colima/Docker Desktop needed. lima is kept for general-purpose Linux VMs (not container-related). `podlet` converts existing container defs to Quadlet/k8s YAML format.
-
-## Ghostty Shell Integration
-
-`shell-integration = none` — disabled; tmux handles working directory and pane management, making all features redundant.
-Available features: `cursor`, `sudo`, `title`, `ssh-env`, `ssh-terminfo`, `path`. In tmux `TERM=tmux-256color` so `ssh-env` TERM conversion does not trigger.
-Verify integration is actually loaded: `fish -c 'functions __ghostty_setup'` — returns "not loaded" if disabled correctly. `$GHOSTTY_SHELL_FEATURES` is set by Ghostty process itself and is not a reliable indicator.
-
-## Terminfo
-
-Managed via `pkgs.ncurses` in nix — no manual `~/.local/share/terminfo/` needed. Set in `home/fish.nix`:
-
-```nix
-TERMINFO_DIRS = "${pkgs.ncurses}/share/terminfo";
-```
-
-Referencing `${pkgs.ncurses}` in a nix expression automatically includes it in the closure — no need to add it to `home.packages`.
-
-## Man Pages
-
-`programs.man.mandoc.enable = true` with `man-db.enable = false` (in `home/neovim.nix`). man-db writes `~/.manpath` — a hardcoded path with no XDG support upstream — which was the only entry in `$HOME` outside `.cache` `.config` `.local` `.ssh` `.Trash`. mandoc keeps its cache in `~/.local/share/mandoc/man` instead, so `apropos` still works with nothing left in the home directory.
-
-- fish enables `programs.man.generateCaches` via `mkDefault true` so `man` completion can use `apropos`; a plain assignment overrides it
-- mandoc ignores `MANWIDTH`, so `:Man` pages hard-wrap at 80 columns instead of filling the window — the only functional difference. Lookup, rendering, headings, cross-references and overstrike highlighting are unchanged
-- man-db derives its search path from `$PATH` automatically; **mandoc requires `MANPATH`**, which the module sets via `home.sessionSearchVariables`
-
-## Stale `__HM_SESS_VARS_SOURCED`
-
-`hm-session-vars.fish` returns early when the exported `__HM_SESS_VARS_SOURCED` is already set — a guard against repeatedly prepending to `PATH`. A long-lived tmux server therefore pins the session variables from whenever it started: after adding or changing one, new panes still inherit the stale value and never pick it up. Symptom is a newly declared variable being simply absent.
-
-`tmux kill-server` is the clean fix (fish re-creates the session via its `exec tmux new-session -A -s main`). To verify a variable is declared correctly rather than merely stale:
-
-```sh
-env -u __HM_SESS_VARS_SOURCED fish -c 'echo $MANPATH'
-```
-
-## Modules vs `home.packages`
-
-`programs.<x>.enable = true` installs the package itself — **never also list it in `home/packages.nix`**. `home.path` uses `pkgs.buildEnv` without `ignoreCollisions`, and some modules install a wrapped derivation (`delta` uses `cfg.finalPackage`), so a duplicate can become a hard build failure if the wrapped and plain packages ever diverge.
-
-Currently enabled: `bat` `delta` `fish` `git` `neovim` `ssh` `tmux` `zoxide`.
-
-`programs.ssh` is the **only exception** — its `package` defaults to `null` ("use the system client"), so `home/ssh.nix` sets `package = pkgs.openssh;` explicitly.
-
-## Shadowing macOS System Binaries
-
-**Intentional — do not "fix" this.** `/etc/profiles/per-user/$USER/bin` sits before `/usr/bin` in the fish PATH, so nix-provided tools win. Both newer upstream versions and GNU-over-BSD behavior are wanted.
-
-Notable overrides: `make` (GNU 4.4.1 vs macOS 3.81), `sed` (GNU vs BSD — GNU `sed -i` takes no argument), `ssh` (OpenSSH 10.4p1/OpenSSL vs 10.2p1/LibreSSL), `git`, `curl`, `python3`, `clangd`, the `java`/`j*` set (from `jdk`), and `ping`/`hostname`/`ifconfig`/`whois`/`traceroute` (from `inetutils`).
-
-List the full set with:
-
-```sh
-P=/etc/profiles/per-user/$USER/bin
-for f in "$P"/*; do b=$(basename "$f"); for d in /usr/bin /bin /usr/sbin /sbin; do [ -e "$d/$b" ] && echo "$b -> $d/$b" && break; done; done
-```
-
-## Cross-Platform Nix Patterns
-
-- Platform conditionals: `if pkgs.stdenv.isDarwin then ... else ...`
-- Conditional lists: `lib.optionals pkgs.stdenv.isDarwin [ ... ]`
-- 1Password SSH sign path: macOS `/Applications/1Password.app/Contents/MacOS/op-ssh-sign`, Linux `/opt/1Password/op-ssh-sign`
-
-## Startup Performance
-
-Profile: `nvim --startuptime /tmp/nvim-startup.log +qa && cat /tmp/nvim-startup.log`
-Baseline (no config): ~24ms. Current setup: ~60ms (stable). Largest contributor: onedarkpro (~1.4ms plugin load); most of the time is Neovim runtime + ShaDa.
-fzf-lua has no native lazy loading — requires lazy.nvim; not worth adding at current speed.
-
-## Formatters
-
-- Lua: `stylua` (config at `nvim/.stylua.toml`)
-- Nix: `nixfmt <files>` — on PATH via `home/packages.nix`, no `nix run` needed
-
-conform is configured without `format_on_save` — format manually with `<leader>cf`.
-
-`smartindent` is deliberately **not** set. `indentexpr` overrules it, so it was a no-op for python, yaml, lua, go and sh, while nix has no `indentexpr` and there it treated a leading `#` as a preprocessor directive and stripped the indentation off every comment. `autoindent` is on by default and keeps ordinary lines indented.
-
-## Keymap Organisation
+### Keymap Organisation
 
 Keymaps are split across files by dependency:
 
@@ -380,3 +365,18 @@ Current groups: `<leader>c` (+code), `<leader>f` (+find), `gr` (+lsp). Window/bu
 Neovim 0.12 default LSP keys: `grr` (references), `gri` (implementation), `gra` (code action), `grn` (rename), `grt` (type definition), `gO` (symbols).
 
 `K` hover uses `function() vim.lsp.buf.hover { border = "rounded" } end` — must be wrapped in a function to pass options; bare `vim.lsp.buf.hover` as a keymap value ignores opts.
+### Formatters
+
+- Lua: `stylua` (config at `nvim/.stylua.toml`)
+- Nix: `nixfmt <files>` — on PATH via `home/packages.nix`, no `nix run` needed
+
+conform is configured without `format_on_save` — format manually with `<leader>cf`.
+
+`smartindent` is deliberately **not** set. `indentexpr` overrules it, so it was a no-op for python, yaml, lua, go and sh, while nix has no `indentexpr` and there it treated a leading `#` as a preprocessor directive and stripped the indentation off every comment. `autoindent` is on by default and keeps ordinary lines indented.
+
+### Startup Performance
+
+Profile: `nvim --startuptime /tmp/nvim-startup.log +qa && cat /tmp/nvim-startup.log`
+Baseline (no config): ~24ms. Current setup: ~60ms (stable). Largest contributor: onedarkpro (~1.4ms plugin load); most of the time is Neovim runtime + ShaDa.
+fzf-lua has no native lazy loading — requires lazy.nvim; not worth adding at current speed.
+
