@@ -1,4 +1,32 @@
-{ pkgs, lib, ... }: {
+{ pkgs, lib, ... }:
+let
+  palette = import ./palette.nix;
+
+  theme = c: ''
+    palette = 0=${c.ansi_black}
+    palette = 1=${c.red}
+    palette = 2=${c.green}
+    palette = 3=${c.yellow}
+    palette = 4=${c.blue}
+    palette = 5=${c.purple}
+    palette = 6=${c.cyan}
+    palette = 7=${c.ansi_white}
+    palette = 8=${c.ansi_bright_black}
+    palette = 9=${c.bright_red}
+    palette = 10=${c.bright_green}
+    palette = 11=${c.bright_yellow}
+    palette = 12=${c.bright_blue}
+    palette = 13=${c.bright_purple}
+    palette = 14=${c.bright_cyan}
+    palette = 15=${c.ansi_bright_white}
+    background = ${c.bg}
+    foreground = ${c.fg}
+    cursor-color = ${c.purple}
+    selection-background = ${c.selection}
+    selection-foreground = ${c.fg}
+  '';
+in
+{
   xdg.configFile."ghostty/config".text = ''
     window-padding-balance = true
     mouse-hide-while-typing = true
@@ -12,7 +40,7 @@
       macos-titlebar-style = hidden
       macos-option-as-alt = true
     ''}
-    theme = onedarkpro_onedark
+    theme = dark:onedarkpro_onedark,light:onedarkpro_onelight
     adjust-cell-height = 24%
 
     font-family = Maple Mono NF CN
@@ -21,27 +49,6 @@
     font-feature = ss11
   '';
 
-  xdg.configFile."ghostty/themes/onedarkpro_onedark".text = ''
-    palette = 0=#282c34
-    palette = 1=#e06c75
-    palette = 2=#98c379
-    palette = 3=#e5c07b
-    palette = 4=#61afef
-    palette = 5=#c678dd
-    palette = 6=#56b6c2
-    palette = 7=#abb2bf
-    palette = 8=#5c6370
-    palette = 9=#e9969d
-    palette = 10=#b3d39c
-    palette = 11=#edd4a6
-    palette = 12=#8fc6f4
-    palette = 13=#d7a1e7
-    palette = 14=#7bc6d0
-    palette = 15=#c8cdd5
-    background = #282c34
-    foreground = #abb2bf
-    cursor-color = #c678dd
-    selection-background = #414858
-    selection-foreground = #abb2bf
-  '';
+  xdg.configFile."ghostty/themes/onedarkpro_onedark".text = theme palette.dark;
+  xdg.configFile."ghostty/themes/onedarkpro_onelight".text = theme palette.light;
 }
