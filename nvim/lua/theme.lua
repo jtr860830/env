@@ -1,6 +1,16 @@
 require("onedarkpro").setup {
   colors = {
-    light = { fg = "#383a42" },
+    light = {
+      fg = "#383a42",
+      gray = "#a0a1a7",
+      red = "#e45649",
+      orange = "#986801",
+      yellow = "#c18401",
+      green = "#50a14f",
+      cyan = "#0184bc",
+      blue = "#4078f2",
+      purple = "#a626a4",
+    },
   },
   styles = {
     comments = "italic",

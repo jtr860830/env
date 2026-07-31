@@ -137,7 +137,20 @@ Every value in all four is an onedarkpro default or a value onedarkpro itself de
 
 Drive the switch from `OptionSet` (`pattern = "background"`), not `ColorScheme` — the latter fires on *every* colorscheme change, so it fights a manual `:colorscheme`. `nested = true` is required on that handler or the `ColorScheme` it triggers never runs and the statusline highlights silently stay empty. `ColorScheme` then re-applies them, guarded by `args.match ~= variant()` so a foreign colorscheme and mid-switch states are skipped. Startup needs no event — `'background'` is already correct while `init.lua` runs, and `OptionSet` is suppressed for the whole startup phase.
 
-`onelight`'s `fg` is overridden to `#383a42` (Atom One Light's own value) because the default `#6a6a6a` gives only 5.18 contrast on `#fafafa`. Washed-out text over a large bright field is what causes eye strain, not the field itself: Zed's One Light keeps the same `#fafafa` editor background but pairs it with `#242529` text (14.67) and darker chrome (`#dcdcdd` bars, `#ebebec` panels).
+`onelight`'s nine hue keys are overridden with Atom One Light's own values, because the shipped ones are washed out on `#fafafa` — `Type` was 1.96, `Constant` 2.33, `Operator` 2.27, `Normal` 5.18, and `cyan` was simply the dark theme's `#56b6c2` carried over. After the substitution no non-comment group sits below 3:1: `Normal` 10.86, `Keyword` 5.86, `Constant` 4.66, `Operator` 4.00. Washed-out text over a large bright field is what tires the eye, not the field itself — Zed's One Light keeps the same `#fafafa` editor background but pairs it with `#242529` text (14.67) and darker chrome (`#dcdcdd` bars, `#ebebec` panels).
+
+The substitution is safe because **onedarkpro's `onedark` is Atom One Dark exactly**, so its keys map 1:1 onto Atom's hue variables — verified against `atom/one-dark-syntax/styles/colors.less`:
+
+| onedarkpro | Atom | onedarkpro | Atom |
+|------------|------|------------|------|
+| `red` | `hue-5` | `cyan` | `hue-1` |
+| `orange` | `hue-6` | `blue` | `hue-2` |
+| `yellow` | `hue-6-2` | `purple` | `hue-3` |
+| `green` | `hue-4` | `gray`/`fg` | `mono-3`/`mono-1` |
+
+Note `orange` is `hue-6` and `yellow` is `hue-6-2`, not the reverse — mixing them up sends `#986801` to the wrong key.
+
+**Zed's One palette cannot be dropped in the same way, even though it is also One-derived.** onedarkpro is organised by hue and Zed by concept, so the keys are many-to-many: `palette.yellow` alone drives 27 groups spanning search (`Search`, `IncSearch`), warnings (`DiagnosticWarn`, `WarningMsg`), types (`Type`, `@lsp.type.class`), preprocessor, builtin identifiers, eight `BlinkCmpKind*` entries and `MiniIconsYellow`. Assigning Zed's `type` colour there would turn search hits and warnings blue-teal and leave a group literally named Yellow not yellow. Adopting Zed's *design* means replacing the assignment table, not the palette. Zed's one portable idea is structural: it keeps `variable` and `punctuation` at plain foreground in both themes and reserves colour for fewer concepts, which is why its light theme reads well — that would be a `highlights` override on `@variable`/`Identifier`, not a `colors` change.
 
 **Do not lower `bg` through `colors`.** The 23 generated keys are computed by the theme file from its own `default_colors`, so an override never reaches them — in `onelight` all nine surfaces are `darken(bg, N)` (`cursorline` 2.5, `bg_statusline` 2.6, `fold` 3, `color_column` 3.2, `float_bg` 4.5, `selection` 6.5, `indentline` 7.3, `fg_gutter` 9.7, `line_number` 18) and stay pinned to `#fafafa`, so a darker `bg` leaves the cursorline, statusline and fold *brighter* than the editor. Lowering the background means writing a custom theme file, which owns `generate()`. Beware that `get_colors()` reports the overridden value either way, so a failed override looks like a successful one — verify with `nvim_get_hl(0, {name = ..., link = false})`.
 
