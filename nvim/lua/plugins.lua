@@ -102,7 +102,7 @@ require("mini.statusline").setup {
       local filetype = ft ~= "" and (icon .. " " .. ft) or ""
 
       return table.concat {
-        pill("%#" .. mode_hl .. "#" .. mode, "UserPillCap" .. mode_hl:gsub("^MiniStatuslineMode", "")),
+        pill("%#" .. mode_hl .. "# " .. mode .. " ", "UserPillCap" .. mode_hl:gsub("^MiniStatuslineMode", "")),
         "%#MiniStatuslineFilename# ",
         filename,
         "%<%=",
