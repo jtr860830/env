@@ -1,4 +1,30 @@
-{ ... }: {
+{ ... }:
+let
+  palette = import ./palette.nix;
+
+  colors = c: ''
+    set -g status-style          "bg=${c.bg_statusline}"
+    set -g message-style         "bg=${c.bg},fg=${c.fg},fill=${c.bg}"
+    set -g message-command-style "bg=${c.bg},fg=${c.yellow},fill=${c.bg}"
+    set -g mode-style            "bg=${c.selection},fg=${c.fg}"
+
+    set -g copy-mode-match-style         "bg=${c.selection},fg=${c.yellow}"
+    set -g copy-mode-current-match-style "bg=${c.cursearch_bg},fg=${c.cursearch_fg}"
+
+    set -g status-left  " #[fg=${c.comment}]#{client_user}#[fg=${c.fg_gutter}]@#[fg=${c.fg}]#h "
+    set -g status-right "#{?client_prefix,#[fg=${c.accent_yellow}],#{?pane_in_mode,#[fg=${c.accent_cyan}],#[fg=${c.accent_purple}]}}#[bold]#{?window_zoomed_flag, ■,} #S "
+
+    set -g pane-border-style        "fg=${c.gray}"
+    set -g pane-active-border-style "fg=${c.gray}"
+
+    setw -g window-status-format         "#[fg=${c.comment}]#{?#{==:#{session_windows},1},, ○ }"
+    setw -g window-status-current-format "#[fg=${c.purple}]#{?#{==:#{session_windows},1},, ● }"
+  '';
+in
+{
+  xdg.configFile."tmux/dark.conf".text = colors palette.dark;
+  xdg.configFile."tmux/light.conf".text = colors palette.light;
+
   programs.tmux = {
     enable = true;
     mouse = true;
@@ -26,27 +52,15 @@
       bind -T copy-mode-vi y   send-keys -X copy-pipe-and-cancel
       bind -T copy-mode-vi C-v send-keys -X rectangle-toggle
 
-      set -g status-position       bottom
-      set -g status-justify        absolute-centre
-      set -g status-style          "bg=#22262d"
-      set -g message-style         "bg=#282c34,fg=#abb2bf,fill=#282c34"
-      set -g message-command-style "bg=#282c34,fg=#e5c07b,fill=#282c34"
-      set -g mode-style            "bg=#414858,fg=#abb2bf"
+      set -g status-position     bottom
+      set -g status-justify      absolute-centre
+      set -g status-left-length  40
+      set -g status-right-length 40
+      setw -g window-status-separator ""
 
-      set -g copy-mode-match-style         "bg=#414858,fg=#e5c07b"
-      set -g copy-mode-current-match-style "bg=#fce094,fg=#07080d"
-
-      set -g status-left-length    40
-      set -g status-right-length   40
-      set -g status-left           " #[fg=#7f848e]#{client_user}#[fg=#3d4350]@#[fg=#abb2bf]#h "
-      set -g status-right          "#{?client_prefix,#[fg=#e5c07b],#{?pane_in_mode,#[fg=#56b6c2],#[fg=#c678dd]}}#[bold]#{?window_zoomed_flag, ■,} #S "
-
-      set -g pane-border-style        "fg=#5c6370"
-      set -g pane-active-border-style "fg=#5c6370"
-
-      setw -g window-status-separator    ""
-      setw -g window-status-format         "#[fg=#7f848e]#{?#{==:#{session_windows},1},, ○ }"
-      setw -g window-status-current-format "#[fg=#c678dd]#{?#{==:#{session_windows},1},, ● }"
+      set-hook -g client-dark-theme  'source-file "$XDG_CONFIG_HOME/tmux/dark.conf"'
+      set-hook -g client-light-theme 'source-file "$XDG_CONFIG_HOME/tmux/light.conf"'
+      source-file "$XDG_CONFIG_HOME/tmux/dark.conf"
     '';
   };
 }
