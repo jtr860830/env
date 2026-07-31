@@ -261,6 +261,22 @@ The split is deliberate: the cap has to span projects, or `cd`-ing elsewhere wou
 env -u __HM_SESS_VARS_SOURCED fish -c 'echo $MANPATH'
 ```
 
+### GUI Apps Launched From a Terminal
+
+A tmux server is not the only thing that pins a stale environment. macOS `open` **passes the caller's environment to the GUI app**, and everything that app later launches inherits it — so `open -a Alfred` from inside tmux gives Alfred `TMUX`, `TERM=tmux-256color` and `__HM_SESS_VARS_SOURCED=1`, and a Ghostty launched from that Alfred hands the same set to every shell in it. Quitting and reopening the *terminal* does not help; the pollution lives upstream in the launcher.
+
+The two variables fail in ways that look unrelated, and neither names its cause:
+
+- stale `TMUX` — `interactiveShellInit`'s `if not set -q TMUX` sees a value, skips `exec tmux`, and a new window lands in a bare fish with no tmux at all. The variable can point at a server that has since been killed; the guard only tests existence, not liveness
+- stale `__HM_SESS_VARS_SOURCED` — `hm-session-vars.fish` returns early, so a newly declared variable is simply absent even in a brand-new window
+
+Read what an app is actually holding with `ps -Eww -o command= -p <pid>`; `launchctl getenv` shows only the launchd session and stays empty in this case. A Finder- or Dock-launched app gets launchd's environment (about a dozen variables — `HOME` `PATH` `USER` `SHELL` `TMPDIR` `SSH_AUTH_SOCK` `XPC_*` …), which is the baseline to compare against. To relaunch one cleanly from a shell, give it that set explicitly rather than subtracting offenders one at a time:
+
+```sh
+env -i HOME="$HOME" USER="$USER" LOGNAME="$LOGNAME" PATH=/usr/bin:/bin:/usr/sbin:/sbin \
+  TMPDIR="$TMPDIR" __CF_USER_TEXT_ENCODING="$__CF_USER_TEXT_ENCODING" open -a "<App>"
+```
+
 ## Neovim
 
 Custom minimal config managed by `programs.neovim` in `home/neovim.nix`. No Lazy.nvim — plugins installed via `programs.neovim.plugins` (uses nixpkgs vimPlugins, placed in packpath).
