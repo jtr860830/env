@@ -60,6 +60,26 @@ Git's own diff is also the *better* choice under a switching theme: it emits not
 - `kubernetes-helm` (4.2.0): build fails with `substitute(): ERROR: file '...dependency_build_test.go' does not exist` — workaround: `(kubernetes-helm.overrideAttrs { doCheck = false; })`
 - `container` (Darwin): nixpkgs does not symlink `libexec/` into the nix profile — `container-apiserver` fails with `cannot find any plugins with type network`. Package is kept but non-functional until upstream fixes the packaging.
 
+## Waiting on Upstream
+
+Better approaches that exist but are not usable yet. Each line gives the check that says whether it has landed, so none of this needs re-deriving.
+
+- **tmux 3.8 replaces the theme hooks.** Its `CHANGES FROM 3.7b TO 3.8` adds a `theme` option (`terminal`/`light`/`dark`), `theme*` colour names such as `themeblack`, and format expansion inside style values — which collapses `tmux/dark.conf`, `tmux/light.conf` and both `client-*-theme` hooks into inline `#{?#{==:#{client_theme},light},…,…}` conditionals. nixpkgs pins 3.7b, where `tmux show-options -g theme` answers `invalid option` and `set -g status-style fg=themeblack` answers `invalid style`; when both stop erroring, the design in [Theme Consistency](#light-and-dark) can be simplified.
+- **Ghostty 1.4 may make a status bar possible.** 1.3.1 has no such option among its 200 config keys, and the closest surfaces (`title`, `window-subtitle`) take a literal string or a fixed enum. The 1.4 roadmap promises scriptability and "a true Tmux control mode" but says nothing about a status bar; the open request is [Discussion #2421](https://github.com/ghostty-org/ghostty/discussions/2421). Control mode is the more interesting half — it would render tmux windows as native tabs rather than duplicating tmux's bar. Expect roughly September 2026 on the 6-month cycle from 1.3.0.
+- **The `diff` treesitter parser is out of sync with its queries.** `vim.treesitter.start()` on a diff buffer fails with `Invalid node type "change"` from `(change) @diff.delta`, and `treesitter.lua`'s `pcall` swallows it. Of the 25 languages checked, `diff` is the only one affected, so nothing that gets edited is impacted — but re-check after a nixpkgs bump, since the same mismatch could move to another language:
+
+  ```sh
+  nvim --headless -c 'lua for _, l in ipairs { "go","nix","python","typescript","lua","yaml","helm","diff","markdown","json","bash","rust","c" } do
+    if pcall(vim.treesitter.language.add, l) then
+      local ok, err = pcall(vim.treesitter.query.get, l, "highlights")
+      if not ok then print(l .. ": " .. tostring(err):match("Invalid node type [^\n]*")) end
+    end end print "done"' -c qa
+  ```
+
+- **fish theme files cannot hold the whole palette.** `~/.config/fish/themes/*.theme` takes `[light]`/`[dark]` sections and `fish_config theme choose` follows the terminal from them, which would be more idiomatic than a hand-written handler — but theme files only set `fish_color_*`/`fish_pager_color_*`, so `pure_color_*`, `EZA_COLORS` and `LS_COLORS` would still need one. Worth revisiting only if a shipped theme is ever seen setting something outside those two prefixes.
+
+Deliberately declined rather than blocked, kept here so they are not re-proposed as if new: `snacks.scroll` (smooth scrolling, installed and un-`setup()`); `@variable`/`Identifier` → plain foreground, Zed's one portable idea, which would take light-mode variables from 3.51 to 10.86 but moves further from One Dark Pro's style; hardening `interactiveShellInit`'s `if not set -q TMUX` to also check the socket is live; `column.ui = "auto"`, which fights `branch.sort = "-committerdate"`; and writing an own theme rather than hosting on onedarkpro, scoped at 327 highlight groups of which 69 are pure links.
+
 ## Git Conventions
 
 - Commit style: `type: description` (e.g. `feat:`, `chore:`, `fix:`)
