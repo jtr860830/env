@@ -1,4 +1,12 @@
 require("onedarkpro").setup {
+  highlights = {
+    PmenuSel = {
+      bg = {
+        dark = "#363d47",
+        light = "#cbcbcb",
+      },
+    },
+  },
   colors = {
     light = {
       fg = "#383a42",
