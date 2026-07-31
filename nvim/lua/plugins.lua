@@ -60,20 +60,25 @@ local hl_map = {
 local cfg = vim.diagnostic.config() or {}
 local sign_text = type(cfg.signs) == "table" and cfg.signs.text or {}
 
+local lcap, rcap = vim.fn.nr2char(0xe0b6), vim.fn.nr2char(0xe0b4)
+
+local function pill(inner, cap)
+  cap = cap or "UserPillCap"
+  return table.concat { "%#", cap, "#", lcap, inner, "%#", cap, "#", rcap }
+end
+
 local function statusline_diagnostics()
   local counts = vim.diagnostic.count(0)
-  local groups = {}
+  local parts = {}
   for _, s in ipairs { sev.ERROR, sev.WARN, sev.INFO } do
     local count = counts[s] or 0
     if count > 0 then
       local icon = sign_text[s] or ""
-      table.insert(groups, {
-        hl = hl_map[s],
-        strings = { (icon ~= "" and icon .. " " or "") .. count },
-      })
+      table.insert(parts, "%#" .. hl_map[s] .. "#" .. (icon ~= "" and icon .. " " or "") .. count .. " ")
     end
   end
-  return groups
+  if #parts == 0 then return "" end
+  return pill("%#UserPill# " .. table.concat(parts))
 end
 
 local function statusline_filename()
@@ -96,15 +101,15 @@ require("mini.statusline").setup {
       local icon = ft ~= "" and require("mini.icons").get("filetype", ft) or ""
       local filetype = ft ~= "" and (icon .. " " .. ft) or ""
 
-      local groups = {
-        { hl = mode_hl, strings = { mode } },
-        "%<",
-        { hl = "MiniStatuslineFilename", strings = { filename } },
-        "%=",
+      return table.concat {
+        pill("%#" .. mode_hl .. "#" .. mode, "UserPillCap" .. mode_hl:gsub("^MiniStatuslineMode", "")),
+        "%#MiniStatuslineFilename# ",
+        filename,
+        "%<%=",
+        diagnostics,
+        diagnostics ~= "" and " " or "",
+        filetype ~= "" and pill("%#UserPill# " .. filetype .. " ") or "",
       }
-      vim.list_extend(groups, diagnostics)
-      table.insert(groups, { hl = "MiniStatuslineFilename", strings = { filetype } })
-      return MiniStatusline.combine_groups(groups)
     end,
   },
 }

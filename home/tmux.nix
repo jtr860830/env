@@ -13,7 +13,8 @@ let
     let
       open = "#[fg=${c.float_bg}]#[bg=${c.bg}]${lcap}#[bg=${c.float_bg}]";
       close = "#[fg=${c.float_bg}]#[bg=${c.bg}]${rcap}";
-      state = "#{?client_prefix,#[fg=${c.accent_yellow}],#{?pane_in_mode,#[fg=${c.accent_cyan}],#[fg=${c.accent_purple}]}}";
+      stateFg = "#{?client_prefix,#[fg=${c.yellow}],#{?pane_in_mode,#[fg=${c.cyan}],#[fg=${c.purple}]}}";
+      stateBg = "#{?client_prefix,#[bg=${c.yellow}],#{?pane_in_mode,#[bg=${c.cyan}],#[bg=${c.purple}]}}";
       single = "#{==:#{session_windows},1}";
       first = "#{?#{==:#{window_index},1},${open},}";
       last = "#{?#{==:#{window_index},#{session_windows}},${close},}";
@@ -28,13 +29,13 @@ let
       set -g copy-mode-current-match-style "bg=${c.cursearch_bg},fg=${c.cursearch_fg}"
 
       set -g status-left  "${open}#[fg=${c.comment}]#{client_user}#[fg=${c.fg_gutter}]@#[fg=${c.fg}]#h${close}"
-      set -g status-right "${open}${state}#[bold]#{?window_zoomed_flag, ${zoomed},} #S #[nobold]${close}"
+      set -g status-right "${stateFg}${lcap}${stateBg}#[fg=${c.bg}]#[bold]#{?window_zoomed_flag, ${zoomed},} #S #[nobold]${stateFg}#[bg=${c.bg}]${rcap}"
 
       set -g pane-border-style        "fg=${c.gray}"
       set -g pane-active-border-style "fg=${c.gray}"
 
       setw -g window-status-format         "#{?${single},,${first}#[fg=${c.comment}]#[bg=${c.float_bg}] ${dotDim} ${last}}"
-      setw -g window-status-current-format "#{?${single},,${first}#[fg=${c.accent_purple}]#[bg=${c.float_bg}] ${dotOn} ${last}}"
+      setw -g window-status-current-format "#{?${single},,${first}#[fg=${c.purple}]#[bg=${c.float_bg}] ${dotOn} ${last}}"
     '';
 in
 {

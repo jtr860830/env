@@ -37,19 +37,27 @@ vim.api.nvim_create_autocmd("ColorScheme", {
 
     local c = require("onedarkpro.helpers").get_colors()
 
-    vim.api.nvim_set_hl(0, "MiniStatuslineModeNormal", { bg = c.purple, fg = c.bg, bold = true })
-    vim.api.nvim_set_hl(0, "MiniStatuslineModeInsert", { bg = c.blue, fg = c.bg, bold = true })
-    vim.api.nvim_set_hl(0, "MiniStatuslineModeVisual", { bg = c.orange, fg = c.bg, bold = true })
-    vim.api.nvim_set_hl(0, "MiniStatuslineModeReplace", { bg = c.red, fg = c.bg, bold = true })
-    vim.api.nvim_set_hl(0, "MiniStatuslineModeCommand", { bg = c.yellow, fg = c.bg, bold = true })
-    vim.api.nvim_set_hl(0, "MiniStatuslineModeOther", { bg = c.cyan, fg = c.bg, bold = true })
+    for name, hue in pairs {
+      Normal = c.purple,
+      Insert = c.blue,
+      Visual = c.orange,
+      Replace = c.red,
+      Command = c.yellow,
+      Other = c.cyan,
+    } do
+      vim.api.nvim_set_hl(0, "MiniStatuslineMode" .. name, { bg = hue, fg = c.bg, bold = true })
+      vim.api.nvim_set_hl(0, "UserPillCap" .. name, { fg = hue, bg = c.bg })
+    end
 
-    vim.api.nvim_set_hl(0, "MiniStatuslineFilename", { bg = c.bg_statusline, fg = c.fg })
-    vim.api.nvim_set_hl(0, "MiniStatuslineInactive", { bg = c.bg_statusline, fg = c.gray })
+    vim.api.nvim_set_hl(0, "UserPill", { bg = c.float_bg, fg = c.fg })
+    vim.api.nvim_set_hl(0, "UserPillCap", { fg = c.float_bg, bg = c.bg })
 
-    vim.api.nvim_set_hl(0, "MiniStatuslineDiagError", { bg = c.bg_statusline, fg = c.red })
-    vim.api.nvim_set_hl(0, "MiniStatuslineDiagWarn", { bg = c.bg_statusline, fg = c.yellow })
-    vim.api.nvim_set_hl(0, "MiniStatuslineDiagInfo", { bg = c.bg_statusline, fg = c.blue })
+    vim.api.nvim_set_hl(0, "MiniStatuslineFilename", { bg = c.bg, fg = c.fg })
+    vim.api.nvim_set_hl(0, "MiniStatuslineInactive", { bg = c.bg, fg = c.gray })
+
+    vim.api.nvim_set_hl(0, "MiniStatuslineDiagError", { bg = c.float_bg, fg = c.red })
+    vim.api.nvim_set_hl(0, "MiniStatuslineDiagWarn", { bg = c.float_bg, fg = c.yellow })
+    vim.api.nvim_set_hl(0, "MiniStatuslineDiagInfo", { bg = c.float_bg, fg = c.blue })
   end,
 })
 

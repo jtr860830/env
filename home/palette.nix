@@ -29,10 +29,6 @@
     ansi_bright_black = "#5c6370";
     ansi_bright_white = "#c8cdd5";
 
-    accent_purple = "#c678dd";
-    accent_yellow = "#e5c07b";
-    accent_cyan = "#56b6c2";
-
     cursearch_bg = "#fce094";
     cursearch_fg = "#07080d";
   };
@@ -66,10 +62,6 @@
     ansi_white = "#c6c7c7";
     ansi_bright_black = "#a0a1a7";
     ansi_bright_white = "#e0e0e0";
-
-    accent_purple = "#7d1c7b";
-    accent_yellow = "#8e6101";
-    accent_cyan = "#016089";
 
     cursearch_bg = "#6b5300";
     cursearch_fg = "#eef1f8";
