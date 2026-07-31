@@ -153,6 +153,20 @@ Fully migrated to podman. `podman machine` manages the Linux VM — no colima/Do
 
 ## Theme Consistency
 
+### Fixing a Colour
+
+When a colour is defective — measured against its **actual** backdrop, not against nvim's — work down this ladder and stop at the first rung that answers. Every fix in this file came from one of them.
+
+1. **Atom One Dark / One Light — copy the values, one to one.** onedarkpro's `onedark` *is* Atom One Dark, so its keys map exactly onto Atom's hue variables (table below). This is how `onelight`'s nine washed-out hues were replaced.
+2. **Zed One — copy the design decision, never the values.** Zed is organised by concept and onedarkpro by hue, so the keys are many-to-many: `palette.yellow` alone drives 27 groups. Assigning Zed's `type` colour there would turn search hits and warnings blue-teal.
+3. **Derive from the palette, using the target ratio from step 2.** `PmenuSel` took Zed's ~1.40 and computed `#cbcbcb` from `float_bg`; Zed's own value is `#cacaca`, one unit away. This keeps Zed's judgement without importing its vocabulary.
+4. **Invent, and record why.** Only the light `bright_*` set reached this rung, where `lighten` had to become `darken` because "brighter" means darker on a light background.
+
+Two checks that go with it:
+
+- **Compare against the corrected alternative, not the broken one.** The menu selection was first offered as a purple tint at 1.55 against the *shipped* grey at 1.06 — but the real alternative was a corrected grey at 1.41, which won. A comparison against a defect is not a comparison.
+- **Count how often a hue already carries meaning before adding another.** Purple measured better for the menu selection but already means "current" in `TabLineSel`, tmux's current window and idle state, and `MiniStatuslineModeNormal`; a fourth use dilutes all four.
+
 One Dark Pro (`onedarkpro_onedark`) across all tools: Neovim (`nvim/lua/theme.lua`), Tmux (inline in `home/tmux.nix`), Fish (inline in `home/fish.nix`), Ghostty (`home/ghostty.nix`).
 
 Every value in all four is an onedarkpro default or a value onedarkpro itself derives — nothing is invented. Ghostty's `palette = 9..15` are exactly `lighten(key, 10)`, the formula its own exporter uses; tmux's `#fce094`/`#07080d` are `CurSearch`'s bg/fg. Note the bright halves disagree on purpose-built formulas: the exporter uses `lighten(x, 10)` while nvim's own `terminal_color_9..14` use `brighten(x, 15)`, so Ghostty and nvim's `:terminal` hold different values for the same slots.
