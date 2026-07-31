@@ -15,13 +15,12 @@ require("onedarkpro").setup {
 
 local function variant() return vim.o.background == "light" and "onelight" or "onedark" end
 
+local group = vim.api.nvim_create_augroup("UserTheme", { clear = true })
+
 vim.api.nvim_create_autocmd("ColorScheme", {
-  group = vim.api.nvim_create_augroup("UserTheme", { clear = true }),
+  group = group,
   callback = function(args)
-    if args.match ~= variant() then
-      vim.schedule(function() vim.cmd.colorscheme(variant()) end)
-      return
-    end
+    if args.match ~= variant() then return end
 
     local c = require("onedarkpro.helpers").get_colors()
 
@@ -39,6 +38,13 @@ vim.api.nvim_create_autocmd("ColorScheme", {
     vim.api.nvim_set_hl(0, "MiniStatuslineDiagWarn", { bg = c.bg_statusline, fg = c.yellow })
     vim.api.nvim_set_hl(0, "MiniStatuslineDiagInfo", { bg = c.bg_statusline, fg = c.blue })
   end,
+})
+
+vim.api.nvim_create_autocmd("OptionSet", {
+  group = group,
+  pattern = "background",
+  nested = true,
+  callback = function() vim.cmd.colorscheme(variant()) end,
 })
 
 vim.cmd.colorscheme(variant())
