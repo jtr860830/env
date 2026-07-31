@@ -28,7 +28,7 @@ let
       set -g copy-mode-match-style         "bg=${c.selection},fg=${c.yellow}"
       set -g copy-mode-current-match-style "bg=${c.cursearch_bg},fg=${c.cursearch_fg}"
 
-      set -g status-left  "${open}#[fg=${c.comment}]#{client_user}#[fg=${c.fg_gutter}]@#[fg=${c.fg}]#h${close}"
+      set -g status-left  "${open}#[fg=${c.comment}] #{client_user}#[fg=${c.fg_gutter}]@#[fg=${c.fg}]#h ${close}"
       set -g status-right "${stateFg}${lcap}${stateBg}#[fg=${c.bg}]#[bold]#{?window_zoomed_flag, ${zoomed},} #S #[nobold]${stateFg}#[bg=${c.bg}]${rcap}"
 
       set -g pane-border-style        "fg=${c.gray}"
