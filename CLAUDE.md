@@ -88,11 +88,21 @@ brew ruby -e 'puts ENV["HOMEBREW_USER_CONFIG_HOME"]'
 
 Steps a rebuild cannot perform — local UI state, app preferences and licences:
 
-- **Alfred** — enter the Powerpack licence; point the sync folder at iCloud, which restores workflows, themes and preferences; set the hotkey to `⌘Space`; turn off System Settings → Keyboard → Keyboard Shortcuts → Spotlight → "Show Spotlight search", which otherwise owns that key.
+- **Alfred** — enter the Powerpack licence; point the sync folder at iCloud, which restores workflows, themes and preferences; set the theme for *both* light and dark appearance (see below); set the hotkey to `⌘Space`; turn off System Settings → Keyboard → Keyboard Shortcuts → Spotlight → "Show Spotlight search", which otherwise owns that key.
 
 Alfred's config is **deliberately not in this repo**. Its sync folder moves the whole `Alfred.alfredpreferences` bundle — app-owned mutable state that Alfred writes to directly, which is a different model from the declarative source the rest of the repo holds. iCloud handles it instead. The licence, clipboard database and usage data sit *outside* that bundle, so nothing secret travels with it.
 
-Alfred does scan `themes/*/theme.json` regardless of the directory name, so a theme could be installed with `home.file` — but the *selection* lives in `preferences/local/<machine-hash>/appearance/prefs.plist`, and that hash differs per machine, so picking the theme stays manual either way. Setting `visualEffectMode` hands the material to macOS and Alfred zeroes `blur` in response; its own Modern themes ship the same pairing.
+Alfred does scan `themes/*/theme.json` regardless of the directory name, so a theme could be installed with `home.file` — but the *selection* lives in `preferences/local/<machine-hash>/appearance/prefs.plist`, and that hash differs per machine, so picking the theme stays manual either way. Setting `visualEffectMode` hands the material to macOS and Alfred zeroes `blur` in response; its own Modern themes ship the same pairing. `2` is dark vibrancy — the Preferences binary names the control `blurVisualEffectDarkButton`.
+
+**Alfred keeps a separate theme per system appearance, and the Appearance panel shows only the current one.** That plist holds `lightthemeuid` *and* `darkthemeuid`; the panel offers no second slot because it edits whichever key matches the appearance you are in, so a theme picked in Light mode leaves `darkthemeuid` unset and Alfred falls back to a built-in dark theme after sunset. Entering dark mode does not write the key — Alfred only stores it when a theme is chosen while dark. Set both by hand:
+
+```sh
+P=~/Library/Application\ Support/Alfred/Alfred.alfredpreferences/preferences/local/*/appearance/prefs.plist
+osascript -e 'tell application "Alfred 5" to quit'   # it holds prefs in memory and would clobber the write
+plutil -replace darkthemeuid -string "$(plutil -extract lightthemeuid raw -o - $P)" $P
+```
+
+`appearance.options.nativedarkmode` is **not** the switch for this — its label is "Use native macOS Dark Mode window rendering", a window-material option.
 
 **Do not try to disable the Spotlight hotkey declaratively.** It lives at `AppleSymbolicHotKeys` key `64` in `com.apple.symbolichotkeys`, and `system.defaults.CustomUserPreferences` emits `defaults write <domain> <key> <plist>` — a whole-dict *replacement*, which would wipe the other ~50 hotkey entries (Mission Control, screenshots, input sources…). `PlistBuddy -c "Set :AppleSymbolicHotKeys:64:enabled false"` edits in place and would work, but needs `killall cfprefsd` for the preference cache and re-runs on every rebuild — not worth it for a one-time toggle.
 
