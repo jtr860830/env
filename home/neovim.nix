@@ -22,11 +22,6 @@
 
   xdg.configFile."nvim/lua".source = ../nvim/lua;
 
-  programs.man = {
-    man-db.enable = false;
-    mandoc.enable = true;
-  };
-
   home.sessionVariables = {
     EDITOR = "nvim";
     VISUAL = "nvim";

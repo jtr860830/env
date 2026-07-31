@@ -93,6 +93,11 @@
     config.theme = "TwoDark";
   };
 
+  programs.man = {
+    man-db.enable = false;
+    mandoc.enable = true;
+  };
+
   home.sessionVariables = {
     LANG = "en_US.UTF-8";
     TERMINFO_DIRS = "${pkgs.ncurses}/share/terminfo";

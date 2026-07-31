@@ -210,7 +210,7 @@ Referencing `${pkgs.ncurses}` in a nix expression automatically includes it in t
 
 ## Man Pages
 
-`programs.man.mandoc.enable = true` with `man-db.enable = false` (in `home/neovim.nix`). man-db writes `~/.manpath` — a hardcoded path with no XDG support upstream — which was the only entry in `$HOME` outside `.cache` `.config` `.local` `.ssh` `.Trash`. mandoc keeps its cache in `~/.local/share/mandoc/man` instead, so `apropos` still works with nothing left in the home directory.
+`programs.man.mandoc.enable = true` with `man-db.enable = false` (in `home/fish.nix`, alongside the other shell tools; `MANPAGER` stays in `home/neovim.nix` with `EDITOR`/`VISUAL`). man-db writes `~/.manpath` — a hardcoded path with no XDG support upstream — which was the only entry in `$HOME` outside `.cache` `.config` `.local` `.ssh` `.Trash`. mandoc keeps its cache in `~/.local/share/mandoc/man` instead, so `apropos` still works with nothing left in the home directory.
 
 - fish enables `programs.man.generateCaches` via `mkDefault true` so `man` completion can use `apropos`; a plain assignment overrides it
 - mandoc ignores `MANWIDTH`, so `:Man` pages hard-wrap at 80 columns instead of filling the window — the only functional difference. Lookup, rendering, headings, cross-references and overstrike highlighting are unchanged
