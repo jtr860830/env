@@ -10,29 +10,10 @@ let
   hexToRgb =
     hex:
     let
-      digits = {
-        "0" = 0;
-        "1" = 1;
-        "2" = 2;
-        "3" = 3;
-        "4" = 4;
-        "5" = 5;
-        "6" = 6;
-        "7" = 7;
-        "8" = 8;
-        "9" = 9;
-        "a" = 10;
-        "b" = 11;
-        "c" = 12;
-        "d" = 13;
-        "e" = 14;
-        "f" = 15;
-      };
-      s = lib.toLower (lib.removePrefix "#" hex);
-      at = i: digits.${builtins.substring i 1 s};
-      byte = i: (at i) * 16 + (at (i + 1));
+      s = lib.removePrefix "#" hex;
+      byte = i: toString (lib.fromHexString (builtins.substring i 2 s));
     in
-    "${toString (byte 0)};${toString (byte 2)};${toString (byte 4)}";
+    "${byte 0};${byte 2};${byte 4}";
 
   ezaColors =
     c:
