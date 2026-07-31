@@ -59,7 +59,7 @@
     bright_cyan = "#016089";
 
     ansi_black = "#383a42";
-    ansi_white = "#c6c7c7";
+    ansi_white = "#bbbbbb";
     ansi_bright_black = "#a0a1a7";
     ansi_bright_white = "#e0e0e0";
 
