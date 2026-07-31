@@ -164,11 +164,6 @@ in
 
   programs.zoxide.enable = true;
 
-  programs.bat = {
-    enable = true;
-    config.theme = "TwoDark";
-  };
-
   programs.man = {
     man-db.enable = false;
     mandoc.enable = true;

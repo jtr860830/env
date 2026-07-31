@@ -37,9 +37,15 @@ darwin-rebuild switch --flake ~/.config/env
 
 ## Modules vs `home.packages`
 
-`programs.<x>.enable = true` installs the package itself — **never also list it in `home/packages.nix`**. `home.path` uses `pkgs.buildEnv` without `ignoreCollisions`, and some modules install a wrapped derivation (`delta` uses `cfg.finalPackage`), so a duplicate can become a hard build failure if the wrapped and plain packages ever diverge.
+`programs.<x>.enable = true` installs the package itself — **never also list it in `home/packages.nix`**. `home.path` uses `pkgs.buildEnv` without `ignoreCollisions`, and some modules install a wrapped derivation rather than the plain package, so a duplicate can become a hard build failure if the two ever diverge.
 
-Currently enabled: `bat` `delta` `fish` `git` `neovim` `ssh` `tmux` `zoxide`.
+Currently enabled: `fish` `git` `neovim` `ssh` `tmux` `zoxide`.
+
+`bat` and `delta` were removed. Neither had another consumer — the man pager is `nvim +Man!`, fzf-lua uses its own builtin previewer, and delta bundles its own syntect so it never needed bat installed. Reading a file with syntax highlighting is something Neovim does better, and for diffs it has twelve fzf-lua git pickers plus `mini.diff`.
+
+Git's own diff is also the *better* choice under a switching theme: it emits nothing but ANSI indices (`\e[31m` `\e[32m` `\e[36m` `\e[1m`, verified — no `38;2;R;G;B` anywhere), so it follows the terminal palette for free, where delta would have needed `BAT_THEME` wired into the fish theme function. `diff.colorMoved=zebra` stays palette-only too, if a richer diff is ever wanted.
+
+`core.pager = nvim` was tried and rejected. It needs five overrides — `nonumber norelativenumber signcolumn=no laststatus=0` plus clearing dropbar's winbar — before it stops looking like an editor that opened a diff by mistake, and it gets no syntax highlighting in exchange: the `diff` parser in `nvim-treesitter-grammars` is out of sync with the queries in `nvim-treesitter`, so `vim.treesitter.start()` fails with `Invalid node type "change"` and the `pcall` in `treesitter.lua` swallows it.
 
 `programs.ssh` is the **only exception** — its `package` defaults to `null` ("use the system client"), so `home/ssh.nix` sets `package = pkgs.openssh;` explicitly.
 
