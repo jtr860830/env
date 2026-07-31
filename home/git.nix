@@ -26,6 +26,21 @@
       push.autoSetupRemote = true;
       merge.conflictstyle = "zdiff3";
       core.editor = "nvim";
+      commit.verbose = true;
+      rerere.enabled = true;
+      branch.sort = "-committerdate";
+      tag.sort = "version:refname";
+      diff = {
+        algorithm = "histogram";
+        colorMoved = "zebra";
+        colorMovedWS = "allow-indentation-change";
+        mnemonicPrefix = true;
+      };
+      rebase = {
+        autosquash = true;
+        autostash = true;
+        updateRefs = true;
+      };
       gpg.format = "ssh";
       "gpg \"ssh\"".program =
         if pkgs.stdenv.isDarwin then
