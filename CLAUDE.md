@@ -168,6 +168,8 @@ tmux keeps every colour-bearing setting in generated `dark.conf`/`light.conf` so
 
 fish wraps the whole palette in `function __apply_theme --on-variable fish_terminal_color_theme`, called once at the end. `EZA_COLORS` moved out of `home.sessionVariables` into that function — an environment variable cannot follow the appearance, and eza is only ever used interactively. Two traps:
 
+`LS_COLORS` is exported alongside `EZA_COLORS`, not instead of it. eza reads both and `EZA_COLORS` wins, but `LS_COLORS` only has ten codes — `di ex fi pi so bd cd ln or` — so it can express 4 of the 24 keys in use and none of the dates, sizes, permission bits or git columns. It is set for **`fd`**, which honours it and otherwise uses built-in colours that ignore the theme (verified: directories move from `#61afef` to `#4078f2` with the switch). `rg` does not read it; it has its own `--colors`.
+
 - **fish colour values must not carry a leading `#`** — it starts a comment, so `set -g fish_color_normal #383a42` silently sets nothing. `lib.removePrefix "#"` strips it; `EZA_COLORS` keeps the hex because it converts to `38;2;R;G;B`.
 - **`fish_terminal_color_theme` is read-only**, so the switch cannot be exercised by assigning it (`set: Tried to change the read-only variable`). Only fish sets it, from its own terminal query, and only in a *real* interactive session — `fish -i -c` never paints a prompt so the variable stays empty there. Test by opening a shell in a tmux window and toggling the system appearance.
 

@@ -67,6 +67,18 @@ let
       "gi=${fg c.gray}"
     ];
 
+  lsColors =
+    c:
+    let
+      fg = h: "38;2;${hexToRgb h}";
+    in
+    builtins.concatStringsSep ":" [
+      "di=${fg c.blue}"
+      "ln=${fg c.cyan}"
+      "or=${fg c.red}"
+      "ex=${fg c.green}"
+    ];
+
   colors =
     c:
     let
@@ -111,6 +123,7 @@ let
       set -g pure_color_git_branch (set_color ${h "cyan"})
       set -g pure_color_git_dirty  (set_color ${h "yellow"})
 
+      set -gx LS_COLORS "${lsColors c}"
       set -gx EZA_COLORS "${ezaColors c}"
     '';
 in
