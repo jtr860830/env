@@ -1,4 +1,7 @@
 require("onedarkpro").setup {
+  colors = {
+    light = { fg = "#383a42" },
+  },
   styles = {
     comments = "italic",
     virtual_text = "italic",

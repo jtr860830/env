@@ -129,6 +129,20 @@ Fully migrated to podman. `podman machine` manages the Linux VM — no colima/Do
 
 One Dark Pro (`onedarkpro_onedark`) across all tools: Neovim (`nvim/lua/theme.lua`), Tmux (inline in `home/tmux.nix`), Fish (inline in `home/fish.nix`), Ghostty (`home/ghostty.nix`).
 
+Every value in all four is an onedarkpro default or a value onedarkpro itself derives — nothing is invented. Ghostty's `palette = 9..15` are exactly `lighten(key, 10)`, the formula its own exporter uses; tmux's `#fce094`/`#07080d` are `CurSearch`'s bg/fg. Note the bright halves disagree on purpose-built formulas: the exporter uses `lighten(x, 10)` while nvim's own `terminal_color_9..14` use `brighten(x, 15)`, so Ghostty and nvim's `:terminal` hold different values for the same slots.
+
+### Light and Dark
+
+`nvim/lua/theme.lua` picks `onelight` or `onedark` from `'background'`, which Neovim maintains itself: it probes DEC mode 2031, enables it when the terminal reports support, and re-queries OSC 11 on each notification and on resume from suspend. Ghostty, and tmux in between, both carry the sequences, and tmux additionally exposes `client-dark-theme`/`client-light-theme` hooks and `#{client_theme}`. Nothing needs to poll the OS, so `auto-dark-mode.nvim` and friends are a generation out of date.
+
+Drive the switch from `OptionSet` (`pattern = "background"`), not `ColorScheme` — the latter fires on *every* colorscheme change, so it fights a manual `:colorscheme`. `nested = true` is required on that handler or the `ColorScheme` it triggers never runs and the statusline highlights silently stay empty. `ColorScheme` then re-applies them, guarded by `args.match ~= variant()` so a foreign colorscheme and mid-switch states are skipped. Startup needs no event — `'background'` is already correct while `init.lua` runs, and `OptionSet` is suppressed for the whole startup phase.
+
+`onelight`'s `fg` is overridden to `#383a42` (Atom One Light's own value) because the default `#6a6a6a` gives only 5.18 contrast on `#fafafa`. Washed-out text over a large bright field is what causes eye strain, not the field itself: Zed's One Light keeps the same `#fafafa` editor background but pairs it with `#242529` text (14.67) and darker chrome (`#dcdcdd` bars, `#ebebec` panels).
+
+**Do not lower `bg` through `colors`.** The 23 generated keys are computed by the theme file from its own `default_colors`, so an override never reaches them — in `onelight` all nine surfaces are `darken(bg, N)` (`cursorline` 2.5, `bg_statusline` 2.6, `fold` 3, `color_column` 3.2, `float_bg` 4.5, `selection` 6.5, `indentline` 7.3, `fg_gutter` 9.7, `line_number` 18) and stay pinned to `#fafafa`, so a darker `bg` leaves the cursorline, statusline and fold *brighter* than the editor. Lowering the background means writing a custom theme file, which owns `generate()`. Beware that `get_colors()` reports the overridden value either way, so a failed override looks like a successful one — verify with `nvim_get_hl(0, {name = ..., link = false})`.
+
+The remaining light-mode gap is outside Neovim: fish, eza, tmux, bat and delta all hold hardcoded dark values, so 9 of 13 fish colors and 16 of 24 `EZA_COLORS` fall below 3:1 on a light background. Ghostty's `theme = dark:...,light:...` must land together with light variants for those, or switching makes the shell worse rather than better.
+
 ### onedarkpro Colors
 
 Access palette via `require("onedarkpro.helpers").get_colors()`. Key colors:
