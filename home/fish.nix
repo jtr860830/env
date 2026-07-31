@@ -144,6 +144,7 @@
     LIMA_HOME = "${config.xdg.dataHome}/lima";
 
     CLAUDE_CONFIG_DIR = "${config.xdg.configHome}/claude";
+    REMEMBER_RUNTIME_DIR = "${config.xdg.stateHome}/remember/run";
     SSH_AUTH_SOCK =
       if pkgs.stdenv.isDarwin then
         "${config.home.homeDirectory}/Library/Group Containers/2BUA8C4S2C.com.1password/t/agent.sock"

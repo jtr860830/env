@@ -240,6 +240,17 @@ Referencing `${pkgs.ncurses}` in a nix expression automatically includes it in t
 - mandoc ignores `MANWIDTH`, so `:Man` pages hard-wrap at 80 columns instead of filling the window — the only functional difference. Lookup, rendering, headings, cross-references and overstrike highlighting are unchanged
 - man-db derives its search path from `$PATH` automatically; **mandoc requires `MANPATH`**, which the module sets via `home.sessionSearchVariables`
 
+## Claude Code Plugin State
+
+The `remember` plugin keeps two separate directories, and only one of them is per-project:
+
+- `<project>/.remember/` — the memory store (`now.md`, `today-*.md`, `recent.md`). Self-ignoring via a `.gitignore` containing `*`, so it never shows in `git status`
+- `$HOME/.remember/run/` — spawn records bounding the background summarizer's concurrency and rate
+
+The split is deliberate: the cap has to span projects, or `cd`-ing elsewhere would lift it, and `spawn_guard.py` derives the path from `HOME` alone so a child that inherited no plugin environment resolves the same directory. Relocated to XDG with `REMEMBER_RUNTIME_DIR` in `home/fish.nix`, next to `CLAUDE_CONFIG_DIR`.
+
+`$HOME/.remember/config.json` is a *read-only* lookup for user-global overrides — guarded by `[ -f ]` and never created — so with the runtime dir moved, nothing recreates the directory. `record_dir()` is its only writer. Note `bootstrap-dirs.sh` refuses to migrate `$HOME/.remember` as a legacy project store: opening a session with `cwd = $HOME` would otherwise consume the very config that directs the migration.
+
 ## Stale `__HM_SESS_VARS_SOURCED`
 
 `hm-session-vars.fish` returns early when the exported `__HM_SESS_VARS_SOURCED` is already set — a guard against repeatedly prepending to `PATH`. A long-lived tmux server therefore pins the session variables from whenever it started: after adding or changing one, new panes still inherit the stale value and never pick it up. Symptom is a newly declared variable being simply absent.
