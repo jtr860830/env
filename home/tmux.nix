@@ -2,24 +2,40 @@
 let
   palette = import ./palette.nix;
 
-  colors = c: ''
-    set -g status-style          "bg=${c.bg_statusline}"
-    set -g message-style         "bg=${c.bg},fg=${c.fg},fill=${c.bg}"
-    set -g message-command-style "bg=${c.bg},fg=${c.yellow},fill=${c.bg}"
-    set -g mode-style            "bg=${c.selection},fg=${c.fg}"
+  lcap = builtins.fromJSON ''"\ue0b6"'';
+  rcap = builtins.fromJSON ''"\ue0b4"'';
+  dotDim = builtins.fromJSON ''"\u25cb"'';
+  dotOn = builtins.fromJSON ''"\u25cf"'';
+  zoomed = builtins.fromJSON ''"\u25a0"'';
 
-    set -g copy-mode-match-style         "bg=${c.selection},fg=${c.yellow}"
-    set -g copy-mode-current-match-style "bg=${c.cursearch_bg},fg=${c.cursearch_fg}"
+  colors =
+    c:
+    let
+      open = "#[fg=${c.float_bg}]#[bg=${c.bg}]${lcap}#[bg=${c.float_bg}]";
+      close = "#[fg=${c.float_bg}]#[bg=${c.bg}]${rcap}";
+      state = "#{?client_prefix,#[fg=${c.accent_yellow}],#{?pane_in_mode,#[fg=${c.accent_cyan}],#[fg=${c.accent_purple}]}}";
+      single = "#{==:#{session_windows},1}";
+      first = "#{?#{==:#{window_index},1},${open},}";
+      last = "#{?#{==:#{window_index},#{session_windows}},${close},}";
+    in
+    ''
+      set -g status-style          "bg=${c.bg}"
+      set -g message-style         "bg=${c.bg},fg=${c.fg},fill=${c.bg}"
+      set -g message-command-style "bg=${c.bg},fg=${c.yellow},fill=${c.bg}"
+      set -g mode-style            "bg=${c.selection},fg=${c.fg}"
 
-    set -g status-left  " #[fg=${c.comment}]#{client_user}#[fg=${c.fg_gutter}]@#[fg=${c.fg}]#h "
-    set -g status-right "#{?client_prefix,#[fg=${c.accent_yellow}],#{?pane_in_mode,#[fg=${c.accent_cyan}],#[fg=${c.accent_purple}]}}#[bold]#{?window_zoomed_flag, ■,} #S "
+      set -g copy-mode-match-style         "bg=${c.selection},fg=${c.yellow}"
+      set -g copy-mode-current-match-style "bg=${c.cursearch_bg},fg=${c.cursearch_fg}"
 
-    set -g pane-border-style        "fg=${c.gray}"
-    set -g pane-active-border-style "fg=${c.gray}"
+      set -g status-left  "${open}#[fg=${c.comment}]#{client_user}#[fg=${c.fg_gutter}]@#[fg=${c.fg}]#h${close}"
+      set -g status-right "${open}${state}#[bold]#{?window_zoomed_flag, ${zoomed},} #S #[nobold]${close}"
 
-    setw -g window-status-format         "#[fg=${c.comment}]#{?#{==:#{session_windows},1},, ○ }"
-    setw -g window-status-current-format "#[fg=${c.purple}]#{?#{==:#{session_windows},1},, ● }"
-  '';
+      set -g pane-border-style        "fg=${c.gray}"
+      set -g pane-active-border-style "fg=${c.gray}"
+
+      setw -g window-status-format         "#{?${single},,${first}#[fg=${c.comment}]#[bg=${c.float_bg}] ${dotDim} ${last}}"
+      setw -g window-status-current-format "#{?${single},,${first}#[fg=${c.accent_purple}]#[bg=${c.float_bg}] ${dotOn} ${last}}"
+    '';
 in
 {
   xdg.configFile."tmux/dark.conf".text = colors palette.dark;
