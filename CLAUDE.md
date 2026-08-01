@@ -155,6 +155,8 @@ Fully migrated to podman. `podman machine` manages the Linux VM — no colima/Do
 
 ### Fixing a Colour
 
+**Semantics comes first and this ladder is subordinate to it.** Which colour an element takes is decided by finding the Neovim highlight group for the same concept, never by eye and never by measurement — most values in this repo are settled there and never reach a number at all (tmux's pill fill is `float_bg` because a pill is a surface floating above the background; fish's `quote` is green because a shell quote *is* a `String`; eza's `sn` is orange because it is a `Number`). Measurement cannot even begin before that, since the assignment is what names both the foreground key and the backdrop it lands on. So the two layers are: **assignment**, answered semantically, and then **whether that key's value survives its own backdrop**, answered by measurement. The ladder below repairs the *value*; a clash between two assignments is fixed in the first layer instead, by moving one of them (eza's `ln` to cyan) — the ladder never enters.
+
 When a colour is defective — measured against its **actual** backdrop, not against nvim's — work down this ladder and stop at the first rung that answers. Every fix in this file came from one of them.
 
 1. **Atom One Dark / One Light — copy the values, one to one.** onedarkpro's `onedark` *is* Atom One Dark, so its keys map exactly onto Atom's hue variables (table below). This is how `onelight`'s nine washed-out hues were replaced.
