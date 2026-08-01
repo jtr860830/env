@@ -157,12 +157,22 @@ Fully migrated to podman. `podman machine` manages the Linux VM — no colima/Do
 
 **Semantics comes first and this ladder is subordinate to it.** Which colour an element takes is decided by finding the Neovim highlight group for the same concept, never by eye and never by measurement — most values in this repo are settled there and never reach a number at all (tmux's pill fill is `float_bg` because a pill is a surface floating above the background; fish's `quote` is green because a shell quote *is* a `String`; eza's `sn` is orange because it is a `Number`). Measurement cannot even begin before that, since the assignment is what names both the foreground key and the backdrop it lands on. So the two layers are: **assignment**, answered semantically, and then **whether that key's value survives its own backdrop**, answered by measurement. The ladder below repairs the *value*; a clash between two assignments is fixed in the first layer instead, by moving one of them (eza's `ln` to cyan) — the ladder never enters.
 
+**Then pick the instrument before reading any number**, because the three cases do not share one:
+
+| what is being compared | instrument | threshold |
+|---|---|---|
+| text against its background | APCA `Lc` | ~45 minimum readable, 75 body text |
+| one large fill against another (a selection, a pill) | ΔL\* | 2–3 for a large area |
+| two foregrounds sitting side by side | plain RGB distance | — |
+
+WCAG 2.x is reliable only for ranking colours **on a shared background**. It ignores polarity where vision does not — underestimating dark-on-light and overestimating light-on-dark — so it must never be used to compare the dark half against the light one, and it reads two adjacent fills as far closer than they look. Both mistakes were made here before being caught; the measurements are in [Light and Dark](#light-and-dark).
+
 When a colour is defective — measured against its **actual** backdrop, not against nvim's — work down this ladder and stop at the first rung that answers. Every fix in this file came from one of them.
 
 1. **Atom One Dark / One Light — copy the values, one to one.** onedarkpro's `onedark` *is* Atom One Dark, so its keys map exactly onto Atom's hue variables (table below). This is how `onelight`'s nine washed-out hues were replaced.
 2. **Zed One — copy the design decision, never the values.** Zed is organised by concept and onedarkpro by hue, so the keys are many-to-many: `palette.yellow` alone drives 27 groups. Assigning Zed's `type` colour there would turn search hits and warnings blue-teal.
 3. **Derive from the palette, using the target ratio from step 2.** `PmenuSel` took Zed's ~1.40 and computed `#cbcbcb` from `float_bg`; Zed's own value is `#cacaca`, one unit away. This keeps Zed's judgement without importing its vocabulary.
-4. **Invent, and record why.** Only the light `bright_*` set reached this rung, where `lighten` had to become `darken` because "brighter" means darker on a light background.
+4. **Invent, and record why.** No *value* in the palette sits here any more. What did reach this rung is a **rule**: the light `bright_*` set had to flip `lighten` to `darken`, because "brighter" means darker on a light background and no reference would say so — Zed's One Light gives four of its six hues an identical `bright`. The values it produces are ordinary rung-3 steps; only the choice of direction was invented.
 
 Two checks that go with it:
 
@@ -213,25 +223,6 @@ Where the light half does fall short is in executing onedarkpro's own departure:
 
 **Zed's One palette cannot be dropped in the same way, even though it is also One-derived.** onedarkpro is organised by hue and Zed by concept, so the keys are many-to-many: `palette.yellow` alone drives 27 groups spanning search (`Search`, `IncSearch`), warnings (`DiagnosticWarn`, `WarningMsg`), types (`Type`, `@lsp.type.class`), preprocessor, builtin identifiers, eight `BlinkCmpKind*` entries and `MiniIconsYellow`. Assigning Zed's `type` colour there would turn search hits and warnings blue-teal and leave a group literally named Yellow not yellow. Adopting Zed's *design* means replacing the assignment table, not the palette. Zed's one portable idea is structural: it keeps `variable` and `punctuation` at plain foreground in both themes and reserves colour for fewer concepts, which is why its light theme reads well — that would be a `highlights` override on `@variable`/`Identifier`, not a `colors` change.
 
-**Do not lower `bg` through `colors`.** The 23 generated keys are computed by the theme file from its own `default_colors`, so an override never reaches them — in `onelight` all nine surfaces are `darken(bg, N)` (`cursorline` 2.5, `bg_statusline` 2.6, `fold` 3, `color_column` 3.2, `float_bg` 4.5, `selection` 6.5, `indentline` 7.3, `fg_gutter` 9.7, `line_number` 18) and stay pinned to `#fafafa`, so a darker `bg` leaves the cursorline, statusline and fold *brighter* than the editor. Lowering the background means writing a custom theme file, which owns `generate()`. Beware that `get_colors()` reports the overridden value either way, so a failed override looks like a successful one — verify with `nvim_get_hl(0, {name = ..., link = false})`.
-
-**A throwaway `nvim -u NONE` that calls `onedarkpro.setup()` corrupts the real config's theme, and the corruption outlives the probe.** `setup()` is:
-
-```lua
-if not config.caching or config.debug then return M.cache() end   -- rewrites every compiled theme, then returns
-validate_cache()                                                   -- only this writes the hash file
-```
-
-So `caching = false` does not mean "skip the cache" — it means "regenerate every theme from *this* config and leave the hash alone". The probe overwrites `~/.cache/nvim/onedarkpro/*_compiled` with its own bare palette while the hash still matches the real config, so the next real Neovim sees a valid hash and loads the poisoned file. Symptom is the light theme reverting to onedarkpro's washed-out shipped hues (`Normal` `#6a6a6a`, `Keyword` `#9a77cf`) with no config change to explain it — and it survives restarts, which makes it read as a broken override rather than a dirty cache.
-
-Point probes at their own cache instead; the real one is then untouched and needs no cleanup:
-
-```sh
-XDG_CACHE_HOME=<scratch> nvim --headless -u NONE -c '…' -c qa
-```
-
-`rm -rf ~/.cache/nvim/onedarkpro` repairs an already-poisoned cache — `M.load` regenerates any compiled file that is missing.
-
 "Rung 0" below is shorthand for *not having entered the ladder* — it is the default state, not a step on it. Every value starts there, so having a rung-0 answer is never a reason to stop: the ladder is entered only once a value has failed a measurement against its actual backdrop, and at that point the shipped value is by definition the thing that failed. `onelight`'s nine hues all had rung-0 values too; they lost because `Type` measured 1.96 and `Operator` 2.27, not because they were missing.
 
 Auditing all 54 palette values against the ladder puts 21 at rung 0 (onedarkpro untouched), 14 at rung 1 (Atom's own hex, all of `onelight`'s hues plus the ANSI black/white/bright-black slots), and the rest derived: dark `bright_*` are `lighten(hue, 10)`, light `bright_*` are `darken(hue, 10)`, and `cursearch_*` are each theme's `CurSearch` bg/fg — every one reproducible. Light ANSI 7 is `#bbbbbb` from Zed (rung 2), which beats the `#c6c7c7` first invented there, 1.84 against 1.62. Light ANSI 15 is `lighten(ansi_white, 10)` = `#d4d4d4` (rung 3), the same formula the dark half uses, replacing an invented `#e0e0e0`: it raises contrast against `bg` from 1.26 to 1.42 and lands at 1.30 from ANSI 7, against the dark half's own 1.33. Nothing in the palette is invented any more.
@@ -246,7 +237,7 @@ The light `bright_*` set is the one place where inventing beat the reference, an
 
 The tmux bar is drawn as **bubbles on a bar whose background equals the terminal background**, so Ghostty's `window-padding-x` gap at the corners has nothing to contrast against — the problem cannot manifest rather than being patched, which is why `window-padding-color = extend` is not needed. Pills fill with `float_bg`: that is onedarkpro's key for `NormalFloat`/`Pmenu`, i.e. a surface floating above the background, which is what a pill is. `bg_statusline` was the obvious guess but it names the full-width bar we just removed, and `fg_gutter`/`selection` are a separator line and a selection region, not surfaces — `fg_gutter` also has no highlight group using it at all. `float_bg` happens to be the most consistent across modes too, at 1.100 dark / 1.102 light against `bg_statusline`'s 1.085 / 1.063.
 
-**A selected row needs a grey with enough contrast, not an accent.** Zed splits the two cases and it is worth copying: a list or menu selection is a plain surface (`element.selected`, 1.41 dark / 1.38 light) while only *text* selection gets an accent with alpha (`players[0].selection`, blue at 24%). **Measure a selection surface with ΔL\*, not a contrast ratio** — WCAG is a text metric and reads two large adjacent fills as far closer than they look. onedarkpro's shipped `PmenuSel` is 1.22 dark / 1.09 light, which sounds invisible in both, but in ΔL\* the dark one is **6.72** — comfortably past the 2–3 threshold for large areas — while light is **3.15**, sitting on it. Only the light half was actually defective; the dark override exists so the two halves highlight alike (11.42 / 12.76) rather than because dark was broken, and reverting it would leave selection visibly weaker in dark than in light. onedarkpro's `PmenuSel` is 1.22 dark and **1.09 light** — effectively invisible on a light float — so it is overridden with `#373e48`/`#cbcbcb`, which are `lighten(float_bg, 10)` and `darken(float_bg, 14)` — the steps landing closest to Zed's ~1.40, at 1.426 and 1.411. Zed's own light value is `#cacaca`, one unit away. **Derive it as a step, not as a free solve.** Targeting the ratio directly gives `#363d47` at 1.404, marginally closer but one unit per channel away from the step — invisible, and it costs the palette its single mechanism, since every other derived value is a `lighten`/`darken` step too. Record the ratio as the rule and the step as the answer: the step alone is a fossil of one solve, and the ratio alone has to be re-solved by hand. `BlinkCmpMenuSelection` is `link = "PmenuSel"` with `default = true`, so the completion menu follows; verified at runtime, since a headless probe never triggers blink's highlight setup and reports the group empty.
+**A selected row needs a grey with enough contrast, not an accent.** Zed splits the two cases and it is worth copying: a list or menu selection is a plain surface (`element.selected`, 1.41 dark / 1.38 light) while only *text* selection gets an accent with alpha (`players[0].selection`, blue at 24%). **Measure a selection surface with ΔL\*, not a contrast ratio** — WCAG is a text metric and reads two large adjacent fills as far closer than they look. onedarkpro's shipped `PmenuSel` is 1.22 dark / 1.09 light, which sounds invisible in both, but in ΔL\* the dark one is **6.72** — comfortably past the 2–3 threshold for large areas — while light is **3.15**, sitting on it. Only the light half was actually defective; the dark override exists so the two halves highlight alike (11.42 / 12.76) rather than because dark was broken, and reverting it would leave selection visibly weaker in dark than in light. Both are overridden to `#373e48`/`#cbcbcb`, which are `lighten(float_bg, 10)` and `darken(float_bg, 14)` — the steps landing closest to Zed's ~1.40, at 1.426 and 1.411. Zed's own light value is `#cacaca`, one unit away. **Derive it as a step, not as a free solve.** Targeting the ratio directly gives `#363d47` at 1.404, marginally closer but one unit per channel away from the step — invisible, and it costs the palette its single mechanism, since every other derived value is a `lighten`/`darken` step too. Record the ratio as the rule and the step as the answer: the step alone is a fossil of one solve, and the ratio alone has to be re-solved by hand. `BlinkCmpMenuSelection` is `link = "PmenuSel"` with `default = true`, so the completion menu follows; verified at runtime, since a headless probe never triggers blink's highlight setup and reports the group empty.
 
 A purple tint was tried first and rejected even though it measured better (1.55). Purple already means "current" in three places — `TabLineSel`, tmux's current window and idle state, `MiniStatuslineModeNormal` — and a fourth use dilutes that; a grey also keeps the element inside the surface vocabulary instead of borrowing a hue. The same values are used for Alfred's `backgroundSelected`. Note the first comparison offered was purple against the *shipped* grey at 1.06, which is not the real alternative — a fair comparison needs the corrected grey.
 
@@ -278,6 +269,25 @@ fish's own first-class alternative was considered and rejected. A `.theme` file 
 Seven fish assignments were also corrected against nvim's own semantics, having been inherited from onedarkpro's exporter (which took them from tokyonight): `quote` → green (`String`), `operator`/`escape`/`redirection` → cyan (`Operator`, `@string.escape`), `comment` → the `comment` key rather than `gray`, `autosuggestion` → `gray` (`NonText`), `end` → `fg` (`@punctuation.delimiter`), `cwd` → blue (`Directory`, and `pure_color_primary` was already blue). `command` stays cyan although `Function` is blue, because `param` is blue and the two would collide. eza's `sn` moved from yellow to orange to match `Number`. eza's `ln` stays cyan for the same collision reason: nvim gives `Directory`, `Special` and `@string.special.path` all the same blue, so a symlink pointing at a directory would be indistinguishable from a directory.
 
 ### onedarkpro Colors
+
+**Do not lower `bg` through `colors`.** The 23 generated keys are computed by the theme file from its own `default_colors`, so an override never reaches them — in `onelight` all nine surfaces are `darken(bg, N)` (`cursorline` 2.5, `bg_statusline` 2.6, `fold` 3, `color_column` 3.2, `float_bg` 4.5, `selection` 6.5, `indentline` 7.3, `fg_gutter` 9.7, `line_number` 18) and stay pinned to `#fafafa`, so a darker `bg` leaves the cursorline, statusline and fold *brighter* than the editor. Lowering the background means writing a custom theme file, which owns `generate()`. Beware that `get_colors()` reports the overridden value either way, so a failed override looks like a successful one — verify with `nvim_get_hl(0, {name = ..., link = false})`.
+
+**A throwaway `nvim -u NONE` that calls `onedarkpro.setup()` corrupts the real config's theme, and the corruption outlives the probe.** `setup()` is:
+
+```lua
+if not config.caching or config.debug then return M.cache() end   -- rewrites every compiled theme, then returns
+validate_cache()                                                   -- only this writes the hash file
+```
+
+So `caching = false` does not mean "skip the cache" — it means "regenerate every theme from *this* config and leave the hash alone". The probe overwrites `~/.cache/nvim/onedarkpro/*_compiled` with its own bare palette while the hash still matches the real config, so the next real Neovim sees a valid hash and loads the poisoned file. Symptom is the light theme reverting to onedarkpro's washed-out shipped hues (`Normal` `#6a6a6a`, `Keyword` `#9a77cf`) with no config change to explain it — and it survives restarts, which makes it read as a broken override rather than a dirty cache.
+
+Point probes at their own cache instead; the real one is then untouched and needs no cleanup:
+
+```sh
+XDG_CACHE_HOME=<scratch> nvim --headless -u NONE -c '…' -c qa
+```
+
+`rm -rf ~/.cache/nvim/onedarkpro` repairs an already-poisoned cache — `M.load` regenerates any compiled file that is missing.
 
 Access palette via `require("onedarkpro.helpers").get_colors()`. Key colors:
 
