@@ -179,6 +179,19 @@ Drive the switch from `OptionSet` (`pattern = "background"`), not `ColorScheme` 
 
 `onelight`'s nine hue keys are overridden with Atom One Light's own values, because the shipped ones are washed out on `#fafafa` — `Type` was 1.96, `Constant` 2.33, `Operator` 2.27, `Normal` 5.18, and `cyan` was simply the dark theme's `#56b6c2` carried over. After the substitution no non-comment group sits below 3:1: `Normal` 10.86, `Keyword` 5.86, `Constant` 4.66, `Operator` 4.00. Washed-out text over a large bright field is what tires the eye, not the field itself — Zed's One Light keeps the same `#fafafa` editor background but pairs it with `#242529` text (14.67) and darker chrome (`#dcdcdd` bars, `#ebebec` panels).
 
+**Those ratios are WCAG 2.x, which cannot compare the two halves against each other.** The formula ignores polarity, and human vision does not: it underestimates dark-text-on-light and overestimates light-text-on-dark, which is the whole reason WCAG 3 is moving to APCA. Every cross-half number in this file therefore flatters the dark theme. Measured with APCA (implementation checked against the canonical `#000/#fff` 106.04, `#fff/#000` -107.88 and `#888/#fff` 63.06):
+
+| on its own `bg` | WCAG | APCA Lc |
+|---|---|---|
+| dark `comment` | 3.73 | 32.3 |
+| light `comment` | 2.55 | **48.7** |
+| dark `gray` | 2.32 | 17.4 |
+| light `gray` | 2.47 | **47.4** |
+| dark `fg` | 6.57 | 56.2 |
+| light `fg` | 10.86 | 93.2 |
+
+The ordering inverts for both greys — the light half reads *better*, which matches the eye and not the ratio. The same correction applies to the status bar: light prefix yellow at a WCAG 3.06 against dark's 8.10 looks like a 2.6× deficit but is Lc 60.9 against 67.3, near parity. Nothing here changes a decision already taken, because every one of them compared colours on a *shared* background, where WCAG's ordering holds. What does not survive is the narrative that the light half is the weaker one.
+
 The substitution is safe because **onedarkpro's `onedark` is Atom One Dark exactly**, so its keys map 1:1 onto Atom's hue variables — verified against `atom/one-dark-syntax/styles/colors.less`:
 
 | onedarkpro | Atom | onedarkpro | Atom |
@@ -192,7 +205,7 @@ Note `orange` is `hue-6` and `yellow` is `hue-6-2`, not the reverse — mixing t
 
 **`comment` has no Atom answer — do not go looking for one.** Atom paints comments with `mono-3` in both halves (`.syntax--comment { color: @mono-3 }`), and `mono-3` is exactly what `gray` already holds — `#5c6370` dark, `#a0a1a7` light. onedarkpro instead invents a *fourth* grey for its `comment` key, brighter than `mono-3`, and that departure is its own, applied to both themes. So applying rung 1 here would set `comment` **equal to** `gray`, which is the opposite of the separation the key exists to provide. `mono-2` is not the answer either: it is declared in `colors.less` and then used **zero** times in both `one-dark-syntax` and `one-light-syntax`.
 
-Where the light half does fall short is in executing onedarkpro's own departure: `comment` sits **1.61** from `gray` in dark but only **1.03** in light — the same colour. The one visible consequence is Alfred's result row, which puts `subtext` (comment) next to `shortcut` (gray): in light they are indistinguishable, and selecting a row moves the shortcut from 2.24 to **1.64** rather than rising as it does in dark (2.55 → 2.88). Closing it means a rung-3 derivation — a `darken` step off `gray` targeting the dark half's 1.61 — not a value copied from Atom. Declined by eye: the dim comment reads comfortably and lifting it would make comments compete with code. Re-measuring this ramp and finding 1.03 is not a new discovery.
+Where the light half does fall short is in executing onedarkpro's own departure: `comment` sits **1.61** from `gray` in dark but only **1.03** in light — the same colour. The one visible consequence is Alfred's result row, which puts `subtext` (comment) next to `shortcut` (gray): in light they are indistinguishable, and selecting a row moves the shortcut from 2.24 to **1.64** rather than rising as it does in dark (2.55 → 2.88). In APCA the direction survives but the ranking does not — light falls 40.9 → 21.6 while dark rises 18.7 → 27.6, so the weakest cell of the four is dark's *unselected* shortcut, not anything in light. Closing it means a rung-3 derivation — a `darken` step off `gray` targeting the dark half's 1.61 — not a value copied from Atom. Declined by eye: the dim comment reads comfortably and lifting it would make comments compete with code. Re-measuring this ramp and finding 1.03 is not a new discovery.
 
 **Zed's One palette cannot be dropped in the same way, even though it is also One-derived.** onedarkpro is organised by hue and Zed by concept, so the keys are many-to-many: `palette.yellow` alone drives 27 groups spanning search (`Search`, `IncSearch`), warnings (`DiagnosticWarn`, `WarningMsg`), types (`Type`, `@lsp.type.class`), preprocessor, builtin identifiers, eight `BlinkCmpKind*` entries and `MiniIconsYellow`. Assigning Zed's `type` colour there would turn search hits and warnings blue-teal and leave a group literally named Yellow not yellow. Adopting Zed's *design* means replacing the assignment table, not the palette. Zed's one portable idea is structural: it keeps `variable` and `punctuation` at plain foreground in both themes and reserves colour for fewer concepts, which is why its light theme reads well — that would be a `highlights` override on `@variable`/`Identifier`, not a `colors` change.
 
