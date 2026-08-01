@@ -61,7 +61,7 @@
     ansi_black = "#383a42";
     ansi_white = "#bbbbbb";
     ansi_bright_black = "#a0a1a7";
-    ansi_bright_white = "#e0e0e0";
+    ansi_bright_white = "#d4d4d4";
 
     cursearch_bg = "#6b5300";
     cursearch_fg = "#eef1f8";
