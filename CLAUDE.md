@@ -194,6 +194,23 @@ Note `orange` is `hue-6` and `yellow` is `hue-6-2`, not the reverse — mixing t
 
 **Do not lower `bg` through `colors`.** The 23 generated keys are computed by the theme file from its own `default_colors`, so an override never reaches them — in `onelight` all nine surfaces are `darken(bg, N)` (`cursorline` 2.5, `bg_statusline` 2.6, `fold` 3, `color_column` 3.2, `float_bg` 4.5, `selection` 6.5, `indentline` 7.3, `fg_gutter` 9.7, `line_number` 18) and stay pinned to `#fafafa`, so a darker `bg` leaves the cursorline, statusline and fold *brighter* than the editor. Lowering the background means writing a custom theme file, which owns `generate()`. Beware that `get_colors()` reports the overridden value either way, so a failed override looks like a successful one — verify with `nvim_get_hl(0, {name = ..., link = false})`.
 
+**A throwaway `nvim -u NONE` that calls `onedarkpro.setup()` corrupts the real config's theme, and the corruption outlives the probe.** `setup()` is:
+
+```lua
+if not config.caching or config.debug then return M.cache() end   -- rewrites every compiled theme, then returns
+validate_cache()                                                   -- only this writes the hash file
+```
+
+So `caching = false` does not mean "skip the cache" — it means "regenerate every theme from *this* config and leave the hash alone". The probe overwrites `~/.cache/nvim/onedarkpro/*_compiled` with its own bare palette while the hash still matches the real config, so the next real Neovim sees a valid hash and loads the poisoned file. Symptom is the light theme reverting to onedarkpro's washed-out shipped hues (`Normal` `#6a6a6a`, `Keyword` `#9a77cf`) with no config change to explain it — and it survives restarts, which makes it read as a broken override rather than a dirty cache.
+
+Point probes at their own cache instead; the real one is then untouched and needs no cleanup:
+
+```sh
+XDG_CACHE_HOME=<scratch> nvim --headless -u NONE -c '…' -c qa
+```
+
+`rm -rf ~/.cache/nvim/onedarkpro` repairs an already-poisoned cache — `M.load` regenerates any compiled file that is missing.
+
 Auditing all 54 palette values against the ladder puts 21 at rung 0 (onedarkpro untouched), 14 at rung 1 (Atom's own hex, all of `onelight`'s hues plus the ANSI black/white/bright-black slots), and the rest derived: dark `bright_*` are `lighten(hue, 10)`, light `bright_*` are `darken(hue, 10)`, and `cursearch_*` are each theme's `CurSearch` bg/fg — every one reproducible. Light ANSI 7 is `#bbbbbb` from Zed (rung 2), which beats the `#c6c7c7` first invented there, 1.84 against 1.62. Light ANSI 15 is `lighten(ansi_white, 10)` = `#d4d4d4` (rung 3), the same formula the dark half uses, replacing an invented `#e0e0e0`: it raises contrast against `bg` from 1.26 to 1.42 and lands at 1.30 from ANSI 7, against the dark half's own 1.33. Nothing in the palette is invented any more.
 
 **ANSI 15 is the one light slot that keeps `lighten` rather than `darken`, and the reason is structural.** The greyscale slots are a single ordered ramp — black, bright-black, white, bright-white — so darkening white walks it into bright-black: `darken("#bbbbbb", 10)` is `#a2a2a2` against bright-black's `#a0a1a7`, a ratio of **1.009**, i.e. the same colour. Each of the six hues has a private `bright_` partner with no neighbour to collide with, which is why `darken` is right for them and wrong here. Zed's `#ffffff` was the rung-2 answer and was declined at 1.04 — invisible on `#fafafa`.
@@ -235,7 +252,7 @@ fish's own first-class alternative was considered and rejected. A `.theme` file 
 
 `hexToRgb` uses `lib.fromHexString`, which also accepts uppercase, so no case folding is needed.
 
-Seven fish assignments were also corrected against nvim's own semantics, having been inherited from onedarkpro's exporter (which took them from tokyonight): `quote` → green (`String`), `operator`/`escape`/`redirection` → cyan (`Operator`, `@string.escape`), `comment` → the `comment` key rather than `gray`, `autosuggestion` → `gray` (`NonText`), `end` → `fg` (`@punctuation.delimiter`), `cwd` → blue (`Directory`, and `pure_color_primary` was already blue). `command` stays cyan although `Function` is blue, because `param` is blue and the two would collide. eza's `sn` moved from yellow to orange to match `Number`.
+Seven fish assignments were also corrected against nvim's own semantics, having been inherited from onedarkpro's exporter (which took them from tokyonight): `quote` → green (`String`), `operator`/`escape`/`redirection` → cyan (`Operator`, `@string.escape`), `comment` → the `comment` key rather than `gray`, `autosuggestion` → `gray` (`NonText`), `end` → `fg` (`@punctuation.delimiter`), `cwd` → blue (`Directory`, and `pure_color_primary` was already blue). `command` stays cyan although `Function` is blue, because `param` is blue and the two would collide. eza's `sn` moved from yellow to orange to match `Number`. eza's `ln` stays cyan for the same collision reason: nvim gives `Directory`, `Special` and `@string.special.path` all the same blue, so a symlink pointing at a directory would be indistinguishable from a directory.
 
 ### onedarkpro Colors
 
