@@ -20,6 +20,9 @@ require("onedarkpro").setup {
       purple = "#a626a4",
     },
   },
+  options = {
+    cursorline = true,
+  },
   styles = {
     comments = "italic",
     virtual_text = "italic",
