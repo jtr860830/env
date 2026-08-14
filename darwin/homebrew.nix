@@ -24,7 +24,6 @@ in
       "discord"
       "drawio"
       "element"
-      "firefox"
       "firefox@nightly"
       "ghostty"
       "google-chrome"
@@ -38,6 +37,7 @@ in
       "telegram"
       "wireshark-app"
       "zed"
+      "zen"
     ];
 
     masApps = {
