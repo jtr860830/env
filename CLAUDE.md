@@ -84,7 +84,7 @@ Deliberately declined rather than blocked, kept here so they are not re-proposed
 
 - Commit style: `type: description` (e.g. `feat:`, `chore:`, `fix:`)
 - Git signs commits via 1Password SSH agent (ED25519)
-- Default branch is `main`; this repo uses `master`
+- Default branch is `main`, matching `init.defaultBranch` in `home/git.nix`. Renamed from `master` on 2026-08-15 with GitHub's `branches/{branch}/rename` API, which moves the default and leaves redirects behind — `flake.nix`'s `nix-darwin/master` is upstream's branch and is unrelated.
 
 ## Homebrew
 
