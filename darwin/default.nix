@@ -34,6 +34,8 @@ in
   nixpkgs.config.allowUnfree = true;
   nixpkgs.hostPlatform = "aarch64-darwin";
 
+  nix.channel.enable = false;
+
   nix.settings = {
     experimental-features = [
       "nix-command"

@@ -46,6 +46,7 @@ Git's own diff is also the *better* choice under a switching theme: it emits not
 - Conditional lists: `lib.optionals pkgs.stdenv.hostPlatform.isDarwin [ ... ]`
 - **`stdenv.isDarwin` is the deprecated spelling** and emits `evaluation warning: stdenv.isDarwin is deprecated, use stdenv.hostPlatform.isDarwin instead` on every rebuild under nixpkgs 26.11. The shorthand is an alias that nixpkgs plans to drop, so always reach through `hostPlatform`; the same applies to `isLinux`, `isAarch64` and the rest of the `is*` family.
 - 1Password SSH sign path: macOS `/Applications/1Password.app/Contents/MacOS/op-ssh-sign`, Linux `/opt/1Password/op-ssh-sign`
+- **`nix.channel.enable = false`** in `darwin/default.nix`, because this repo is flakes-only. nix-darwin's default `nixPath` carries `/nix/var/nix/profiles/per-user/root/channels`, a directory that only ever gets created by `nix-channel` — so every rebuild printed `warning: Nix search path entry … does not exist, ignoring`. Disabling channels drops that entry and takes `nix-channel` with it; `nixpkgs=flake:nixpkgs` stays, so `<nixpkgs>` still resolves to the locked input and `nix-shell -p` keeps working.
 
 ## Known nixpkgs Packaging Issues
 
