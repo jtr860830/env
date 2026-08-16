@@ -136,6 +136,7 @@ in
         ${config.xdg.dataHome}/go/bin \
         ${config.xdg.dataHome}/cargo/bin \
         /etc/profiles/per-user/${config.home.username}/bin \
+        /run/current-system/sw/bin \
         /nix/var/nix/profiles/default/bin \
         /usr/local/bin \
         /usr/bin \

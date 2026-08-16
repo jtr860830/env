@@ -115,6 +115,28 @@ Alfred's config is **deliberately not in this repo**. Its sync folder moves the 
 
 `⌘` combinations never reach programs inside the terminal (macOS handles them at the app layer), so they are the safe modifier for global hotkeys; `⌃` and `⌥` do reach tmux and Neovim — `⌃Space` is already blink.cmp's completion trigger and `⌥hjkl` is mini.move.
 
+## Fish PATH
+
+`interactiveShellInit` sets the whole `PATH` with `set -gx PATH` rather than prepending with `fish_add_path`, **deliberately**: macOS's `path_helper` reads `/etc/paths` and `/etc/paths.d/*` and *prepends* the system entries, which would push `/usr/bin` ahead of the nix profiles and undo the shadowing below. Writing the list outright is what keeps it out of the way — do not "simplify" this to an append-style call.
+
+The cost is that the list must be maintained by hand, and it is easy to drop an entry. It mirrors nix-darwin's own `environment.systemPath`, so check against that when editing:
+
+```sh
+nix eval --json '.#darwinConfigurations.pro-darwin.config.environment.systemPath'
+```
+
+`/run/current-system/sw/bin` went missing once, which hid `darwin-rebuild` (it lives there, not in the per-user profile). The symptom is indirect: `darwin-rebuild` reads as "not installed", so the natural workaround is nix-darwin's README bootstrap line, `sudo nix run nix-darwin/master#darwin-rebuild -- switch …` — and *that* is what emits `$HOME … is not owned by you` and `Nix search path entry … does not exist`. Both warnings are downstream of the missing PATH entry, not of any nix setting: the installed `darwin-rebuild` sets `HOME=~root` itself and never trips either, while `nix run` starts nix as root before any of that logic runs. The bootstrap line also resolves `nix-darwin/master` live, ignoring `flake.lock`'s pin.
+
+Three nix directories belong in `PATH`, in this order — user, system, then nix itself:
+
+| Path | Declared by | Rough size here |
+|------|-------------|-----------------|
+| `/etc/profiles/per-user/$USER/bin` | `home.packages` | ~390 |
+| `/run/current-system/sw/bin` | `environment.systemPackages` | ~33 |
+| `/nix/var/nix/profiles/default/bin` | nix itself (`nix`, `nix-store`, …) | ~13 |
+
+`$HOME/.nix-profile/bin` is in nix-darwin's list but omitted here — nothing is installed imperatively.
+
 ## Shadowing macOS System Binaries
 
 **Intentional — do not "fix" this.** `/etc/profiles/per-user/$USER/bin` sits before `/usr/bin` in the fish PATH, so nix-provided tools win. Both newer upstream versions and GNU-over-BSD behavior are wanted.
