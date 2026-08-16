@@ -43,7 +43,7 @@
       };
       gpg.format = "ssh";
       "gpg \"ssh\"".program =
-        if pkgs.stdenv.isDarwin then
+        if pkgs.stdenv.hostPlatform.isDarwin then
           "/Applications/1Password.app/Contents/MacOS/op-ssh-sign"
         else
           "/opt/1Password/op-ssh-sign";

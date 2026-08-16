@@ -42,8 +42,9 @@ Git's own diff is also the *better* choice under a switching theme: it emits not
 
 ## Cross-Platform Nix Patterns
 
-- Platform conditionals: `if pkgs.stdenv.isDarwin then ... else ...`
-- Conditional lists: `lib.optionals pkgs.stdenv.isDarwin [ ... ]`
+- Platform conditionals: `if pkgs.stdenv.hostPlatform.isDarwin then ... else ...`
+- Conditional lists: `lib.optionals pkgs.stdenv.hostPlatform.isDarwin [ ... ]`
+- **`stdenv.isDarwin` is the deprecated spelling** and emits `evaluation warning: stdenv.isDarwin is deprecated, use stdenv.hostPlatform.isDarwin instead` on every rebuild under nixpkgs 26.11. The shorthand is an alias that nixpkgs plans to drop, so always reach through `hostPlatform`; the same applies to `isLinux`, `isAarch64` and the rest of the `is*` family.
 - 1Password SSH sign path: macOS `/Applications/1Password.app/Contents/MacOS/op-ssh-sign`, Linux `/opt/1Password/op-ssh-sign`
 
 ## Known nixpkgs Packaging Issues
@@ -144,7 +145,7 @@ Verify integration is actually loaded: `fish -c 'functions __ghostty_setup'` —
 
 Tmux handles all split and pane management. No custom Ghostty keybindings — tmux workflow makes them redundant. Tmux prefix is `Ctrl+B`.
 
-Ghostty requires `macos-option-as-alt = true` (set under `lib.optionalString pkgs.stdenv.isDarwin`) for `<A-*>` keybindings to work in Neovim on macOS — without it, Option sends special characters instead.
+Ghostty requires `macos-option-as-alt = true` (set under `lib.optionalString pkgs.stdenv.hostPlatform.isDarwin`) for `<A-*>` keybindings to work in Neovim on macOS — without it, Option sends special characters instead.
 
 ## Tmux Quirks
 

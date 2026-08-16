@@ -35,7 +35,7 @@ in
     selection-clear-on-copy = true
     shell-integration = none
 
-    ${lib.optionalString pkgs.stdenv.isDarwin ''
+    ${lib.optionalString pkgs.stdenv.hostPlatform.isDarwin ''
       macos-icon = glass
       macos-titlebar-style = hidden
       macos-option-as-alt = true

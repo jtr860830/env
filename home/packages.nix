@@ -80,7 +80,7 @@
       yaml-language-server
       zig
     ]
-    ++ lib.optionals pkgs.stdenv.isDarwin [
+    ++ lib.optionals pkgs.stdenv.hostPlatform.isDarwin [
       container
       iproute2mac
       mas
