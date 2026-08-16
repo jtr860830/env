@@ -137,6 +137,21 @@ Three nix directories belong in `PATH`, in this order — user, system, then nix
 
 `$HOME/.nix-profile/bin` is in nix-darwin's list but omitted here — nothing is installed imperatively.
 
+**The trailing six entries are grouped by type — every `bin`, then every `sbin` — and that choice does not matter.** Across `/usr/local/bin`, `/usr/bin`, `/bin`, `/usr/local/sbin`, `/usr/sbin` and `/sbin` there are 1,264 distinct names and **zero collisions**, so no ordering of those six changes which binary wins. Re-check before reopening the question:
+
+```sh
+python3 -c "
+import os,collections
+d=collections.defaultdict(list)
+for p in '/usr/local/bin /usr/bin /bin /usr/local/sbin /usr/sbin /sbin'.split():
+    for f in (os.listdir(p) if os.path.isdir(p) else []): d[f].append(p)
+print({k:v for k,v in d.items() if len(v)>1} or 'no collisions')"
+```
+
+Type-first also matches both references that were actually checked: macOS's `/etc/paths`, and Fedora's `setup` package, whose non-root branch appends `/usr/local/sbin` then `/usr/sbin` after the bin entries (`pathmunge … after`) — only its root branch is locality-first, because admin tools should win there. Debian keeps its defaults in `/etc/login.defs` (`ENV_PATH` / `ENV_SUPATH`) and the wiki does not publish the strings, so it was left unverified rather than cited. The locality-first argument — that `/usr/local` exists precisely to override, so it should come first as a block — is sound in the abstract; it just has no effect here and no verified distro backing it for normal users.
+
+Ordering *does* matter in the leading entries, where the nix profiles shadow `/usr/bin` — that is the section below.
+
 ## Shadowing macOS System Binaries
 
 **Intentional — do not "fix" this.** `/etc/profiles/per-user/$USER/bin` sits before `/usr/bin` in the fish PATH, so nix-provided tools win. Both newer upstream versions and GNU-over-BSD behavior are wanted.
