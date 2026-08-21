@@ -1,6 +1,7 @@
 { pkgs, ... }: {
   imports = [
     ./neovim.nix
+    ./env.nix
     ./fish.nix
     ./git.nix
     ./ssh.nix

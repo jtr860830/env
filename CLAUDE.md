@@ -230,11 +230,11 @@ set -g pure_color_git_dirty  (set_color $yellow)
 
 ### EZA Colors
 
-`EZA_COLORS` uses the same format as `LS_COLORS`: `key=attrs:key=attrs:...`. Use truecolor ANSI codes (`38;2;R;G;B`), `2;38;2;R;G;B` for dim variants. Set via `builtins.concatStringsSep ":" [...]` in `home.sessionVariables` for readability. Key names: `di` (dir), `ln` (symlink), `ex` (executable), `or` (broken symlink), `da` (date), `sn`/`sb` (size number/unit), `hd` (header), `ur`/`uw`/`ux` (user perms), `gr`/`gw`/`gx` (group perms, use dim), `ga`/`gm`/`gd`/`gv`/`gt` (git added/modified/deleted/renamed/type).
+`EZA_COLORS` uses the same format as `LS_COLORS`: `key=attrs:key=attrs:...`. Use truecolor ANSI codes (`38;2;R;G;B`), `2;38;2;R;G;B` for dim variants. Built with `builtins.concatStringsSep ":" [...]` for readability, and exported from fish's theme function in `home/fish.nix` rather than from `home.sessionVariables` — they have to be re-exported when the light/dark palette switches, which a static session variable cannot do. Key names: `di` (dir), `ln` (symlink), `ex` (executable), `or` (broken symlink), `da` (date), `sn`/`sb` (size number/unit), `hd` (header), `ur`/`uw`/`ux` (user perms), `gr`/`gw`/`gx` (group perms, use dim), `ga`/`gm`/`gd`/`gv`/`gt` (git added/modified/deleted/renamed/type).
 
 ## Terminfo
 
-Managed via `pkgs.ncurses` in nix — no manual `~/.local/share/terminfo/` needed. Set in `home/fish.nix`:
+Managed via `pkgs.ncurses` in nix — no manual `~/.local/share/terminfo/` needed. Set in `home/env.nix`:
 
 ```nix
 TERMINFO_DIRS = "${pkgs.ncurses}/share/terminfo";
@@ -244,11 +244,21 @@ Referencing `${pkgs.ncurses}` in a nix expression automatically includes it in t
 
 ## Man Pages
 
-`programs.man.mandoc.enable = true` with `man-db.enable = false` (in `home/fish.nix`, alongside the other shell tools; `MANPAGER` stays in `home/neovim.nix` with `EDITOR`/`VISUAL`). man-db writes `~/.manpath` — a hardcoded path with no XDG support upstream — which was the only entry in `$HOME` outside `.cache` `.config` `.local` `.ssh` `.Trash`. mandoc keeps its cache in `~/.local/share/mandoc/man` instead, so `apropos` still works with nothing left in the home directory.
+`programs.man.mandoc.enable = true` with `man-db.enable = false` (in `home/env.nix`; `MANPAGER` stays in `home/neovim.nix` with `EDITOR`/`VISUAL`). man-db writes `~/.manpath` — a hardcoded path with no XDG support upstream — which was the only entry in `$HOME` outside `.cache` `.config` `.local` `.ssh` `.Trash`. mandoc keeps its cache in `~/.local/share/mandoc/man` instead, so `apropos` still works with nothing left in the home directory.
 
 - fish enables `programs.man.generateCaches` via `mkDefault true` so `man` completion can use `apropos`; a plain assignment overrides it
 - mandoc ignores `MANWIDTH`, so `:Man` pages hard-wrap at 80 columns instead of filling the window — the only functional difference. Lookup, rendering, headings, cross-references and overstrike highlighting are unchanged
 - man-db derives its search path from `$PATH` automatically; **mandoc requires `MANPATH`**, which the module sets via `home.sessionSearchVariables`
+- **The module puts *only* its own cache in `MANPATH`, and setting the variable at all stops mandoc consulting the system defaults** — so every macOS manual silently disappeared, including all 1,171 pages of section 1. `apropos` kept working, which is why the original switch looked clean. `home/env.nix` therefore appends two more entries:
+
+  ```nix
+  home.sessionSearchVariables.MANPATH = lib.optionals pkgs.stdenv.hostPlatform.isDarwin [
+    "/usr/share/man"
+    "/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/share/man"
+  ];
+  ```
+
+  The second is needed because **macOS no longer ships sections 2 and 3 in `/usr/share/man`** — `man2` and `man3` there are empty directories, and the system-call and libc manuals live in the Command Line Tools SDK instead (264 pages under `MacOSX.sdk`). `MacOSX.sdk` is a symlink that upstream repoints on upgrade (currently `MacOSX26.5.sdk`), so hardcoding that name is stable — do not pin a version. Verify with `man 2 open`, which should print `System Calls Manual`; `xcrun --show-sdk-path` reports the same path if it ever needs re-deriving.
 
 ## Claude Code Plugin State
 
@@ -257,7 +267,7 @@ The `remember` plugin keeps two separate directories, and only one of them is pe
 - `<project>/.remember/` — the memory store (`now.md`, `today-*.md`, `recent.md`). Self-ignoring via a `.gitignore` containing `*`, so it never shows in `git status`
 - `$HOME/.remember/run/` — spawn records bounding the background summarizer's concurrency and rate
 
-The split is deliberate: the cap has to span projects, or `cd`-ing elsewhere would lift it, and `spawn_guard.py` derives the path from `HOME` alone so a child that inherited no plugin environment resolves the same directory. Relocated to XDG with `REMEMBER_RUNTIME_DIR` in `home/fish.nix`, next to `CLAUDE_CONFIG_DIR`.
+The split is deliberate: the cap has to span projects, or `cd`-ing elsewhere would lift it, and `spawn_guard.py` derives the path from `HOME` alone so a child that inherited no plugin environment resolves the same directory. Relocated to XDG with `REMEMBER_RUNTIME_DIR` in `home/env.nix`, next to `CLAUDE_CONFIG_DIR`.
 
 `$HOME/.remember/config.json` is a *read-only* lookup for user-global overrides — guarded by `[ -f ]` and never created — so with the runtime dir moved, nothing recreates the directory. `record_dir()` is its only writer. Note `bootstrap-dirs.sh` refuses to migrate `$HOME/.remember` as a legacy project store: opening a session with `cwd = $HOME` would otherwise consume the very config that directs the migration.
 
