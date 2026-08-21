@@ -10,6 +10,8 @@ Personal system configuration repository for macOS (ARM). Managed entirely with 
 
 **No comments in config files.** Single-user repo — the reasoning lives here in CLAUDE.md instead, where it does not have to be maintained alongside the code. Do not add explanatory comments back when editing; put the finding in this file.
 
+`home/default.nix`'s `imports` is alphabetical for the same reason, and the ordering is free: reordering it leaves the system derivation hash byte-identical, because the module system merges options regardless of import order. It had drifted into accretion order — each module appended as it was written — which is how a list stops being scannable.
+
 `home/packages.nix` is one flat alphabetical list, no category headers. Categories were tried and dropped: they invited endless boundary arguments (is `atac` networking or API tooling? is `gnused` a build tool?), and only 2 of 17 groups ever stayed sorted, so neither lookup nor insertion was predictable. Flat means both are.
 
 The only surviving comment is `flake.nix`'s commented-out `nixosConfigurations` entry, which is a placeholder for a future Linux host rather than prose.

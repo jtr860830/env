@@ -1,13 +1,13 @@
 { pkgs, ... }: {
   imports = [
-    ./neovim.nix
     ./env.nix
     ./fish.nix
+    ./ghostty.nix
     ./git.nix
+    ./neovim.nix
+    ./packages.nix
     ./ssh.nix
     ./tmux.nix
-    ./packages.nix
-    ./ghostty.nix
   ];
 
   home = {
