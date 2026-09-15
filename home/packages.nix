@@ -54,6 +54,7 @@
       nmap
       nodejs
       openvpn
+      pi-coding-agent
       podlet
       podman
       prettierd
