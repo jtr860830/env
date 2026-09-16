@@ -3,5 +3,6 @@
   programs.claude-code = {
     enable = true;
     configDir = "${config.xdg.configHome}/claude";
+    context = ../claude/CLAUDE.md;
   };
 }
