@@ -279,6 +279,10 @@ The split is deliberate: the cap has to span projects, or `cd`-ing elsewhere wou
 
 Auth is Codex's own (`codex login`, ChatGPT subscription or OpenAI API key), so nothing here needs an API key in the environment.
 
+Codex has no XDG support either, but `find_codex_home` in `codex-rs/utils/home-dir/src/lib.rs` honours `CODEX_HOME` before falling back to `~/.codex`. **Unlike pi, it refuses to create that directory** — a missing path fails with `CODEX_HOME points to …, but that path does not exist` — so `home/env.nix` pairs the variable with `xdg.configFile."codex/.keep"`. home-manager makes the *directory* a real writable one and only the `.keep` inside it a store symlink, the same shape as `Pictures/Screenshots`, so Codex can still write `config.toml`, `auth.json` and its sessions there.
+
+There is only one variable, so unlike pi the sessions cannot be split out to `STATE`; everything stays under `CONFIG`.
+
 ## pi-coding-agent Paths
 
 `dist/config.js` reads `CONFIG_DIR_NAME = pkg.piConfig?.configDir || ".pi"` and contains no `XDG_*` at all — the matches elsewhere in the closure all come from dependencies. Two escape hatches exist, named from `APP_NAME`:
