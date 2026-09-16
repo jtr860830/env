@@ -1,10 +1,22 @@
-{ pkgs, ... }: {
+{ pkgs, ... }:
+let
+  email = "josh.hsieh@linux.com";
+  signingKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMeXnA4jq76uzsTYRaIjeXkKM0pk5ARHLrzRbYeczax/";
+in
+{
   programs.git = {
     enable = true;
 
     signing = {
-      key = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMeXnA4jq76uzsTYRaIjeXkKM0pk5ARHLrzRbYeczax/";
+      format = "ssh";
+      key = signingKey;
       signByDefault = true;
+      allowedSigners = ''${email} namespaces="git" ${signingKey}'';
+      signer =
+        if pkgs.stdenv.hostPlatform.isDarwin then
+          "/Applications/1Password.app/Contents/MacOS/op-ssh-sign"
+        else
+          "/opt/1Password/op-ssh-sign";
     };
 
     ignores = [
@@ -15,7 +27,7 @@
     settings = {
       user = {
         name = "Josh Hsieh";
-        email = "josh.hsieh@linux.com";
+        inherit email;
       };
       alias = {
         lg = "log --color --graph --all --pretty=tformat:'%Cred%h%Creset -%C(yellow)%d%Creset %s %Cgreen(%cr) %C(bold blue)<%an>%Creset' --abbrev-commit";
@@ -41,12 +53,6 @@
         autostash = true;
         updateRefs = true;
       };
-      gpg.format = "ssh";
-      "gpg \"ssh\"".program =
-        if pkgs.stdenv.hostPlatform.isDarwin then
-          "/Applications/1Password.app/Contents/MacOS/op-ssh-sign"
-        else
-          "/opt/1Password/op-ssh-sign";
     };
   };
 }
