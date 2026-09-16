@@ -6,6 +6,7 @@
     ./fish.nix
     ./ghostty.nix
     ./git.nix
+    ./go.nix
     ./neovim.nix
     ./npm.nix
     ./packages.nix

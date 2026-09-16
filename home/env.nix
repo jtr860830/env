@@ -24,9 +24,6 @@
     NODE_REPL_HISTORY = "${config.xdg.dataHome}/node_repl_history";
     COREPACK_HOME = "${config.xdg.dataHome}/corepack";
 
-    GOPATH = "${config.xdg.dataHome}/go";
-    GOBIN = "${config.xdg.dataHome}/go/bin";
-
     RUSTUP_HOME = "${config.xdg.dataHome}/rustup";
     CARGO_HOME = "${config.xdg.dataHome}/cargo";
 

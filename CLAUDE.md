@@ -81,6 +81,19 @@ Deliberately declined rather than blocked, kept here so they are not re-proposed
 - Git signs commits via 1Password SSH agent (ED25519)
 - Default branch is `main`, matching `init.defaultBranch` in `home/git.nix`. Renamed from `master` on 2026-08-15 with GitHub's `branches/{branch}/rename` API, which moves the default and leaves redirects behind — `flake.nix`'s `nix-darwin/master` is upstream's branch and is unrelated.
 
+## Go
+
+`programs.go` in `home/go.nix` installs the compiler and owns `GOPATH`/`GOBIN`, so `go` left `home/packages.nix` and both variables left `home/env.nix`. `gopls` stays a plain package — the module covers the toolchain, not the language server.
+
+**This module configures Go through Go's own mechanism rather than the environment.** It writes the values to the file `go env` reads, which on Darwin is `~/Library/Application Support/go/env` — the module disables its `xdg.configFile."go/env"` branch on Darwin and enables the `home.file` one, because that is where `go env GOENV` actually points. Verified: with no `GOPATH` anywhere in the environment, `go env GOPATH` still answers `~/.local/share/go`.
+
+Two consequences follow from that, both deliberate:
+
+- **`GOPATH` and `GOBIN` are no longer environment variables.** Anything reading them straight from the environment will not see them; anything asking `go env` — which is how `gopls` and modern tooling resolve them — will. `home/fish.nix` hardcodes `${config.xdg.dataHome}/go/bin` in `PATH` and never derived it from `GOBIN`, so `PATH` is unaffected.
+- **`go env -w` stops working.** home-manager installs the env file as a read-only store symlink, and writing fails with `go: writing go env config: open …: permission denied`. Reading is unaffected. This is the same trade refused for Codex's `config.toml`, and accepted here because Go's env file holds settings this repo wants declared, while Codex's holds state its own subcommands write.
+
+`programs.go.telemetry.mode` is available and deliberately unset: `go telemetry` reports `local`, Go's default, which collects counters on disk and uploads nothing without an explicit `go telemetry on`. `programs.go.packages` can also place sources under `GOPATH/src`, which is unused here.
+
 ## Homebrew
 
 Casks and Mac App Store apps are declared in `darwin/homebrew.nix`. `cleanup = "zap"` is intentional — removes anything not listed. Generates `Warning: --cleanup is deprecated` from Homebrew; nix-darwin upstream issue, functional but unfixable without upstream change.

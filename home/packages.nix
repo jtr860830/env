@@ -26,7 +26,6 @@
       gh
       gnumake
       gnused
-      go
       gopls
       helix
       helm-ls
