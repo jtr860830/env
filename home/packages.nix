@@ -51,7 +51,6 @@
       nixfmt
       nmap
       openvpn
-      pi-coding-agent
       podlet
       podman
       prettierd

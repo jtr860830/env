@@ -32,8 +32,6 @@
     KUBECACHEDIR = "${config.xdg.cacheHome}/kube";
     LIMA_HOME = "${config.xdg.dataHome}/lima";
 
-    PI_CODING_AGENT_DIR = "${config.xdg.configHome}/pi";
-    PI_CODING_AGENT_SESSION_DIR = "${config.xdg.stateHome}/pi/sessions";
     REMEMBER_RUNTIME_DIR = "${config.xdg.stateHome}/remember/run";
     SSH_AUTH_SOCK =
       if pkgs.stdenv.hostPlatform.isDarwin then

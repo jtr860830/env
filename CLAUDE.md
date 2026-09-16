@@ -226,7 +226,7 @@ The `remember` plugin keeps two separate directories, and only one of them is pe
 - `<project>/.remember/` — the memory store (`now.md`, `today-*.md`, `recent.md`). Self-ignoring via a `.gitignore` containing `*`, so it never shows in `git status`
 - `$HOME/.remember/run/` — spawn records bounding the background summarizer's concurrency and rate
 
-The split is deliberate: the cap has to span projects, or `cd`-ing elsewhere would lift it, and `spawn_guard.py` derives the path from `HOME` alone so a child that inherited no plugin environment resolves the same directory. Relocated to XDG with `REMEMBER_RUNTIME_DIR` in `home/env.nix`, next to `CLAUDE_CONFIG_DIR`.
+The split is deliberate: the cap has to span projects, or `cd`-ing elsewhere would lift it, and `spawn_guard.py` derives the path from `HOME` alone so a child that inherited no plugin environment resolves the same directory. Relocated to XDG with `REMEMBER_RUNTIME_DIR` in `home/env.nix`. Claude Code's own `CLAUDE_CONFIG_DIR` used to sit beside it and now comes from `programs.claude-code` instead.
 
 `$HOME/.remember/config.json` is a *read-only* lookup for user-global overrides — guarded by `[ -f ]` and never created — so with the runtime dir moved, nothing recreates the directory. `record_dir()` is its only writer. Note `bootstrap-dirs.sh` refuses to migrate `$HOME/.remember` as a legacy project store: opening a session with `cwd = $HOME` would otherwise consume the very config that directs the migration.
 
@@ -253,21 +253,6 @@ The module derives its paths from `home.preferXdgDirectories` (set in `home/defa
 **`settings` is deliberately left empty, so `config.toml` stays Codex's to write.** home-manager would install it as a read-only store symlink, and `codex mcp` and `codex plugin` both persist into that file. There is no `codex config set` subcommand, so those two are the flows that matter. If declaring it ever becomes worthwhile, the module offers declarative replacements for exactly those flows — `enableMcpIntegration` with `programs.mcp.servers`, plus `plugins` and `marketplaces` — along with `profiles`, `skills`, `rules` and `hooks`; `auth.json` and the session history are never managed by the module.
 
 Codex is installed so that [openai/codex-plugin-cc](https://github.com/openai/codex-plugin-cc) — the Claude Code plugin that delegates work to Codex and runs reviews — finds an existing binary. Its `/codex:setup` otherwise offers `npm install -g @openai/codex`, which would put a second copy outside nix. Auth is Codex's own (`codex login`, ChatGPT subscription or OpenAI API key), so nothing here needs an API key in the environment.
-
-## pi-coding-agent Paths
-
-`dist/config.js` reads `CONFIG_DIR_NAME = pkg.piConfig?.configDir || ".pi"` and contains no `XDG_*` at all — the matches elsewhere in the closure all come from dependencies. Two escape hatches exist, named from `APP_NAME`:
-
-```nix
-PI_CODING_AGENT_DIR = "${config.xdg.configHome}/pi";
-PI_CODING_AGENT_SESSION_DIR = "${config.xdg.stateHome}/pi/sessions";
-```
-
-**Upstream declined XDG support outright** — [issue #2870](https://github.com/earendil-works/pi/issues/2870) was closed with "things will stay as is", so these variables are the permanent answer, not a stopgap. Do not re-check on version bumps.
-
-Sessions go to `STATE` rather than `DATA` (the issue's own workaround suggests `DATA`) because the spec's test is whether something is "important or portable enough" to keep in `$XDG_DATA_HOME`, and lists "actions history (logs, history, recently used files)" under `STATE`. Conversation transcripts are history you may want to consult but would not carry to a new machine; the settings, models, prompts and themes that stay in `CONFIG_DIR` are the part worth keeping. Same split as `REMEMBER_RUNTIME_DIR`.
-
-Set these **before the first run** — anything already created lands in `~/.pi` and has to be moved by hand.
 
 ## Stale `__HM_SESS_VARS_SOURCED`
 
