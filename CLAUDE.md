@@ -273,6 +273,12 @@ The split is deliberate: the cap has to span projects, or `cd`-ing elsewhere wou
 
 `$HOME/.remember/config.json` is a *read-only* lookup for user-global overrides — guarded by `[ -f ]` and never created — so with the runtime dir moved, nothing recreates the directory. `record_dir()` is its only writer. Note `bootstrap-dirs.sh` refuses to migrate `$HOME/.remember` as a legacy project store: opening a session with `cwd = $HOME` would otherwise consume the very config that directs the migration.
 
+## Codex
+
+`codex` is in `home/packages.nix` so that [openai/codex-plugin-cc](https://github.com/openai/codex-plugin-cc) — the Claude Code plugin that delegates work to Codex and runs reviews — finds an existing binary. Its `/codex:setup` otherwise offers `npm install -g @openai/codex`, which would put a second copy outside nix.
+
+Auth is Codex's own (`codex login`, ChatGPT subscription or OpenAI API key), so nothing here needs an API key in the environment.
+
 ## pi-coding-agent Paths
 
 `dist/config.js` reads `CONFIG_DIR_NAME = pkg.piConfig?.configDir || ".pi"` and contains no `XDG_*` at all — the matches elsewhere in the closure all come from dependencies. Two escape hatches exist, named from `APP_NAME`:

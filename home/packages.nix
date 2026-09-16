@@ -12,6 +12,7 @@
       claude-code
       cloc
       clusterctl
+      codex
       crane
       curl
       deno
