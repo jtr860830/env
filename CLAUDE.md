@@ -273,6 +273,21 @@ The split is deliberate: the cap has to span projects, or `cd`-ing elsewhere wou
 
 `$HOME/.remember/config.json` is a *read-only* lookup for user-global overrides — guarded by `[ -f ]` and never created — so with the runtime dir moved, nothing recreates the directory. `record_dir()` is its only writer. Note `bootstrap-dirs.sh` refuses to migrate `$HOME/.remember` as a legacy project store: opening a session with `cwd = $HOME` would otherwise consume the very config that directs the migration.
 
+## pi-coding-agent Paths
+
+`dist/config.js` reads `CONFIG_DIR_NAME = pkg.piConfig?.configDir || ".pi"` and contains no `XDG_*` at all — the matches elsewhere in the closure all come from dependencies. Two escape hatches exist, named from `APP_NAME`:
+
+```nix
+PI_CODING_AGENT_DIR = "${config.xdg.configHome}/pi";
+PI_CODING_AGENT_SESSION_DIR = "${config.xdg.stateHome}/pi/sessions";
+```
+
+**Upstream declined XDG support outright** — [issue #2870](https://github.com/earendil-works/pi/issues/2870) was closed with "things will stay as is", so these variables are the permanent answer, not a stopgap. Do not re-check on version bumps.
+
+Sessions go to `STATE` rather than `DATA` (the issue's own workaround suggests `DATA`) because the spec's test is whether something is "important or portable enough" to keep in `$XDG_DATA_HOME`, and lists "actions history (logs, history, recently used files)" under `STATE`. Conversation transcripts are history you may want to consult but would not carry to a new machine; the settings, models, prompts and themes that stay in `CONFIG_DIR` are the part worth keeping. Same split as `REMEMBER_RUNTIME_DIR`.
+
+Set these **before the first run** — anything already created lands in `~/.pi` and has to be moved by hand.
+
 ## Stale `__HM_SESS_VARS_SOURCED`
 
 `hm-session-vars.fish` returns early when the exported `__HM_SESS_VARS_SOURCED` is already set — a guard against repeatedly prepending to `PATH`. A long-lived tmux server therefore pins the session variables from whenever it started: after adding or changing one, new panes still inherit the stale value and never pick it up. Symptom is a newly declared variable being simply absent.
