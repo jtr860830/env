@@ -201,6 +201,18 @@ The split is deliberate: the cap has to span projects, or `cd`-ing elsewhere wou
 
 `$HOME/.remember/config.json` is a *read-only* lookup for user-global overrides — guarded by `[ -f ]` and never created — so with the runtime dir moved, nothing recreates the directory. `record_dir()` is its only writer. Note `bootstrap-dirs.sh` refuses to migrate `$HOME/.remember` as a legacy project store: opening a session with `cwd = $HOME` would otherwise consume the very config that directs the migration.
 
+## Claude Code and npm Modules
+
+Both follow the same shape as `## Codex`: a `programs.<x>` module replaces a `home/packages.nix` entry plus a hand-written variable in `home/env.nix`, because the module installs the package itself and derives the path on its own.
+
+`programs.claude-code` (`home/claude-code.nix`) takes `configDir`, and sets `CLAUDE_CONFIG_DIR` only when that differs from its upstream default of `~/.claude`. **Nothing else is declared, deliberately.** The module writes `${configDir}/settings.json` as soon as `settings`, `marketplaces` or a disabled MCP server is set, and Claude Code writes that same file itself — `/plugin`, the `enabledPlugins` map, and the usage counters all land there. A read-only store symlink would break all of it. `finalPackage` is the plain `pkgs.claude-code` unless `plugins` is declared, so nothing is wrapped. Verified: with only `enable` and `configDir` set, the module contributes zero entries to `home.file`.
+
+`programs.npm` (`home/npm.nix`) installs `nodejs` — that is its `package` option — so `nodejs` came out of `packages.nix`, and the `xdg.configFile."npm/npmrc"` block that used to sit at the bottom of that file is now `settings`. The module picks `$XDG_CONFIG_HOME/npm/npmrc` over `~/.npmrc` from `home.preferXdgDirectories`, which is already on for Codex. Generated content matches the old file line for line; only the order differs, since the module sorts keys and npmrc does not care.
+
+**The module emits a double slash, harmlessly.** `NPM_CONFIG_USERCONFIG` comes out as `/Users/jtr860830//.config/npm/npmrc`, because the module computes `lib.removePrefix homeDirectory xdg.configHome` and gets `/.config` rather than `.config` — it wants `removePrefix "${homeDirectory}/"`. The same slash makes the `home.file` key `/.config/npm/npmrc`, which looks like an absolute path where a home-relative one belongs. Both are absorbed during path joining: the built `home-files` derivation puts the file at `.config/npm/npmrc`, and POSIX collapses the doubled separator. Do not try to override the variable to tidy it — the module assigns it directly, not through `mkDefault`, so a second assignment collides.
+
+`NODE_REPL_HISTORY` and `COREPACK_HOME` stay in `home/env.nix`; no module sets either.
+
 ## Codex
 
 Managed by `programs.codex` in `home/codex.nix`, not by an entry in `home/packages.nix` — the module installs `pkgs.codex` itself (`packages = mkIf (cfg.package != null) [ cfg.package ]`), so listing it in both would violate the rule above.

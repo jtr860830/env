@@ -1,11 +1,13 @@
 { pkgs, ... }: {
   imports = [
+    ./claude-code.nix
     ./codex.nix
     ./env.nix
     ./fish.nix
     ./ghostty.nix
     ./git.nix
     ./neovim.nix
+    ./npm.nix
     ./packages.nix
     ./ssh.nix
     ./tmux.nix

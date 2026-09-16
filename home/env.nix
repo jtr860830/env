@@ -23,7 +23,6 @@
 
     NODE_REPL_HISTORY = "${config.xdg.dataHome}/node_repl_history";
     COREPACK_HOME = "${config.xdg.dataHome}/corepack";
-    NPM_CONFIG_USERCONFIG = "${config.xdg.configHome}/npm/npmrc";
 
     GOPATH = "${config.xdg.dataHome}/go";
     GOBIN = "${config.xdg.dataHome}/go/bin";
@@ -36,7 +35,6 @@
     KUBECACHEDIR = "${config.xdg.cacheHome}/kube";
     LIMA_HOME = "${config.xdg.dataHome}/lima";
 
-    CLAUDE_CONFIG_DIR = "${config.xdg.configHome}/claude";
     PI_CODING_AGENT_DIR = "${config.xdg.configHome}/pi";
     PI_CODING_AGENT_SESSION_DIR = "${config.xdg.stateHome}/pi/sessions";
     REMEMBER_RUNTIME_DIR = "${config.xdg.stateHome}/remember/run";
