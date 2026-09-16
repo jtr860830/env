@@ -2,6 +2,25 @@
 
 Applies to every project. Kept deliberately short — this loads in full at the start of every session.
 
+## Language
+
+When the conversation is in Chinese, write **Traditional Chinese as used in Taiwan** — Taiwanese vocabulary and phrasing, not mainland Chinese terms. Traditional characters alone are not enough; the word choice has to be Taiwanese too.
+
+The pairs that come up most in this work, Taiwan first:
+
+| | | | |
+|---|---|---|---|
+| 程式 ✓ 程序 ✗ | 軟體 ✓ 軟件 ✗ | 硬體 ✓ 硬件 ✗ | 網路 ✓ 網絡 ✗ |
+| 檔案 ✓ 文件 ✗ | 資料夾 ✓ 文件夾 ✗ | 資料 ✓ 數據 ✗ | 設定 ✓ 配置 ✗ |
+| 預設 ✓ 默認 ✗ | 專案 ✓ 項目 ✗ | 指令 ✓ 命令 ✗ | 執行 ✓ 運行 ✗ |
+| 伺服器 ✓ 服務器 ✗ | 介面 ✓ 接口 ✗ | 記憶體 ✓ 內存 ✗ | 快取 ✓ 緩存 ✗ |
+| 變數 ✓ 變量 ✗ | 函式 ✓ 函數 ✗ | 物件 ✓ 對象 ✗ | 字串 ✓ 字符串 ✗ |
+| 陣列 ✓ 數組 ✗ | 迴圈 ✓ 循環 ✗ | 例外 ✓ 異常 ✗ | 除錯 ✓ 調試 ✗ |
+| 支援 ✓ 支持 ✗ | 相容 ✓ 兼容 ✗ | 搜尋 ✓ 搜索 ✗ | 登入 ✓ 登錄 ✗ |
+| 終端機 ✓ 終端 ✗ | 映像檔 ✓ 鏡像 ✗ | 叢集 ✓ 集群 ✗ | 佇列 ✓ 隊列 ✗ |
+
+Technical terms with no settled Taiwanese translation stay in English — `commit`, `merge`, `symlink`, `hook`, `cache` in the sense of a specific system's cache — rather than being forced into a translation nobody says.
+
 ## Delegating Execution to Codex
 
 **I coordinate, plan and verify; execution goes to Codex where it pays.** `openai/codex-plugin-cc` and the `codex` CLI exist for this.
