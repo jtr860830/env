@@ -172,6 +172,22 @@ TERMINFO_DIRS = "${pkgs.ncurses}/share/terminfo";
 
 Referencing `${pkgs.ncurses}` in a nix expression automatically includes it in the closure — no need to add it to `home.packages`.
 
+**This plain assignment deliberately overrides `targets/darwin/terminfo.nix`, which is unconditionally active on Darwin and sets the same variable with `mkDefault`.** That module's own comment warns that "once `TERMINFO_DIRS` is set, ncurses stops searching the default system path", which reads like the `MANPATH` trap below — it is not the same situation, and the override should stay.
+
+`infocmp -D` prints the search path a binary will actually use, and shows that ncurses searches `TERMINFO_DIRS` **plus whatever default was compiled into that particular binary**. Under the assignment above:
+
+```
+nix-built infocmp  →  <ncurses>/share/terminfo
+/usr/bin/infocmp   →  <ncurses>/share/terminfo
+                      /usr/share/terminfo
+```
+
+So macOS binaries keep reaching the system database on their own, and nothing is truncated. Comparing the two trees by path — **not** with `find -type f`, which silently skips the symlinked aliases that make up much of the nix tree and inflates the difference into the hundreds — nix ships 2,896 entries against the system's 2,684. Only four exist solely in `/usr/share/terminfo`: `2621a`, `hp2621a`, `hp70092a` and `tt505-22`, all 1980s HP and Teletype hardware, and even those stay reachable from macOS binaries. In the other direction nix has 216 the system lacks, including `alacritty` and `wezterm`.
+
+**Do not "fix" this by adopting the module default.** It points at `${profileDirectory}/share/terminfo`, which is empty here precisely because ncurses is a closure reference rather than an installed package — adopting it trades 2,896 entries for 0 and loses the 216 nix-only ones. Making it work means putting `ncurses` in `home.packages`, which shadows nine macOS binaries that currently all resolve to `/usr/bin`: `captoinfo` `clear` `infocmp` `infotocap` `reset` `tabs` `tic` `tput` `tset`. That is a system-wide behaviour change bought for four obsolete terminal definitions.
+
+`$HOME/.terminfo` does not exist here and is searched before `TERMINFO_DIRS` when it does, which is where a terminal that ships its own entry would land.
+
 ## Man Pages
 
 `programs.man.mandoc.enable = true` with `man-db.enable = false` (in `home/env.nix`; `MANPAGER` stays in `home/neovim.nix` with `EDITOR`/`VISUAL`). man-db writes `~/.manpath` — a hardcoded path with no XDG support upstream — which was the only entry in `$HOME` outside `.cache` `.config` `.local` `.ssh` `.Trash`. mandoc keeps its cache in `~/.local/share/mandoc/man` instead, so `apropos` still works with nothing left in the home directory.
@@ -209,7 +225,7 @@ Both follow the same shape as `## Codex`: a `programs.<x>` module replaces a `ho
 
 `programs.npm` (`home/npm.nix`) installs `nodejs` — that is its `package` option — so `nodejs` came out of `packages.nix`, and the `xdg.configFile."npm/npmrc"` block that used to sit at the bottom of that file is now `settings`. The module picks `$XDG_CONFIG_HOME/npm/npmrc` over `~/.npmrc` from `home.preferXdgDirectories`, which is already on for Codex. Generated content matches the old file line for line; only the order differs, since the module sorts keys and npmrc does not care.
 
-**The module emits a double slash, harmlessly.** `NPM_CONFIG_USERCONFIG` comes out as `/Users/jtr860830//.config/npm/npmrc`, because the module computes `lib.removePrefix homeDirectory xdg.configHome` and gets `/.config` rather than `.config` — it wants `removePrefix "${homeDirectory}/"`. The same slash makes the `home.file` key `/.config/npm/npmrc`, which looks like an absolute path where a home-relative one belongs. Both are absorbed during path joining: the built `home-files` derivation puts the file at `.config/npm/npmrc`, and POSIX collapses the doubled separator. Do not try to override the variable to tidy it — the module assigns it directly, not through `mkDefault`, so a second assignment collides.
+**The module builds `NPM_CONFIG_USERCONFIG` wrong, and `home/npm.nix` forces it back.** It computes `lib.removePrefix homeDirectory xdg.configHome` and gets `/.config` rather than `.config` — it wants `removePrefix "${homeDirectory}/"` — so the variable comes out as `/Users/jtr860830//.config/npm/npmrc`. Upstream `master` still has this, so `lib.mkForce` on `home.sessionVariables.NPM_CONFIG_USERCONFIG` is the permanent answer, not a stopgap; a plain assignment would collide, since the module assigns without `mkDefault`. The same missing slash makes the `home.file` key `/.config/npm/npmrc`, which `mkForce` cannot reach because that is an attribute *name* — but the built `home-files` derivation puts the file at `.config/npm/npmrc` regardless, so only the variable was worth correcting. The forced value is `${config.xdg.configHome}/npm/npmrc`, which this repo independently controls through `home.preferXdgDirectories`; if upstream ever moves npmrc on purpose, this force will pin the old path.
 
 `NODE_REPL_HISTORY` and `COREPACK_HOME` stay in `home/env.nix`; no module sets either.
 

@@ -1,3 +1,4 @@
+{ lib, config, ... }:
 {
   programs.npm = {
     enable = true;
@@ -9,4 +10,6 @@
       logs-dir = "\${XDG_STATE_HOME}/npm/logs";
     };
   };
+
+  home.sessionVariables.NPM_CONFIG_USERCONFIG = lib.mkForce "${config.xdg.configHome}/npm/npmrc";
 }
