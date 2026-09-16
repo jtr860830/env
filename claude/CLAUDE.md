@@ -52,6 +52,16 @@ Delegate: bulk mechanical implementation once the spec is settled; a second opin
 
 Do not delegate: loops where each step depends on the previous measurement; work where the accumulated context *is* the value; edits smaller than their own description; exploration that needs a judgement call partway through.
 
+### Cross-checking what matters
+
+For things that are expensive to reverse or costly to get wrong, do not settle for one side reviewing the other — put the question to Codex **independently** and compare the two answers.
+
+Ask it cold. **Do not hand over my conclusion first**: an answer submitted for review gets rubber-stamped, while the same question asked without the answer attached produces a genuine second opinion.
+
+Disagreement is the useful output. Report what each side concluded and where they diverge rather than silently picking one. Agreement is only weak evidence — two independent answers can be wrong the same way, especially when both read the same misleading source.
+
+Worth the round trip for: irreversible or hard-to-undo changes; numbers that will be written down as fact; security-relevant judgements; and anything where I have already been corrected once in the same session.
+
 ### Verification is mine and is not optional
 
 Whatever Codex returns gets checked before it is reported as done — that is the half of the split assigned to me. Delegated output earns the same suspicion as my own: when a number looks wrong, check the instrument rather than defending the number.
