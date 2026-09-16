@@ -283,6 +283,8 @@ Codex has no XDG support either, but `find_codex_home` in `codex-rs/utils/home-d
 
 There is only one variable, so unlike pi the sessions cannot be split out to `STATE`; everything stays under `CONFIG`.
 
+A `home.activation` `mkdir -p` would avoid the stray file, but this repo has **zero** activation entries and the `.keep` idiom already has a precedent in `Pictures/Screenshots` — a second way to do the same thing costs more than one empty file. Declaring `config.toml` itself would create the directory as a side effect *and* put the settings under version control, which suits this repo better still, but Codex writes that file itself in some flows and home-manager would hand it a read-only symlink; worth revisiting once the exact write paths are known.
+
 ## pi-coding-agent Paths
 
 `dist/config.js` reads `CONFIG_DIR_NAME = pkg.piConfig?.configDir || ".pi"` and contains no `XDG_*` at all — the matches elsewhere in the closure all come from dependencies. Two escape hatches exist, named from `APP_NAME`:
