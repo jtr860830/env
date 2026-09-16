@@ -17,8 +17,6 @@
     "/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/share/man"
   ];
 
-  xdg.configFile."codex/.keep".text = "";
-
   home.sessionVariables = {
     LANG = "en_US.UTF-8";
     TERMINFO_DIRS = "${pkgs.ncurses}/share/terminfo";
@@ -39,7 +37,6 @@
     LIMA_HOME = "${config.xdg.dataHome}/lima";
 
     CLAUDE_CONFIG_DIR = "${config.xdg.configHome}/claude";
-    CODEX_HOME = "${config.xdg.configHome}/codex";
     PI_CODING_AGENT_DIR = "${config.xdg.configHome}/pi";
     PI_CODING_AGENT_SESSION_DIR = "${config.xdg.stateHome}/pi/sessions";
     REMEMBER_RUNTIME_DIR = "${config.xdg.stateHome}/remember/run";

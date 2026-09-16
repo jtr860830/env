@@ -1,5 +1,6 @@
 { pkgs, ... }: {
   imports = [
+    ./codex.nix
     ./env.nix
     ./fish.nix
     ./ghostty.nix
@@ -14,6 +15,7 @@
     username = "jtr860830";
     homeDirectory = if pkgs.stdenv.hostPlatform.isDarwin then "/Users/jtr860830" else "/home/jtr860830";
     stateVersion = "24.11";
+    preferXdgDirectories = true;
   };
 
   programs.home-manager.enable = true;
