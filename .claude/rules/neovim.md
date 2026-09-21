@@ -44,6 +44,16 @@ vim.api.nvim_create_autocmd("InsertEnter", { group = hint_group, buffer = bufnr,
 - `vim.fs.root(0, { ".git", ... })` — find project root without shell spawn
 - `an`/`in` in visual and operator-pending are **built-in** treesitter node selection ("select parent/child node"). With a count they reproduce mini.ai's structural textobjects — `dan` deletes an argument, `d3an` a whole function call, at the same depth in lua, python and go. Do not add `mini.ai` on the grounds that vanilla lacks `ia`/`af`.
 
+### Per-Filetype Options
+
+`nvim/after/ftplugin/<filetype>.lua` is the mechanism, not a `FileType` autocmd. Neovim already has `~/.config/nvim/after` on the runtimepath because `~/.config/nvim` is the config root, so the directory only needed linking: `xdg.configFile."nvim/after".source = ../nvim/after;` in `home/neovim.nix`, alongside the `nvim/lua` entry. `after/` rather than plain `ftplugin/` because it runs *after* the bundled ftplugin for that filetype and therefore wins.
+
+Prose filetypes (`markdown`, `text`) turn on `wrap`, `linebreak` and `breakindent` there; code keeps the global `wrap = false` from `options.lua`. `breakindent` is the one that matters — without it a wrapped line's continuation starts at column 0 and the indent structure is lost. Adding another filetype means another file; there is no pattern matching, which is the trade for not having to register an autocmd.
+
+`opt.sidescrolloff = 8` only does anything while `wrap` is off, so it stays meaningful for code and is simply inert in prose buffers.
+
+With `wrap` on, `j`/`k` still move by logical line, so one keypress can cross several screen rows. Deliberately not remapped to `gj`/`gk` — revisit if it grates while writing.
+
 ### Deliberately Absent
 
 Do not "helpfully" re-add these — each was removed after checking:
