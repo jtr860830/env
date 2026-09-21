@@ -1,1 +1,1 @@
-return require "lsp.defaults" {}
+return {}
