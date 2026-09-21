@@ -14,7 +14,7 @@ Custom minimal config managed by `programs.neovim` in `home/neovim.nix`. No Lazy
 
 Uses `vim.lsp.config` + `vim.lsp.enable` — no `require("lspconfig")` needed. nvim-lspconfig provides `lsp/` directory configs read automatically by `vim.lsp.enable`.
 
-LSP servers are managed in two places: binary in `home/packages.nix`, and enabled in `nvim/lua/lsp.lua` → `vim.lsp.enable { ... }`. Both must be updated when adding a new server.
+LSP servers are managed in three places: the binary in `home/packages.nix`, a file in `nvim/lsp/<name>.lua`, and the name in `nvim/lua/lsp.lua` → `vim.lsp.enable { ... }`. All three must be updated when adding a server — `vim.lsp.enable` does not discover the directory, and globbing the runtimepath for `lsp/*.lua` is not an alternative because nvim-lspconfig ships 406 of them.
 
 A server only attaches to the filetypes its `lsp/<name>.lua` claims, so check them against `vim.filetype.add` in `options.lua`. `helm_ls` claims `helm` and `yaml.helm-values` — mapping Helm templates to `gotmpl` silently left them with no LSP. The `helm` parser inherits `gotmpl` and additionally injects `yaml`, so it is the better choice anyway (parse tree becomes `[helm, yaml]`).
 
@@ -25,6 +25,16 @@ vim.lsp.config("*", { capabilities = ... })   -- global config
 vim.lsp.config("lua_ls", { settings = ... })  -- per-server override
 vim.lsp.enable { "gopls", "ts_ls", ... }
 ```
+
+### One File Per Server
+
+Each server gets `nvim/lsp/<name>.lua`, linked by `xdg.configFile."nvim/lsp".source = ../nvim/lsp;`. Configs found there are **deep-merged** with the one nvim-lspconfig ships, not substituted for it — verified: a file setting only `settings.Lua.runtime` still resolves `cmd`, `filetypes` and `root_markers` from lspconfig, and lspconfig's own `settings.Lua` keys survive alongside.
+
+Shared defaults live in `nvim/lua/lspdefaults.lua`, which returns a function so each file reads `return require "lspdefaults" { ... }` — nine of the ten pass `{}`. `require` works inside these files because they are ordinary Lua chunks evaluated at config-resolution time.
+
+That module carries `capabilities` and `on_attach`, which is why `vim.lsp.config("*", ...)` and the old `LspAttach` autocmd are both gone. A server enabled *without* a file in `nvim/lsp/` would therefore get neither — that is the cost of dropping the wildcard, and the reason all ten have a file even when empty.
+
+Verified end to end against a real `lua_ls` attach: the buffer-local `K` mapping is set, inlay hints turn on, and `lua_ls`'s own `settings` survive the merge.
 
 ### LspAttach Patterns
 

@@ -21,6 +21,7 @@
   };
 
   xdg.configFile."nvim/after".source = ../nvim/after;
+  xdg.configFile."nvim/lsp".source = ../nvim/lsp;
   xdg.configFile."nvim/lua".source = ../nvim/lua;
 
   home.sessionVariables = {
