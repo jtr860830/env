@@ -28,37 +28,30 @@ vim.lsp.enable { "gopls", "ts_ls", ... }
 
 ### One File Per Server
 
-A server that needs its own settings gets `nvim/lsp/<name>.lua`, linked by `xdg.configFile."nvim/lsp".source = ../nvim/lsp;`. Configs found there are **deep-merged** with the one nvim-lspconfig ships, not substituted for it — verified: a file setting only `settings.Lua.runtime` still resolves `cmd`, `filetypes` and `root_markers` from lspconfig, and lspconfig's own `settings.Lua` keys survive alongside.
+A server that needs its own settings gets `nvim/lsp/<name>.lua`, linked by `xdg.configFile."nvim/lsp".source = ../nvim/lsp;`. Configs there are **deep-merged** with the one nvim-lspconfig ships — a file setting only `settings.Lua.runtime` still resolves `cmd`, `filetypes` and `root_markers` from lspconfig, and lspconfig's own `settings.Lua` keys survive alongside.
 
-Shared behaviour — `capabilities` and `on_attach` — belongs in `vim.lsp.config("*", …)` in `nvim/lua/lsp.lua`, **not** in a module the per-server files `require`. This is what the wildcard is documented for: "Sets the default configuration for an LSP client (or all clients if the special name `*` is used)", with capabilities as the given example. `on_attach` is a first-class field there (`elem_or_list<fun(client, bufnr)>`), and `:help lsp-attach` treats `Client:on_attach()` and the `LspAttach` autocmd as equal choices.
+Only `lua_ls` has a file. Nine empty `return {}` files were tried and deleted: an empty table adds nothing to the merge, and presence in `nvim/lsp/` is not what activates a server — `vim.lsp.enable` in `lsp.lua` is the only switch.
 
-The wildcard is merge layer 1, so a server whose own config defines `on_attach` could in principle displace it. It does not: `clangd` ships one from lspconfig and still receives the buffer-local `K` mapping. Checked, because that failure would have been silent and confined to one server.
+**`capabilities` goes in `vim.lsp.config("*", …)`; `on_attach` must not.** The merge is `vim.tbl_deep_extend('force', …)` over layers — `'*'`, then `lsp/<name>.lua`, then `after/lsp/<name>.lua`. `capabilities` is a table and deep-merges. `on_attach` is a *function*, so a layer-2 one **replaces** the wildcard outright. In nvim-lspconfig 2.11.0 three of the ten enabled servers ship one — `clangd`, `pyright`, `ts_ls` — for their `LspClangdSwitchSourceHeader`-style commands, and those three silently lost the shared body when it was briefly moved to the wildcard: `K` fell back to Neovim's borderless default and inlay hints never turned on despite `clangd` advertising support.
 
-Only servers that actually need something get a file — right now that is `lua_ls` alone. The other nine were briefly present as `return {}`; they were deleted after confirming `nixd`, `gopls` and `lua_ls` still attach with capabilities and the `K` mapping. An empty file contributes nothing to the merge, so presence in `nvim/lsp/` is not what activates a server — `vim.lsp.enable` in `lsp.lua` is the only switch.
+Shared per-buffer setup therefore lives in an `LspAttach` autocmd, which fires for every client regardless of how configs merged. `after/lsp/<name>.lua` is not an alternative — layer 3 would clobber lspconfig's `on_attach` and lose those commands.
 
-Routing `on_attach` through a required module was tried and is a trap. `vim.lsp.enable` resolves configs *immediately*, via the `__index` metamethod on `vim.lsp.config` — not lazily when a buffer opens — so the module calling `enable` gets re-entered by its own `lsp/<name>.lua` files before it has returned:
+**`vim.lsp.config[name]` is the reliable instrument, and it *does* include the wildcard.** `runtime/lua/vim/lsp.lua:355` resolves it as `tbl_deep_extend('force', _configs['*'], rtp_config, _configs[name])`. An earlier note here claimed the opposite; it was wrong, and it licensed reading a correct signal as noise.
 
+**Never test a change to this config with `set rtp+=`.** It *appends*, so `~/.config/nvim` — the last deployed generation — still wins `require "lsp"`, and every such check silently measures the old code. That is what hid the `on_attach` regression through several rounds of "verification". Use an isolated config instead:
+
+```sh
+mkdir -p /tmp/iso && ln -s ~/.config/env/nvim /tmp/iso/nvim
+env XDG_CONFIG_HOME=/tmp/iso nvim --headless <file> -c '...' -c qa
 ```
-init.lua      require "lsp"
-lua/lsp.lua   vim.lsp.enable { ... }
-vim/lsp.lua   enable -> __index
-lsp/lua_ls.lua  require "lsp"     <- still loading
-E5113: loop or previous error loading module 'lsp'
-```
 
-Deferring with `vim.schedule` clears the error but leaves the startup buffer unattached until a manual `:edit`, and splitting into `lsp` + `lsp.defaults` modules works but exists only to serve that requirement. Neither is needed once the wildcard carries the defaults — measured, not assumed.
+Confirm which file won with `vim.api.nvim_get_runtime_file("lua/lsp.lua", true)` before trusting any result.
 
-**`vim.lsp.config[name]` does not show the wildcard layer.** Reading it back lists only the name-specific merge, so `on_attach` looks absent for most servers even while it runs correctly on attach; `clangd` appears to have one only because lspconfig defines its own. Check by attaching a real client and inspecting the buffer, never by reading that table.
+**`K` alone cannot tell you whether `on_attach` ran.** Neovim 0.12 installs its own buffer-local `K` → `vim.lsp.buf.hover()` on attach, same `lhs`. Compare the mapping's `desc` (this config sets `"Hover"`; the built-in reports `vim.lsp.buf.hover()`), or check `vim.lsp.inlay_hint.is_enabled` against `client:supports_method "textDocument/inlayHint"`.
 
-Nothing about the name `lsp` is special to Neovim: `lua/lsp.lua` is an ordinary module, and the whole runtimepath holds exactly one. Only `lsp/<name>.lua` and `after/lsp/<name>.lua` are directories Neovim scans.
+### LspAttach Patterns
 
-Merge order is fixed by `:help lsp-config-merge`, in increasing priority: the `'*'` config, then all `lsp/<name>.lua` on the runtimepath, then all `after/lsp/<name>.lua`, then anything set elsewhere. `nvim/lsp/` therefore merges *alongside* nvim-lspconfig's copies rather than above them; if one of its values ever needs overriding outright, `nvim/after/lsp/<name>.lua` is the layer that wins.
-
-There is no way to enable a server by dropping the file alone. `:help vim.lsp.enable()` requires a name or list and rejects a wildcard outright, verified: `vim.lsp.enable("*")` errors with `LSP config name cannot contain wildcard`. That is deliberate — nvim-lspconfig puts 406 configs on the runtimepath, so discovery and activation have to stay separate.
-
-### on_attach Patterns
-
-The `on_attach` in `vim.lsp.config("*", …)` runs **once per client**, so a buffer with two clients on it (`helm_ls` alongside `yamlls`, say) runs it twice. When registering buffer-local autocmds there, always use a per-buffer augroup to prevent stacking:
+`LspAttach` fires **once per client**, so a buffer with two clients on it (`helm_ls` alongside `yamlls`, say) runs the callback twice. When registering buffer-local autocmds inside it, always use a per-buffer augroup to prevent stacking:
 
 ```lua
 local hint_group = vim.api.nvim_create_augroup("UserLspInlayHints_" .. bufnr, { clear = true })
@@ -167,7 +160,7 @@ Keymaps are split across files by dependency:
   map("n", "<leader>cf", function() require("conform").format { lsp_format = "fallback" } end, ...)
   ```
 - `fzf.lua` — fzf keymaps (uses top-level `local fzf = require "fzf-lua"`, so must stay with setup)
-- `lsp.lua` — the wildcard `on_attach` registers only `K` (hover with border); all other LSP keymaps use Neovim 0.12 defaults
+- `lsp.lua` `LspAttach` — registers only `K` (hover with border); all other LSP keymaps use Neovim 0.12 defaults
 
 mini.clue group labels are declared in `clues` to show prefix descriptions at the first level:
 - Each mode needs a separate trigger entry — `{ mode, keys }` cannot combine modes in one object

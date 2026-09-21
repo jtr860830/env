@@ -1,7 +1,13 @@
-vim.lsp.config("*", {
-  capabilities = require("blink.cmp").get_lsp_capabilities(),
+vim.lsp.config("*", { capabilities = require("blink.cmp").get_lsp_capabilities() })
 
-  on_attach = function(client, bufnr)
+vim.api.nvim_create_autocmd("LspAttach", {
+  group = vim.api.nvim_create_augroup("UserLspAttach", { clear = true }),
+  callback = function(ev)
+    local client = vim.lsp.get_client_by_id(ev.data.client_id)
+    if not client then return end
+
+    local bufnr = ev.buf
+
     vim.keymap.set(
       "n",
       "K",
