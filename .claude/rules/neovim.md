@@ -30,7 +30,11 @@ vim.lsp.enable { "gopls", "ts_ls", ... }
 
 Each server gets `nvim/lsp/<name>.lua`, linked by `xdg.configFile."nvim/lsp".source = ../nvim/lsp;`. Configs found there are **deep-merged** with the one nvim-lspconfig ships, not substituted for it — verified: a file setting only `settings.Lua.runtime` still resolves `cmd`, `filetypes` and `root_markers` from lspconfig, and lspconfig's own `settings.Lua` keys survive alongside.
 
-Shared behaviour — `capabilities` and `on_attach` — belongs in `vim.lsp.config("*", …)` in `nvim/lua/lsp.lua`, **not** in a module the per-server files `require`. The wildcard is merge layer 1 and reaches every server, so nine of the ten files are `return {}` and only `lua_ls` carries anything. Those nine are inert and could be deleted without changing behaviour; they are kept as a per-server inventory and a place to put settings later.
+Shared behaviour — `capabilities` and `on_attach` — belongs in `vim.lsp.config("*", …)` in `nvim/lua/lsp.lua`, **not** in a module the per-server files `require`. This is what the wildcard is documented for: "Sets the default configuration for an LSP client (or all clients if the special name `*` is used)", with capabilities as the given example. `on_attach` is a first-class field there (`elem_or_list<fun(client, bufnr)>`), and `:help lsp-attach` treats `Client:on_attach()` and the `LspAttach` autocmd as equal choices.
+
+The wildcard is merge layer 1, so a server whose own config defines `on_attach` could in principle displace it. It does not: `clangd` ships one from lspconfig and still receives the buffer-local `K` mapping. Checked, because that failure would have been silent and confined to one server.
+
+Nine of the ten files are `return {}` — inert, deletable without behaviour change, kept as a per-server inventory and a place to put settings later.
 
 Routing `on_attach` through a required module was tried and is a trap. `vim.lsp.enable` resolves configs *immediately*, via the `__index` metamethod on `vim.lsp.config` — not lazily when a buffer opens — so the module calling `enable` gets re-entered by its own `lsp/<name>.lua` files before it has returned:
 
@@ -52,9 +56,9 @@ Merge order is fixed by `:help lsp-config-merge`, in increasing priority: the `'
 
 There is no way to enable a server by dropping the file alone. `:help vim.lsp.enable()` requires a name or list and rejects a wildcard outright, verified: `vim.lsp.enable("*")` errors with `LSP config name cannot contain wildcard`. That is deliberate — nvim-lspconfig puts 406 configs on the runtimepath, so discovery and activation have to stay separate.
 
-### LspAttach Patterns
+### on_attach Patterns
 
-When registering buffer-local autocmds inside `LspAttach`, always use a per-buffer augroup to prevent stacking when multiple LSP clients attach to the same buffer:
+The `on_attach` in `vim.lsp.config("*", …)` runs **once per client**, so a buffer with two clients on it (`helm_ls` alongside `yamlls`, say) runs it twice. When registering buffer-local autocmds there, always use a per-buffer augroup to prevent stacking:
 
 ```lua
 local hint_group = vim.api.nvim_create_augroup("UserLspInlayHints_" .. bufnr, { clear = true })
@@ -69,6 +73,10 @@ vim.api.nvim_create_autocmd("InsertEnter", { group = hint_group, buffer = bufnr,
 - `vim.treesitter.start()` via FileType autocmd — nvim-treesitter 0.10+ removed configs module
 - `vim.fs.root(0, { ".git", ... })` — find project root without shell spawn
 - `an`/`in` in visual and operator-pending are **built-in** treesitter node selection ("select parent/child node"). With a count they reproduce mini.ai's structural textobjects — `dan` deletes an argument, `d3an` a whole function call, at the same depth in lua, python and go. Do not add `mini.ai` on the grounds that vanilla lacks `ia`/`af`.
+
+### Diagnostics Are Not LSP
+
+`vim.diagnostic` display config lives in `nvim/lua/diagnostics.lua`, not in `lsp.lua`. LSP is one producer of diagnostics, not the owner of how they are drawn — it only looked that way because no linter is installed here. The other `vim.diagnostic` uses are correctly placed: `[d` / `]d` / `<leader>cd` in `keymaps.lua`, severity counts in the statusline in `plugins.lua`.
 
 ### Per-Filetype Options
 
@@ -159,7 +167,7 @@ Keymaps are split across files by dependency:
   map("n", "<leader>cf", function() require("conform").format { lsp_format = "fallback" } end, ...)
   ```
 - `fzf.lua` — fzf keymaps (uses top-level `local fzf = require "fzf-lua"`, so must stay with setup)
-- `lsp.lua` LspAttach — only registers `K` (hover with border); all other LSP keymaps use Neovim 0.12 defaults
+- `lsp.lua` — the wildcard `on_attach` registers only `K` (hover with border); all other LSP keymaps use Neovim 0.12 defaults
 
 mini.clue group labels are declared in `clues` to show prefix descriptions at the first level:
 - Each mode needs a separate trigger entry — `{ mode, keys }` cannot combine modes in one object
