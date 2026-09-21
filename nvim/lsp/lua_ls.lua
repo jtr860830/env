@@ -1,4 +1,4 @@
-return require "lspdefaults" {
+return require "lsp.defaults" {
   settings = {
     Lua = {
       runtime = { version = "LuaJIT" },
