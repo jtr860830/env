@@ -56,6 +56,7 @@
       podman
       prettierd
       procs
+      pyright
       python3
       qemu
       rip2

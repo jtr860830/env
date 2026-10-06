@@ -32,7 +32,7 @@ darwin-rebuild switch --flake ~/.config/env
 
 `programs.<x>.enable = true` installs the package itself — **never also list it in `home/packages.nix`**. `home.path` uses `pkgs.buildEnv` without `ignoreCollisions`, and some modules install a wrapped derivation rather than the plain package, so a duplicate can become a hard build failure if the two ever diverge.
 
-Currently enabled: `fish` `git` `neovim` `ssh` `tmux` `zoxide`.
+Currently enabled: `claude-code` `codex` `fish` `git` `go` `man` `neovim` `npm` `ssh` `tmux` `zoxide`. Check this list before adding anything to `home/packages.nix` — `grep -h 'programs\.' home/*.nix` shows the live set.
 
 `bat` and `delta` were removed. Neither had another consumer — the man pager is `nvim +Man!`, fzf-lua uses its own builtin previewer, and delta bundles its own syntect so it never needed bat installed. Reading a file with syntax highlighting is something Neovim does better, and for diffs it has twelve fzf-lua git pickers plus `mini.diff`.
 
@@ -258,7 +258,7 @@ Both follow the same shape as `## Codex`: a `programs.<x>` module replaces a `ho
 
 Managed by `programs.codex` in `home/codex.nix`, not by an entry in `home/packages.nix` — the module installs `pkgs.codex` itself (`packages = mkIf (cfg.package != null) [ cfg.package ]`), so listing it in both would violate the rule above.
 
-The module derives its paths from `home.preferXdgDirectories` (set in `home/default.nix`), not from `stateVersion`: `useXdgDirectories = config.home.preferXdgDirectories && isTomlConfig`, where `isTomlConfig` means the package is at least Codex 0.2.0 — nixpkgs ships 0.154.0, so it holds. With that flag on, the module writes `CODEX_HOME = ${config.xdg.configHome}/codex` itself, which is why `home/env.nix` no longer declares it. Of the nine modules that read `preferXdgDirectories` — `atuin` `dircolors` `github-copilot-cli` `kubecolor` `lazygit` `npm` `readline` `gtk2` `codex` — only `codex` is enabled here, so the flag has no other effect.
+The module derives its paths from `home.preferXdgDirectories` (set in `home/default.nix`), not from `stateVersion`: `useXdgDirectories = config.home.preferXdgDirectories && isTomlConfig`, where `isTomlConfig` means the package is at least Codex 0.2.0 — nixpkgs is far past that, so it holds. With that flag on, the module writes `CODEX_HOME = ${config.xdg.configHome}/codex` itself, which is why `home/env.nix` no longer declares it. Of the nine modules that read `preferXdgDirectories` — `atuin` `dircolors` `github-copilot-cli` `kubecolor` `lazygit` `npm` `readline` `gtk2` `codex` — only `codex` is enabled here, so the flag has no other effect.
 
 `xdg.configFile."codex/.keep"` stays. **Codex still refuses to create `CODEX_HOME`** — verified against 0.154.0, which prints `CODEX_HOME points to …, but that path does not exist` and then degrades rather than failing outright (`codex doctor` reports `config could not be loaded` and `CODEX_HOME could not be resolved`). The module has no activation step that would create the directory; its only `mkdir` calls are inside build-time derivations. A file entry under `configDir` would create it as a side effect, but the only candidate is `config.toml`, and that is written only when `programs.codex.settings != { }`.
 
