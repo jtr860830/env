@@ -1,6 +1,6 @@
-# CLAUDE.md
+# AGENTS.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides guidance to coding agents — Claude Code and Codex — working in this repository.
 
 ## Repository Overview
 
@@ -8,7 +8,7 @@ Personal system configuration repository for macOS (ARM). Managed entirely with 
 
 ## House Style
 
-**No comments in config files.** Single-user repo — the reasoning lives here in CLAUDE.md instead, where it does not have to be maintained alongside the code. Do not add explanatory comments back when editing; put the finding in this file.
+**No comments in config files.** Single-user repo — the reasoning lives here in AGENTS.md instead, where it does not have to be maintained alongside the code. Do not add explanatory comments back when editing; put the finding in this file.
 
 `home/default.nix`'s `imports` is alphabetical for the same reason, and the ordering is free: reordering it leaves the system derivation hash byte-identical, because the module system merges options regardless of import order. It had drifted into accretion order — each module appended as it was written — which is how a list stops being scannable.
 
@@ -150,6 +150,16 @@ Fully migrated to podman. `podman machine` manages the Linux VM — no colima/Do
 ## Theme
 
 All colour and appearance work — the sourcing ladder, which contrast instrument applies to which comparison, the light/dark switching mechanism, onedarkpro's limits and traps, and Alfred's theme design — lives in the `theme` skill (`.claude/skills/theme/SKILL.md`). Load it before changing any colour; every value there was measured and should not be re-derived.
+
+## AGENTS.md, Not CLAUDE.md
+
+This file is `AGENTS.md` so that Claude Code and Codex both read it. Claude Code ships an `instructionFiles` setting whose default, `claude-md-or-agents-md`, loads a project's `AGENTS.md` exactly where `CLAUDE.md` would go — **but only when there is no `CLAUDE.md`**. Verified with a canary string in a scratch repo: `AGENTS.md` alone is read; add any `CLAUDE.md` beside it and the `AGENTS.md` is silently ignored.
+
+So **never let a `CLAUDE.md` appear at the repo root**. `/init`, `/revise-claude-md` from the `claude-md-management` plugin, and the `#` memory shortcut all write `CLAUDE.md` by name, and any one of them would shadow this whole file with no warning. Set `instructionFiles` to `claude-md-and-agents-md` in Claude Code's settings if that ever needs guarding against; it is not set today.
+
+Scope is project-only on purpose. At user scope Claude Code reads only `CLAUDE.md` — its built-in Codex importer copies Codex's `AGENTS.md` *into* Claude's user `CLAUDE.md`, which it would not need to do otherwise — so `claude/CLAUDE.md` keeps its name. It is also written in Claude's first person ("execution goes to Codex"), which would read backwards to Codex; sharing it would need a split into a neutral common part and a Claude-only part first.
+
+The `.claude/rules/` and `.claude/skills/` material below is loaded automatically by Claude Code only. Codex does not see it unless it opens those files, so read the relevant one before touching Neovim, tmux, fish or anything colour-related.
 
 ## Path-Scoped Rules
 

@@ -37,7 +37,7 @@ print({k:v for k,v in d.items() if len(v)>1} or 'no collisions')"
 
 Type-first also matches both references that were actually checked: macOS's `/etc/paths`, and Fedora's `setup` package, whose non-root branch appends `/usr/local/sbin` then `/usr/sbin` after the bin entries (`pathmunge … after`) — only its root branch is locality-first, because admin tools should win there. Debian keeps its defaults in `/etc/login.defs` (`ENV_PATH` / `ENV_SUPATH`) and the wiki does not publish the strings, so it was left unverified rather than cited. The locality-first argument — that `/usr/local` exists precisely to override, so it should come first as a block — is sound in the abstract; it just has no effect here and no verified distro backing it for normal users.
 
-Ordering *does* matter in the leading entries, where the nix profiles shadow `/usr/bin` — see `## Shadowing macOS System Binaries` in `CLAUDE.md`.
+Ordering *does* matter in the leading entries, where the nix profiles shadow `/usr/bin` — see `## Shadowing macOS System Binaries` in `AGENTS.md`.
 
 
 ## Fish Color Variables
