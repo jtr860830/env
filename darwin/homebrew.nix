@@ -19,6 +19,7 @@ in
       "1password"
       "alfred"
       "burp-suite"
+      "cloudflare-warp"
       "dash"
       "discord"
       "drawio"
