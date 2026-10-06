@@ -6,18 +6,42 @@ Applies to every project. Kept deliberately short — this loads in full at the 
 
 When the conversation is in Chinese, write **Traditional Chinese as used in Taiwan** — Taiwanese vocabulary and phrasing, not mainland Chinese terms. Traditional characters alone are not enough; the word choice has to be Taiwanese too.
 
-The pairs that come up most in this work, Taiwan first:
+The pairs that come up most in this work:
 
-| | | | |
-|---|---|---|---|
-| 程式 ✓ 程序 ✗ | 軟體 ✓ 軟件 ✗ | 硬體 ✓ 硬件 ✗ | 網路 ✓ 網絡 ✗ |
-| 檔案 ✓ 文件 ✗ | 資料夾 ✓ 文件夾 ✗ | 資料 ✓ 數據 ✗ | 設定 ✓ 配置 ✗ |
-| 預設 ✓ 默認 ✗ | 專案 ✓ 項目 ✗ | 指令 ✓ 命令 ✗ | 執行 ✓ 運行 ✗ |
-| 伺服器 ✓ 服務器 ✗ | 介面 ✓ 接口 ✗ | 記憶體 ✓ 內存 ✗ | 快取 ✓ 緩存 ✗ |
-| 變數 ✓ 變量 ✗ | 函式 ✓ 函數 ✗ | 物件 ✓ 對象 ✗ | 字串 ✓ 字符串 ✗ |
-| 陣列 ✓ 數組 ✗ | 迴圈 ✓ 循環 ✗ | 例外 ✓ 異常 ✗ | 除錯 ✓ 調試 ✗ |
-| 支援 ✓ 支持 ✗ | 相容 ✓ 兼容 ✗ | 搜尋 ✓ 搜索 ✗ | 登入 ✓ 登錄 ✗ |
-| 終端機 ✓ 終端 ✗ | 映像檔 ✓ 鏡像 ✗ | 叢集 ✓ 集群 ✗ | 佇列 ✓ 隊列 ✗ |
+| English | Use (Taiwan) | Avoid (mainland) |
+|---|---|---|
+| program | 程式 | 程序 |
+| software | 軟體 | 軟件 |
+| hardware | 硬體 | 硬件 |
+| network | 網路 | 網絡 |
+| file | 檔案 | 文件 |
+| folder | 資料夾 | 文件夾 |
+| data | 資料 | 數據 |
+| settings, configuration | 設定 | 配置 |
+| default | 預設 | 默認 |
+| project | 專案 | 項目 |
+| command | 指令 | 命令 |
+| run, execute | 執行 | 運行 |
+| server | 伺服器 | 服務器 |
+| interface | 介面 | 接口 |
+| memory (RAM) | 記憶體 | 內存 |
+| cache | 快取 | 緩存 |
+| variable | 變數 | 變量 |
+| function | 函式 | 函數 |
+| object | 物件 | 對象 |
+| string | 字串 | 字符串 |
+| array | 陣列 | 數組 |
+| loop | 迴圈 | 循環 |
+| exception | 例外 | 異常 |
+| debug | 除錯 | 調試 |
+| support | 支援 | 支持 |
+| compatible | 相容 | 兼容 |
+| search | 搜尋 | 搜索 |
+| log in | 登入 | 登錄 |
+| terminal | 終端機 | 終端 |
+| image (container, disk) | 映像檔 | 鏡像 |
+| cluster | 叢集 | 集群 |
+| queue | 佇列 | 隊列 |
 
 Technical terms with no settled Taiwanese translation stay in English — `commit`, `merge`, `symlink`, `hook`, `cache` in the sense of a specific system's cache — rather than being forced into a translation nobody says.
 
@@ -44,7 +68,7 @@ Low effort or `spark` for mechanical work, higher for design-sensitive work — 
 
 The companion script has no rate-limit handling, so a quota failure surfaces as a plain task error. Treat that as the signal to finish with a Claude model — subagent or directly, picking by the same work-type logic — and **say the fallback happened**. Never absorb it silently.
 
-### Routing — "盡量", not "always"
+### Routing — "as much as possible", not "always"
 
 Every handoff re-briefs the full context, so delegation is not free.
 
