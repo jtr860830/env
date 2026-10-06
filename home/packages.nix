@@ -4,6 +4,7 @@
     [
       _1password-cli
       atac
+      basedpyright
       bash-language-server
       bear
       bottom
@@ -55,7 +56,6 @@
       podman
       prettierd
       procs
-      pyright
       python3
       qemu
       rip2

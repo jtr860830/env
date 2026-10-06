@@ -35,7 +35,7 @@ vim.api.nvim_create_autocmd("LspAttach", {
 vim.lsp.enable {
   "gopls",
   "clangd",
-  "pyright",
+  "basedpyright",
   "ts_ls",
   "bashls",
   "yamlls",

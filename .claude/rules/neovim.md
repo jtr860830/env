@@ -49,6 +49,14 @@ Confirm which file won with `vim.api.nvim_get_runtime_file("lua/lsp.lua", true)`
 
 **`K` alone cannot tell you whether `on_attach` ran.** Neovim 0.12 installs its own buffer-local `K` → `vim.lsp.buf.hover()` on attach, same `lhs`. Compare the mapping's `desc` (this config sets `"Hover"`; the built-in reports `vim.lsp.buf.hover()`), or check `vim.lsp.inlay_hint.is_enabled` against `client:supports_method "textDocument/inlayHint"`.
 
+### Python Server
+
+`basedpyright`, not `pyright`. It is a fork on the same type-checking engine, so diagnostics are unchanged, but it advertises `textDocument/inlayHint` and `semanticTokens/full`, neither of which `pyright` 1.1.414 does — so the `LspAttach` inlay-hint logic now actually fires for Python. Compared by attaching each candidate to the same file: `basedpyright` 1.39.8, `pyrefly` 1.3.1, `ty` 0.0.84 and `zuban` 0.9.1 all support both and all caught the planted type error. `pyrefly` is the mature Rust option if speed on a large codebase ever matters; `ty` (Astral) was still pre-1.0.
+
+lspconfig's `basedpyright` ships its own `on_attach`, the same shape that broke `pyright` when shared setup sat in the wildcard. Under `LspAttach` both survive: the buffer gets this config's `K` and inlay hints *and* lspconfig's `LspPyrightOrganizeImports` / `LspPyrightSetPythonPath`.
+
+Semantic tokens layer `@lsp.type.*` groups over treesitter highlighting, so Python colours may shift; check against the `theme` skill before assuming the palette still holds.
+
 ### LspAttach Patterns
 
 `LspAttach` fires **once per client**, so a buffer with two clients on it (`helm_ls` alongside `yamlls`, say) runs the callback twice. When registering buffer-local autocmds inside it, always use a per-buffer augroup to prevent stacking:
