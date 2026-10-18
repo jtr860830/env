@@ -52,7 +52,6 @@ Git's own diff is also the *better* choice under a switching theme: it emits not
 
 ## Known nixpkgs Packaging Issues
 
-- `kubernetes-helm` (4.2.0): build fails with `substitute(): ERROR: file '...dependency_build_test.go' does not exist` — workaround: `(kubernetes-helm.overrideAttrs { doCheck = false; })`
 - `container` (Darwin): nixpkgs does not symlink `libexec/` into the nix profile — `container-apiserver` fails with `cannot find any plugins with type network`. Package is kept but non-functional until upstream fixes the packaging.
 
 ## Waiting on Upstream
