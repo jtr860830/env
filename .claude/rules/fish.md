@@ -14,7 +14,7 @@ It lives in `conf.d/` rather than `config.fish` because conf.d is sourced first,
 | `/opt/homebrew/bin`, `/opt/homebrew/sbin` | the brewfile |
 | `/usr/local/bin`, `/usr/local/sbin`, `/usr/bin`, `/usr/sbin`, `/bin`, `/sbin` | the system, locality-first |
 
-**Pending a decision:** gnubin directories (`make`, `gnu-sed`, `inetutils`) and keg-only `bin` directories (`curl`, `openjdk`, `llvm`, `rustup`) are not in `PATH`. Until they are, `sed`/`make`/`ping`/`curl`/`clangd` resolve to Apple's versions, `java` is Apple's stub, and `rustup`/`rustc`/`cargo` are absent. When rustup is wired up, use the brew keg's `bin`: `rustup-init` would put its proxies in `$CARGO_HOME/bin`, which is no longer in `PATH`.
+**Keg-only formulae are linked (`link: true` in the brewfile), not added to `PATH`** — `rustup` is, so `cargo`/`rustc` resolve from `/opt/homebrew/bin`. **Pending a decision:** gnubin directories (`make`, `gnu-sed`, `inetutils`) and the keg-only `curl`, `openjdk` and `llvm`. Until then `sed`/`make`/`ping`/`curl`/`clangd` resolve to Apple's versions and `java` is Apple's stub.
 
 `man` needs no `MANPATH`: macOS's `/usr/bin/man` derives its search path from `PATH` and still reaches sections 2 and 3 in the Command Line Tools SDK — verified with `man -w 2 open`, `man -w rg` and `man -w ls`.
 

@@ -67,7 +67,7 @@ brew "rip2"
 brew "ripgrep"
 brew "ripgrep-all"
 brew "ruff"
-brew "rustup"
+brew "rustup", link: true
 brew "shfmt"
 brew "skopeo"
 brew "stow"
