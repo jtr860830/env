@@ -37,7 +37,7 @@ etc:
 
 check:
     brew bundle check --file brewfile
-    scripts/check-store-refs.sh
+    ! grep -rlF "{{justfile_directory()}}" stow/
     stow --no-folding -n -d stow -t ~ {{packages}}
 
 clean:

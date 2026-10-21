@@ -4,7 +4,7 @@ This file provides guidance to coding agents — Claude Code and Codex — worki
 
 ## Repository Overview
 
-Personal configuration for one Mac (Apple Silicon). Dotfiles live under `stow/` and are linked into `$HOME` with GNU stow; packages are declared in `brewfile` and installed with `brew bundle`; `justfile` holds every operation. The repo usually sits at `~/.config/env` but **can live in any directory** — nothing references its absolute path, and `scripts/check-store-refs.sh` (run by `just check`) fails if a file under `stow/` points into `/nix/store`, `/etc/profiles` or `/run/current-system`.
+Personal configuration for one Mac (Apple Silicon). Dotfiles live under `stow/` and are linked into `$HOME` with GNU stow; packages are declared in `brewfile` and installed with `brew bundle`; `justfile` holds every operation. The repo usually sits at `~/.config/env` but **can live in any directory** — nothing references its absolute path, and `just check` fails if a file under `stow/` contains the repo's own path.
 
 **Why this and not nix (decided 2026-10-21).** The requirements are: configuration reproducible and at standard (XDG) paths; packages reinstallable from one declared list at their **latest** version, with no pinning; one Mac, no cross-OS need. nix-darwin + home-manager met the first and fought the second — a `flake.lock` commit almost every day (34 of 51 commits in the month before), and Darwin packaging breakage in nixpkgs (`bear` 4.2.3's install phase hardcoded `libexec.so`; `container` never worked). With cross-OS sharing dropped, nothing nix did was out of reach of plain files. The nix setup is in git history up to the merge of `stow-migration`.
 
@@ -27,7 +27,7 @@ Edits under `stow/` are live immediately — `~` holds symlinks into the repo. R
 | `just install` / `just update` | `brew bundle install` / with `--upgrade`, then `just plugins` |
 | `just plugins` | `fisher update`, `vim.pack.update`, nvim-treesitter's `update()` for parsers already installed, then a headless nvim run that installs missing ones |
 | `just etc` | writes the three `/etc` files below and sets the login shell (sudo) |
-| `just check` | `brew bundle check`, `scripts/check-store-refs.sh`, `stow -n` dry run |
+| `just check` | `brew bundle check`, a grep of `stow/` for the repo's absolute path, `stow -n` dry run |
 | `just clean` | `brew bundle cleanup --force` — removes anything not in `brewfile` |
 | `just setup` | `install` + `etc` + `link` + `plugins` |
 
