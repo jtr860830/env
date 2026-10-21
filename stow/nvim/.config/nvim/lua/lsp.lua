@@ -41,6 +41,5 @@ vim.lsp.enable {
   "yamlls",
   "taplo",
   "lua_ls",
-  "nixd",
   "helm_ls",
 }

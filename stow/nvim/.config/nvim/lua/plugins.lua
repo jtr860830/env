@@ -147,6 +147,5 @@ require("conform").setup {
     yaml = { "prettierd" },
     toml = { "taplo" },
     lua = { "stylua" },
-    nix = { "nixfmt" },
   },
 }
