@@ -1,0 +1,57 @@
+[alias]
+	lg = "log --color --graph --all --pretty=tformat:'%Cred%h%Creset -%C(yellow)%d%Creset %s %Cgreen(%cr) %C(bold blue)<%an>%Creset' --abbrev-commit"
+
+[branch]
+	sort = "-committerdate"
+
+[commit]
+	gpgSign = true
+	verbose = true
+
+[core]
+	editor = "nvim"
+
+[diff]
+	algorithm = "histogram"
+	colorMoved = "zebra"
+	colorMovedWS = "allow-indentation-change"
+	mnemonicPrefix = true
+
+[fetch]
+	prune = true
+
+[gpg]
+	format = "ssh"
+
+[gpg "ssh"]
+	allowedSignersFile = "/Users/jtr860830/.config/git/allowed_signers"
+	program = "/Applications/1Password.app/Contents/MacOS/op-ssh-sign"
+
+[init]
+	defaultBranch = "main"
+
+[merge]
+	conflictstyle = "zdiff3"
+
+[pull]
+	rebase = true
+
+[push]
+	autoSetupRemote = true
+
+[rebase]
+	autosquash = true
+	autostash = true
+	updateRefs = true
+
+[rerere]
+	enabled = true
+
+[tag]
+	gpgSign = true
+	sort = "version:refname"
+
+[user]
+	email = "josh.hsieh@linux.com"
+	name = "Josh Hsieh"
+	signingKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMeXnA4jq76uzsTYRaIjeXkKM0pk5ARHLrzRbYeczax/"
