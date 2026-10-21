@@ -1,4 +1,4 @@
 tmux/.config/tmux/plugins/*
 zsh/**/*.zwc
 .claude/settings.local.json
-stow/nvim/.config/nvim/nvim-pack-lock.json
+config/nvim/.config/nvim/nvim-pack-lock.json

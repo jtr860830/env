@@ -4,7 +4,7 @@ This file provides guidance to coding agents — Claude Code and Codex — worki
 
 ## Repository Overview
 
-Personal configuration for one Mac (Apple Silicon). Dotfiles live under `stow/` and are linked into `$HOME` with GNU stow; packages are declared in `brewfile` and installed with `brew bundle`; `justfile` holds every operation. The repo usually sits at `~/.config/env` but **can live in any directory** — nothing references its absolute path, and `just check` fails if a file under `stow/` contains the repo's own path.
+Personal configuration for one Mac (Apple Silicon). Dotfiles live under `config/` and are linked into `$HOME` with GNU stow; packages are declared in `brewfile` and installed with `brew bundle`; `justfile` holds every operation. The repo usually sits at `~/.config/env` but **can live in any directory** — nothing references its absolute path, and `just check` fails if a file under `config/` contains the repo's own path.
 
 **Why this and not nix (decided 2026-10-21).** The requirements are: configuration reproducible and at standard (XDG) paths; packages reinstallable from one declared list at their **latest** version, with no pinning; one Mac, no cross-OS need. nix-darwin + home-manager met the first and fought the second — a `flake.lock` commit almost every day (34 of 51 commits in the month before), and Darwin packaging breakage in nixpkgs (`bear` 4.2.3's install phase hardcoded `libexec.so`; `container` never worked). With cross-OS sharing dropped, nothing nix did was out of reach of plain files. The nix setup is in git history up to the merge of `stow-migration`.
 
@@ -18,16 +18,16 @@ The file is lowercase `brewfile`. Homebrew only auto-discovers `Brewfile`, so ev
 
 ## Applying Changes
 
-Edits under `stow/` are live immediately — `~` holds symlinks into the repo. Run a recipe only when the set of files or packages changes:
+Edits under `config/` are live immediately — `~` holds symlinks into the repo. Run a recipe only when the set of files or packages changes:
 
 | recipe | does |
 |---|---|
-| `just link` | `stow --no-folding` every package — after adding a file under `stow/` |
-| `just relink` | removes dangling links at exactly the paths `stow/` owns, then `link` — after moving the repo |
+| `just link` | `stow --no-folding` every package — after adding a file under `config/` |
+| `just relink` | removes dangling links at exactly the paths `config/` owns, then `link` — after moving the repo |
 | `just install` / `just update` | `brew bundle install` / with `--upgrade`, then `just plugins` |
 | `just plugins` | `fisher update`, `vim.pack.update`, nvim-treesitter's `update()` for parsers already installed, then a headless nvim run that installs missing ones |
 | `just etc` | writes the three `/etc` files below and sets the login shell (sudo) |
-| `just check` | `brew bundle check`, a grep of `stow/` for the repo's absolute path, `stow -n` dry run |
+| `just check` | `brew bundle check`, a grep of `config/` for the repo's absolute path, `stow -n` dry run |
 | `just clean` | `brew bundle cleanup --force` — removes anything not in `brewfile` |
 | `just setup` | `install` + `etc` + `link` + `plugins` |
 
@@ -47,7 +47,7 @@ A new machine runs `./bootstrap.sh`: it installs Homebrew and `just` — exporti
 
 ## PATH and System Binaries
 
-`stow/fish/.config/fish/conf.d/env.fish` sets the whole `PATH`: `~/.local/bin`, `/opt/homebrew/bin` and `sbin`, then `/usr/local/bin /usr/local/sbin /usr/bin /usr/sbin /bin /sbin`. `path_helper` is deliberately not used. The reasoning, the collision check and the ordering argument are in `.claude/rules/fish.md`.
+`config/fish/.config/fish/conf.d/env.fish` sets the whole `PATH`: `~/.local/bin`, `/opt/homebrew/bin` and `sbin`, then `/usr/local/bin /usr/local/sbin /usr/bin /usr/sbin /bin /sbin`. `path_helper` is deliberately not used. The reasoning, the collision check and the ordering argument are in `.claude/rules/fish.md`.
 
 **`~/.local/bin` is the one directory for user-installed binaries** — it is `XDG_BIN_HOME`, uv puts its tools there, `GOBIN` points there, and `CARGO_INSTALL_ROOT=$HOME/.local` makes `cargo install` write `~/.local/bin`. The costs are accepted: cargo keeps its install records (`.crates.toml`, `.crates2.json`) in the root, i.e. `~/.local/`, and same-named binaries overwrite one another (`go install` silently; cargo and uv refuse without `--force`). Before this, `~/.local/share/cargo/bin` held old `fd` and `rg` that shadowed the brewfile's — they were removed, along with an unused `rustlings`. `CARGO_HOME` (registry, caches) stays at `~/.local/share/cargo`.
 
@@ -128,9 +128,9 @@ All colour and appearance work — the sourcing ladder, which contrast instrumen
 
 This file is `AGENTS.md` so that Claude Code and Codex both read it. Claude Code ships an `instructionFiles` setting whose default, `claude-md-or-agents-md`, loads a project's `AGENTS.md` exactly where `CLAUDE.md` would go — **but only when there is no `CLAUDE.md`**. Verified with a canary string in a scratch repo: `AGENTS.md` alone is read; add any `CLAUDE.md` beside it and the `AGENTS.md` is silently ignored.
 
-So **never let a `CLAUDE.md` appear at the repo root**. `/init`, `/revise-claude-md` from the `claude-md-management` plugin, and the `#` memory shortcut all write `CLAUDE.md` by name, and any one of them would shadow this whole file with no warning. That is guarded against: `~/.config/claude/settings.json` sets `pluginConfigs["cc-plugin-agents-md@builtin"].options.instructionFiles` to `claude-md-and-agents-md`, so a stray `CLAUDE.md` now loads *beside* this file instead of replacing it — verified with two canaries, one per file, both answered. `instructionFiles` is not a top-level settings key: it is the `USER_CONFIG` of a built-in plugin, `cc-plugin-agents-md`, gated by the `tengu_agents_md_mod` flag, and built-in plugin options live under `pluginConfigs.<id>@builtin.options`. That settings file is Claude Code's own and deliberately not in `stow/` (see `## Claude Code and Codex`), so this value lives outside the repo and is listed under `## Manual Setup`.
+So **never let a `CLAUDE.md` appear at the repo root**. `/init`, `/revise-claude-md` from the `claude-md-management` plugin, and the `#` memory shortcut all write `CLAUDE.md` by name, and any one of them would shadow this whole file with no warning. That is guarded against: `~/.config/claude/settings.json` sets `pluginConfigs["cc-plugin-agents-md@builtin"].options.instructionFiles` to `claude-md-and-agents-md`, so a stray `CLAUDE.md` now loads *beside* this file instead of replacing it — verified with two canaries, one per file, both answered. `instructionFiles` is not a top-level settings key: it is the `USER_CONFIG` of a built-in plugin, `cc-plugin-agents-md`, gated by the `tengu_agents_md_mod` flag, and built-in plugin options live under `pluginConfigs.<id>@builtin.options`. That settings file is Claude Code's own and deliberately not in `config/` (see `## Claude Code and Codex`), so this value lives outside the repo and is listed under `## Manual Setup`.
 
-Scope is project-only on purpose. At user scope Claude Code reads only `CLAUDE.md` — its built-in Codex importer copies Codex's `AGENTS.md` *into* Claude's user `CLAUDE.md`, which it would not need to do otherwise — so `stow/claude/.config/claude/CLAUDE.md` keeps its name. It is also written in Claude's first person ("execution goes to Codex"), which would read backwards to Codex; sharing it would need a split into a neutral common part and a Claude-only part first.
+Scope is project-only on purpose. At user scope Claude Code reads only `CLAUDE.md` — its built-in Codex importer copies Codex's `AGENTS.md` *into* Claude's user `CLAUDE.md`, which it would not need to do otherwise — so `config/claude/.config/claude/CLAUDE.md` keeps its name. It is also written in Claude's first person ("execution goes to Codex"), which would read backwards to Codex; sharing it would need a split into a neutral common part and a Claude-only part first.
 
 The `.claude/rules/` and `.claude/skills/` material below is loaded automatically by Claude Code only. Codex does not see it unless it opens those files, so read the relevant one before touching Neovim, tmux, fish or anything colour-related.
 
@@ -140,9 +140,9 @@ Three bodies of guidance were moved out of this file into `.claude/rules/`, wher
 
 | File | Loads when editing | Covers |
 |------|--------------------|--------|
-| `.claude/rules/neovim.md` | `stow/nvim/**` | plugins via `vim.pack`, the 0.11+/0.12 LSP API, LspAttach patterns, mini.nvim's per-module `setup()` traps, nerd font icons and the `nr2char` requirement, keymap organisation, formatters, snacks, sign column, fzf-lua colours, startup timings, and what is deliberately absent |
-| `.claude/rules/tmux.md` | `stow/tmux/**` | the style/format quirks, `message-style` needing `fill=`, extended-keys negotiation, duplicate options, and tmux 3.8's changed default styles |
-| `.claude/rules/fish.md` | `stow/fish/**` | why `PATH` is written outright in `conf.d/env.fish`, the ordering table and collision check, the pending gnubin/keg-only decision, the conf.d layout and why `theme.fish` must sort after `pure.fish`, and the valid `fish_color_*`/`pure_color_*`/`EZA_COLORS` names |
+| `.claude/rules/neovim.md` | `config/nvim/**` | plugins via `vim.pack`, the 0.11+/0.12 LSP API, LspAttach patterns, mini.nvim's per-module `setup()` traps, nerd font icons and the `nr2char` requirement, keymap organisation, formatters, snacks, sign column, fzf-lua colours, startup timings, and what is deliberately absent |
+| `.claude/rules/tmux.md` | `config/tmux/**` | the style/format quirks, `message-style` needing `fill=`, extended-keys negotiation, duplicate options, and tmux 3.8's changed default styles |
+| `.claude/rules/fish.md` | `config/fish/**` | why `PATH` is written outright in `conf.d/env.fish`, the ordering table and collision check, the pending gnubin/keg-only decision, the conf.d layout and why `theme.fish` must sort after `pure.fish`, and the valid `fish_color_*`/`pure_color_*`/`EZA_COLORS` names |
 
 Same reasoning as the `theme` skill above: measured values that are expensive to re-derive but irrelevant most of the time. Prefer this mechanism over adding another always-loaded section when new guidance is tied to one file.
 
@@ -181,11 +181,11 @@ The split is deliberate: the cap has to span projects, or `cd`-ing elsewhere wou
 
 Both come from casks (`claude-code`, `codex`). `CLAUDE_CONFIG_DIR=~/.config/claude` and `CODEX_HOME=~/.config/codex` are set in `conf.d/env.fish`.
 
-The user-scope instruction file — loaded in every project, unlike this one — is `stow/claude/.config/claude/CLAUDE.md`, stowed to `~/.config/claude/CLAUDE.md`. It is a writable link into the repo now, so `#` (quick memory add) and `/memory` edit the repo file directly; under home-manager it was a read-only store path. The repo is public, so that file's contents are too.
+The user-scope instruction file — loaded in every project, unlike this one — is `config/claude/.config/claude/CLAUDE.md`, stowed to `~/.config/claude/CLAUDE.md`. It is a writable link into the repo now, so `#` (quick memory add) and `/memory` edit the repo file directly; under home-manager it was a read-only store path. The repo is public, so that file's contents are too.
 
 **Only that one file is stowed, deliberately.** `~/.config/claude/settings.json` and `~/.config/codex/config.toml` are written by the tools themselves — `/plugin`, `enabledPlugins`, usage counters, `codex mcp`, `codex plugin` — so they stay ordinary local files.
 
-**Codex refuses to create `CODEX_HOME`** — verified against 0.154.0, which prints `CODEX_HOME points to …, but that path does not exist` and degrades (`codex doctor`: `config could not be loaded`). `stow/codex/.config/codex/.keep` exists so `just link` creates the directory. Codex is installed so that openai/codex-plugin-cc finds a binary instead of offering `npm install -g @openai/codex`; auth is Codex's own (`codex login`).
+**Codex refuses to create `CODEX_HOME`** — verified against 0.154.0, which prints `CODEX_HOME points to …, but that path does not exist` and degrades (`codex doctor`: `config could not be loaded`). `config/codex/.config/codex/.keep` exists so `just link` creates the directory. Codex is installed so that openai/codex-plugin-cc finds a binary instead of offering `npm install -g @openai/codex`; auth is Codex's own (`codex login`).
 
 npm reads `NPM_CONFIG_USERCONFIG=~/.config/npm/npmrc` (stowed), with `NODE_REPL_HISTORY` and `COREPACK_HOME` beside it in `env.fish`.
 

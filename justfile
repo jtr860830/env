@@ -21,10 +21,10 @@ plugins:
     nvim --headless +qa
 
 link:
-    stow --no-folding -d stow -t ~ {{packages}}
+    stow --no-folding -d config -t ~ {{packages}}
 
 relink:
-    cd stow && find . -mindepth 2 \( -type f -o -type l \) -print0 | while IFS= read -r -d '' f; do t="$HOME/${f#./*/}"; if [ -L "$t" ] && [ ! -e "$t" ]; then rm "$t"; fi; done
+    cd config && find . -mindepth 2 \( -type f -o -type l \) -print0 | while IFS= read -r -d '' f; do t="$HOME/${f#./*/}"; if [ -L "$t" ] && [ ! -e "$t" ]; then rm "$t"; fi; done
     just link
 
 etc:
@@ -37,8 +37,8 @@ etc:
 
 check:
     brew bundle check --file brewfile
-    ! grep -rlF "{{justfile_directory()}}" stow/
-    stow --no-folding -n -d stow -t ~ {{packages}}
+    ! grep -rlF "{{justfile_directory()}}" config/
+    stow --no-folding -n -d config -t ~ {{packages}}
 
 clean:
     brew bundle cleanup --force --file brewfile

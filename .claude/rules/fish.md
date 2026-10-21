@@ -1,5 +1,5 @@
 ---
-paths: ["stow/fish/**"]
+paths: ["config/fish/**"]
 ---
 
 ## Fish PATH

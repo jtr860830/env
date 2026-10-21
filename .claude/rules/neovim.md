@@ -1,13 +1,13 @@
 ---
-paths: ["stow/nvim/**"]
+paths: ["config/nvim/**"]
 ---
 
 ## Neovim
 
-Custom minimal config in `stow/nvim/.config/nvim/`, stowed to `~/.config/nvim` file by file (`--no-folding`, so `~/.config/nvim` itself is a real directory). Edits are live — no rebuild step.
+Custom minimal config in `config/nvim/.config/nvim/`, stowed to `~/.config/nvim` file by file (`--no-folding`, so `~/.config/nvim` itself is a real directory). Edits are live — no rebuild step.
 
 - **Plugins come from Neovim 0.12's built-in `vim.pack`**, declared in one `vim.pack.add { … }` near the top of `init.lua`, installed to `~/.local/share/nvim/site/pack/core/opt/`. `{ confirm = false }` so a headless first run installs without asking. `just plugins` runs `vim.pack.update(nil, { force = true })`.
-- **`nvim-pack-lock.json` is deliberately not in the repo** (gitignored at `stow/nvim/.config/nvim/`): the requirement is latest plugins, not pinned ones, so the lockfile lives only as a real file in `~/.config/nvim`. A lockfile that appears inside `stow/` came from a probe run with `XDG_CONFIG_HOME` pointed at the repo — delete it.
+- **`nvim-pack-lock.json` is deliberately not in the repo** (gitignored at `config/nvim/.config/nvim/`): the requirement is latest plugins, not pinned ones, so the lockfile lives only as a real file in `~/.config/nvim`. A lockfile that appears inside `config/` came from a probe run with `XDG_CONFIG_HOME` pointed at the repo — delete it.
 - **blink.cmp is pinned to `vim.version.range "1.*"`** so vim.pack checks out a release tag, which is what makes blink download its prebuilt Rust fuzzy library; verify with `require("blink.cmp.fuzzy.rust")`.
 - **mini.nvim's URL is `nvim-mini/mini.nvim`** — the repo moved from `echasnovski`.
 - The four `vim.g.loaded_*_provider = 0` lines at the top used to be injected by home-manager; they stay so `:checkhealth` and startup behave as before.
@@ -43,7 +43,7 @@ Shared per-buffer setup therefore lives in an `LspAttach` autocmd, which fires f
 **Never test a change to this config with `set rtp+=`.** It *appends*, so `~/.config/nvim` still wins `require "lsp"`. Under nix that meant every such check silently measured the last deployed generation, which hid the `on_attach` regression through several rounds of "verification". With stow `~/.config/nvim` *is* the repo, so the stale-code half of the trap is gone — but a probe should still not touch the live data and cache. Use an isolated config and data dir:
 
 ```sh
-I=$(mktemp -d); mkdir -p $I/config; ln -s "$(git rev-parse --show-toplevel)/stow/nvim/.config/nvim" $I/config/nvim
+I=$(mktemp -d); mkdir -p $I/config; ln -s "$(git rev-parse --show-toplevel)/config/nvim/.config/nvim" $I/config/nvim
 env XDG_CONFIG_HOME=$I/config XDG_DATA_HOME=$I/data XDG_STATE_HOME=$I/state XDG_CACHE_HOME=$I/cache nvim --headless <file> -c '...' -c qa
 ```
 
