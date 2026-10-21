@@ -12,23 +12,15 @@ It lives in `conf.d/` rather than `config.fish` because conf.d is sourced first,
 |------|-------|
 | `~/.local/bin`, `~/.local/share/go/bin`, `~/.local/share/cargo/bin` | user-installed binaries, ahead of everything |
 | `/opt/homebrew/bin`, `/opt/homebrew/sbin` | the brewfile |
-| `/usr/local/bin` … `/sbin` | the six system directories |
+| the output of `path_helper` | macOS's own system PATH: `/etc/paths` then `/etc/paths.d/*`, twelve entries here |
 
 **Pending a decision:** gnubin directories (`make`, `gnu-sed`, `inetutils`) and keg-only `bin` directories (`curl`, `openjdk`, `llvm`, `rustup`) are not in `PATH`. Until they are, `sed`/`make`/`ping`/`curl`/`clangd` resolve to Apple's versions, `java` is Apple's stub, and `rustup`/`rustc`/`cargo` are absent.
 
 `man` needs no `MANPATH`: macOS's `/usr/bin/man` derives its search path from `PATH` and still reaches sections 2 and 3 in the Command Line Tools SDK — verified with `man -w 2 open`, `man -w rg` and `man -w ls`.
 
-**The trailing six entries are grouped by type — every `bin`, then every `sbin` — and that choice does not matter.** Across `/usr/local/bin`, `/usr/bin`, `/bin`, `/usr/local/sbin`, `/usr/sbin` and `/sbin` there are 1,264 distinct names and **zero collisions**, so no ordering of those six changes which binary wins. Re-check before reopening the question:
+**The system part is generated, not written out.** `env -i /usr/libexec/path_helper -s` produces it, so entries that packages add through `/etc/paths.d` — the cryptex directories, `/pkg/env/global/bin`, Wireshark's `Contents/MacOS` from the `wireshark-app` cask — arrive on their own. The nix-era list hardcoded six of them and silently dropped the other six. `env -i` matters: without it `path_helper` merges the current `PATH` in. Cost is about 5 ms per shell.
 
-```sh
-python3 -c "
-import os,collections
-d=collections.defaultdict(list)
-for p in '/usr/local/bin /usr/bin /bin /usr/local/sbin /usr/sbin /sbin'.split():
-    for f in (os.listdir(p) if os.path.isdir(p) else []): d[f].append(p)
-print({k:v for k,v in d.items() if len(v)>1} or 'no collisions')"
-```
-
+`/nix/var/nix/profiles/default/bin` still appears first while nix is installed: the Determinate installer wrote `/opt/homebrew/etc/fish/conf.d/nix.fish`, which sorts after `env.fish` and prepends it. It is listed in `/nix/receipt.json`, so the uninstaller removes it.
 
 ## Fish Color Variables
 
