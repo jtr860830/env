@@ -29,8 +29,6 @@ for p in '/usr/local/bin /usr/local/sbin /usr/bin /usr/sbin /bin /sbin'.split():
 print({k:v for k,v in d.items() if len(v)>1} or 'no collisions')"
 ```
 
-`/nix/var/nix/profiles/default/bin` still appears first while nix is installed: the Determinate installer wrote `/opt/homebrew/etc/fish/conf.d/nix.fish`, which sorts after `env.fish` and prepends it. It is listed in `/nix/receipt.json`, so the uninstaller removes it.
-
 ## Fish Color Variables
 
 Valid fish color variables (fish 4.x): `fish_color_{normal,command,keyword,quote,redirection,end,option,error,param,comment,selection,search_match,operator,escape,autosuggestion,cwd,user,host,valid_path,prefix,history_current,status}`. Note: `fish_color_history_current_command`, `fish_color_history_duration`, and `fish_color_error_background` do NOT exist.
