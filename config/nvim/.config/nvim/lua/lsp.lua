@@ -1,5 +1,3 @@
-vim.lsp.config("*", { capabilities = require("blink.cmp").get_lsp_capabilities() })
-
 vim.api.nvim_create_autocmd("LspAttach", {
   group = vim.api.nvim_create_augroup("UserLspAttach", { clear = true }),
   callback = function(ev)
@@ -7,13 +5,6 @@ vim.api.nvim_create_autocmd("LspAttach", {
     if not client then return end
 
     local bufnr = ev.buf
-
-    vim.keymap.set(
-      "n",
-      "K",
-      function() vim.lsp.buf.hover { border = "rounded" } end,
-      { buffer = bufnr, desc = "Hover" }
-    )
 
     if client:supports_method "textDocument/inlayHint" then
       vim.lsp.inlay_hint.enable(true, { bufnr = bufnr })

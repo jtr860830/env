@@ -23,6 +23,7 @@ opt.splitkeep = "screen"
 opt.showmode = false
 opt.laststatus = 3
 opt.cmdheight = 0
+opt.winborder = "rounded"
 
 opt.undofile = true
 opt.swapfile = false

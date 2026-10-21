@@ -60,7 +60,7 @@ local hl_map = {
 local cfg = vim.diagnostic.config() or {}
 local sign_text = type(cfg.signs) == "table" and cfg.signs.text or {}
 
-local lcap, rcap = vim.fn.nr2char(0xe0b6), vim.fn.nr2char(0xe0b4)
+local lcap, rcap = "\u{e0b6}", "\u{e0b4}"
 
 local function pill(inner, cap)
   cap = cap or "UserPillCap"

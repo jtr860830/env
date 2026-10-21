@@ -23,7 +23,6 @@ A server only attaches to the filetypes its `lsp/<name>.lua` claims, so check th
 LSP servers live on the shell `PATH`, not in an editor-private one, because `helix` resolves them from `PATH` too. **`clangd` currently resolves to Apple's `/usr/bin/clangd`**: Homebrew's `llvm` is keg-only and its `bin` is not in `PATH` yet (pending decision, see `.claude/rules/fish.md`).
 
 ```lua
-vim.lsp.config("*", { capabilities = ... })   -- global config
 vim.lsp.config("lua_ls", { settings = ... })  -- per-server override
 vim.lsp.enable { "gopls", "ts_ls", ... }
 ```
@@ -34,7 +33,7 @@ A server that needs its own settings gets `nvim/lsp/<name>.lua`, linked by `xdg.
 
 Only `lua_ls` has a file. Nine empty `return {}` files were tried and deleted: an empty table adds nothing to the merge, and presence in `nvim/lsp/` is not what activates a server — `vim.lsp.enable` in `lsp.lua` is the only switch.
 
-**`capabilities` goes in `vim.lsp.config("*", …)`; `on_attach` must not.** The merge is `vim.tbl_deep_extend('force', …)` over layers — `'*'`, then `lsp/<name>.lua`, then `after/lsp/<name>.lua`. `capabilities` is a table and deep-merges. `on_attach` is a *function*, so a layer-2 one **replaces** the wildcard outright. In nvim-lspconfig 2.11.0 three of the ten enabled servers ship one — `clangd`, `pyright`, `ts_ls` — for their `LspClangdSwitchSourceHeader`-style commands, and those three silently lost the shared body when it was briefly moved to the wildcard: `K` fell back to Neovim's borderless default and inlay hints never turned on despite `clangd` advertising support.
+**blink.cmp sets `capabilities` itself, and `on_attach` must never go in the wildcard.** blink's `plugin/blink-cmp.lua` runs `vim.lsp.config('*', { capabilities = get_lsp_capabilities(<existing>) })` on Nvim 0.11+, so a hand-written copy in `lsp.lua` was removed — verified on an attached `lua_ls` client: `snippetSupport` and `labelDetailsSupport` are still `true`. The merge is `vim.tbl_deep_extend('force', …)` over layers — `'*'`, then `lsp/<name>.lua`, then `after/lsp/<name>.lua`. `capabilities` is a table and deep-merges. `on_attach` is a *function*, so a layer-2 one **replaces** the wildcard outright. In nvim-lspconfig 2.11.0 three of the ten enabled servers ship one — `clangd`, `pyright`, `ts_ls` — for their `LspClangdSwitchSourceHeader`-style commands, and those three silently lost the shared body when it was briefly moved to the wildcard: `K` fell back to Neovim's borderless default and inlay hints never turned on despite `clangd` advertising support.
 
 Shared per-buffer setup therefore lives in an `LspAttach` autocmd, which fires for every client regardless of how configs merged. `after/lsp/<name>.lua` is not an alternative — layer 3 would clobber lspconfig's `on_attach` and lose those commands.
 
@@ -51,13 +50,19 @@ The first run installs every plugin and parser into `$I/data`. It also writes `n
 
 Confirm which file won with `vim.api.nvim_get_runtime_file("lua/lsp.lua", true)` before trusting any result.
 
-**`K` alone cannot tell you whether `on_attach` ran.** Neovim 0.12 installs its own buffer-local `K` → `vim.lsp.buf.hover()` on attach, same `lhs`. Compare the mapping's `desc` (this config sets `"Hover"`; the built-in reports `vim.lsp.buf.hover()`), or check `vim.lsp.inlay_hint.is_enabled` against `client:supports_method "textDocument/inlayHint"`.
+**`K` is Neovim's own buffer-local `vim.lsp.buf.hover()` mapping; this config no longer overrides it.** It used to, only to pass `border = "rounded"`; `opt.winborder = "rounded"` (Nvim 0.11+) now gives every float without an explicit border — hover, diagnostic float, signature — the same rounded border, verified on both windows' `nvim_win_get_config().border`. So `K`'s `desc` can no longer tell you whether the `LspAttach` body ran; check `vim.lsp.inlay_hint.is_enabled` against `client:supports_method "textDocument/inlayHint"` instead. blink, fzf-lua and mini.clue pass explicit borders and are unaffected.
+
+### lua_ls Library
+
+`lsp/lua_ls.lua` sets `workspace.library` to `$VIMRUNTIME` plus the vim.pack directory (`stdpath("data")/site/pack/core/opt`), not `nvim_get_runtime_file("", true)`. nvim-lspconfig's own `lua_ls` notes warn the whole runtimepath is "a lot slower and will cause issues when working on your own configuration" — the config directory is itself on the runtimepath, so its definitions load twice. With the narrower list a probe file using `MiniIcons`, `MiniStatusline`, `vim.uv` and `require("blink.cmp")` produced exactly the same diagnostics as before (only the planted undefined global); time to first diagnostics went 9.1s → 7.9s, one run each, so treat speed as unchanged.
+
+Measuring lua_ls needs care: it publishes nothing until the workspace has loaded, so a fixed short wait reads 0 diagnostics even on a broken file, and waiting for `DiagnosticChanged` hangs on a clean one. Plant one known error and wait for that.
 
 ### Python Server
 
 `basedpyright`, not `pyright`, for Neovim. **`pyright` stays in the `brewfile` anyway**: Claude Code's `pyright-lsp` plugin runs `pyright-langserver --stdio`, which `basedpyright` does not provide (it ships `basedpyright-langserver`), and the official marketplace has no basedpyright plugin. The two packages share no executable names, so both install cleanly. It is a fork on the same type-checking engine, so diagnostics are unchanged, but it advertises `textDocument/inlayHint` and `semanticTokens/full`, neither of which `pyright` 1.1.414 does — so the `LspAttach` inlay-hint logic now actually fires for Python. Compared by attaching each candidate to the same file: `basedpyright` 1.39.8, `pyrefly` 1.3.1, `ty` 0.0.84 and `zuban` 0.9.1 all support both and all caught the planted type error. `pyrefly` is the mature Rust option if speed on a large codebase ever matters; `ty` (Astral) was still pre-1.0.
 
-lspconfig's `basedpyright` ships its own `on_attach`, the same shape that broke `pyright` when shared setup sat in the wildcard. Under `LspAttach` both survive: the buffer gets this config's `K` and inlay hints *and* lspconfig's `LspPyrightOrganizeImports` / `LspPyrightSetPythonPath`.
+lspconfig's `basedpyright` ships its own `on_attach`, the same shape that broke `pyright` when shared setup sat in the wildcard. Under `LspAttach` both survive: the buffer gets this config's inlay hints *and* lspconfig's `LspPyrightOrganizeImports` / `LspPyrightSetPythonPath`.
 
 Semantic tokens layer `@lsp.type.*` groups over treesitter highlighting, so Python colours may shift; check against the `theme` skill before assuming the palette still holds.
 
@@ -73,7 +78,7 @@ vim.api.nvim_create_autocmd("InsertEnter", { group = hint_group, buffer = bufnr,
 ### Neovim 0.12 API Patterns
 
 - `client:supports_method("textDocument/inlayHint")` — colon syntax (dot deprecated)
-- `vim.diagnostic.jump({ count = ±1 })` — replaces deprecated `goto_prev/next`
+- `[d` / `]d` are **default mappings** (`vim.diagnostic.jump` with a count) and `<C-w>d` opens the float — do not re-map them. `<leader>cd` stays only as a `+code` group shortcut
 - `vim.diagnostic.count(0)` — efficient per-buffer count
 - `vim.treesitter.start()` via FileType autocmd — nvim-treesitter 0.10+ removed configs module
 - `vim.fs.root(0, { ".git", ... })` — find project root without shell spawn
@@ -113,14 +118,7 @@ Each module is an independent sub-plugin — there is no unified enable, and eve
 
 ### Nerd Font Icons
 
-The Edit tool cannot reliably embed nerd font unicode characters — they silently become spaces. Use `vim.fn.nr2char(codepoint)` instead. Note: `string.char()` is NOT a valid replacement — it only handles 0–255; codepoints like U+25CF (9679) will error.
-
-```lua
-vim.fn.nr2char(0xea87)  -- Codicon error
-vim.fn.nr2char(0xea6c)  -- Codicon warning
-vim.fn.nr2char(0xea74)  -- Codicon info
-vim.fn.nr2char(0xea61)  -- Codicon lightbulb
-```
+Write non-ASCII glyphs as Lua `\u{…}` escapes — `"\u{25cf}"`, `"\u{e0b6}"` — which LuaJIT supports and which keep the source pure ASCII. The Edit tool cannot reliably embed nerd font characters (they silently become spaces), which is why this config once used `vim.fn.nr2char(codepoint)`; the escape solves the same problem without a function call, and was verified equal to `nr2char` for every glyph in use. `string.char()` is not a replacement — it only handles 0–255.
 
 Six symbols are used in the whole repo: `▎` (U+258E, mini.diff signs), `▏` (U+258F, snacks indent), `○`/`●` (U+25CB/25CF, tmux windows), `■` (U+25A0, tmux zoom), and U+E0B6/U+E0B4 (the solid half-circles that cap tmux's bubble segments).
 
@@ -146,7 +144,7 @@ Three things to check before adding another:
 
 - snacks.statuscolumn enabled — layout is `[diagnostic] [line number] [git]` left to right
 - `signcolumn = "yes"` still set; snacks.statuscolumn overrides it with its own rendering
-- Diagnostic signs use `●` (U+25CF, `vim.fn.nr2char(0x25cf)`) for all severities — same character as tmux current window indicator. Color only distinguishes severity via `DiagnosticSign*` highlight groups.
+- Diagnostic signs use `●` (`"\u{25cf}"`) for all severities — same character as tmux current window indicator. Color only distinguishes severity via `DiagnosticSign*` highlight groups.
 
 ### snacks.nvim
 
@@ -173,7 +171,7 @@ Keymaps are split across files by dependency:
   map("n", "<leader>cf", function() require("conform").format { lsp_format = "fallback" } end, ...)
   ```
 - `fzf.lua` — fzf keymaps (uses top-level `local fzf = require "fzf-lua"`, so must stay with setup)
-- `lsp.lua` `LspAttach` — registers only `K` (hover with border); all other LSP keymaps use Neovim 0.12 defaults
+- `lsp.lua` `LspAttach` — registers no keymaps; `K` and every other LSP key are Neovim 0.12 defaults, with the border from `winborder`
 
 mini.clue group labels are declared in `clues` to show prefix descriptions at the first level:
 - Each mode needs a separate trigger entry — `{ mode, keys }` cannot combine modes in one object
@@ -194,7 +192,7 @@ Current groups: `<leader>c` (+code), `<leader>f` (+find), `gr` (+lsp). Window/bu
 
 Neovim 0.12 default LSP keys: `grr` (references), `gri` (implementation), `gra` (code action), `grn` (rename), `grt` (type definition), `gO` (symbols).
 
-`K` hover uses `function() vim.lsp.buf.hover { border = "rounded" } end` — must be wrapped in a function to pass options; bare `vim.lsp.buf.hover` as a keymap value ignores opts.
+`winborder` must stay `"rounded"` for hover to keep its border: passing `{ border = … }` to `vim.lsp.buf.hover` needs a function wrapper (a bare `vim.lsp.buf.hover` keymap value ignores opts), which is what the old override was.
 ### Formatters
 
 - Lua: `stylua` (config at `nvim/.stylua.toml`)
@@ -206,6 +204,6 @@ conform is configured without `format_on_save` — format manually with `<leader
 ### Startup Performance
 
 Profile: `nvim --startuptime /tmp/nvim-startup.log +qa && cat /tmp/nvim-startup.log`
-Baseline (no config): ~24ms. Current setup: ~60ms (stable). Largest contributor: onedarkpro (~1.4ms plugin load); most of the time is Neovim runtime + ShaDa.
+Baseline (no config): ~24ms. Current setup: ~42ms with `vim.loader.enable()` at the top of `init.lua`, against ~60ms without it — median of 7 runs each, with the loader disabled by stubbing `vim.loader.enable` from `--cmd` (a `--cmd 'lua vim.loader.enable(false)'` run is not a test: `init.lua` turns it back on). Nvim 0.12 still ships the loader off by default. Largest contributor: onedarkpro (~1.4ms plugin load); most of the time is Neovim runtime + ShaDa.
 fzf-lua has no native lazy loading — requires lazy.nvim; not worth adding at current speed.
 

@@ -1,4 +1,4 @@
-local dot = vim.fn.nr2char(0x25cf)
+local dot = "\u{25cf}"
 local diag_icons = {
   [vim.diagnostic.severity.ERROR] = dot,
   [vim.diagnostic.severity.WARN] = dot,
@@ -8,9 +8,7 @@ local diag_icons = {
 
 vim.diagnostic.config {
   virtual_text = true,
-  underline = true,
-  update_in_insert = false,
   severity_sort = true,
   signs = { text = diag_icons },
-  float = { border = "rounded", source = true },
+  float = { source = true },
 }
