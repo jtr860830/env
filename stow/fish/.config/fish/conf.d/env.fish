@@ -26,6 +26,8 @@ set -gx CARGO_INSTALL_ROOT $HOME/.local
 set -gx CLAUDE_CONFIG_DIR $XDG_CONFIG_HOME/claude
 set -gx CODEX_HOME $XDG_CONFIG_HOME/codex
 set -gx COREPACK_HOME $XDG_DATA_HOME/corepack
+set -gx GOBIN $HOME/.local/bin
+set -gx GOPATH $XDG_DATA_HOME/go
 set -gx KUBECACHEDIR $XDG_CACHE_HOME/kube
 set -gx KUBECONFIG $XDG_CONFIG_HOME/kube
 set -gx LIMA_HOME $XDG_DATA_HOME/lima

@@ -78,9 +78,9 @@ Deliberately declined rather than blocked, kept here so they are not re-proposed
 
 ## Go
 
-`go` comes from the brewfile; `GOPATH`/`GOBIN` are not environment variables but entries in the file `go env` reads, which on Darwin is `~/Library/Application Support/go/env` — stowed from `stow/go/`. `GOPATH` is `~/.local/share/go`; `GOBIN` is `~/.local/bin`, so `go install` lands on `PATH` with nothing Go-specific in it.
+`go` comes from the brewfile. `GOPATH` (`~/.local/share/go`) and `GOBIN` (`~/.local/bin`) are plain environment variables in `conf.d/env.fish`, written with `$XDG_DATA_HOME`/`$HOME`.
 
-**`go env -w` works again, and it writes into the repo**, because the stowed file is a symlink into `stow/go/`. Under home-manager the file was a read-only store path and `go env -w` failed with `permission denied`. Review `git diff` after using it.
+They used to live in the file `go env` reads (`~/Library/Application Support/go/env` on Darwin), stowed from the repo. That file **cannot use variables**: Go reads it literally, so `$HOME/...` and `${HOME}/...` fail with `GOPATH entry is relative; must be absolute path` and `~/...` with `cannot start with shell metacharacter '~'` — and a bad `GOPATH` there breaks every `go` command, not just `go env`. Keeping it meant a hardcoded `/Users/jtr860830`; moving to the environment trades that for one limit, accepted: only processes started from fish see the variables, so an editor launched from the Dock falls back to Go's default `~/go`. nvim and gopls start from fish. `go env -w` now writes the ordinary file at the default location, not the repo.
 
 `go telemetry` reports `local`, Go's default — counters on disk, nothing uploaded without an explicit `go telemetry on`.
 
