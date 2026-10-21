@@ -1,24 +1,26 @@
 ---
-paths: ["nvim/**", "home/neovim.nix"]
+paths: ["stow/nvim/**"]
 ---
 
 ## Neovim
 
-Custom minimal config managed by `programs.neovim` in `home/neovim.nix`. No Lazy.nvim — plugins installed via `programs.neovim.plugins` (uses nixpkgs vimPlugins, placed in packpath).
+Custom minimal config in `stow/nvim/.config/nvim/`, stowed to `~/.config/nvim` file by file (`--no-folding`, so `~/.config/nvim` itself is a real directory). Edits are live — no rebuild step.
 
-- `initLua = builtins.readFile ../nvim/init.lua` — entry point
-- `xdg.configFile."nvim/lua".source = ../nvim/lua` — Lua modules sourced from repo; **requires rebuild to update**
-- Plugins land in `~/.local/share/nvim/site/pack/hm/start/` (picked up by default packpath)
+- **Plugins come from Neovim 0.12's built-in `vim.pack`**, declared in one `vim.pack.add { … }` near the top of `init.lua`, installed to `~/.local/share/nvim/site/pack/core/opt/`. `{ confirm = false }` so a headless first run installs without asking. `just plugins` runs `vim.pack.update(nil, { force = true })`.
+- **`nvim-pack-lock.json` is deliberately not in the repo** (gitignored at `stow/nvim/.config/nvim/`): the requirement is latest plugins, not pinned ones, so the lockfile lives only as a real file in `~/.config/nvim`. A lockfile that appears inside `stow/` came from a probe run with `XDG_CONFIG_HOME` pointed at the repo — delete it.
+- **blink.cmp is pinned to `vim.version.range "1.*"`** so vim.pack checks out a release tag, which is what makes blink download its prebuilt Rust fuzzy library; verify with `require("blink.cmp.fuzzy.rust")`.
+- **mini.nvim's URL is `nvim-mini/mini.nvim`** — the repo moved from `echasnovski`.
+- The four `vim.g.loaded_*_provider = 0` lines at the top used to be injected by home-manager; they stay so `:checkhealth` and startup behave as before.
 
 ### LSP (neovim 0.11+ API)
 
 Uses `vim.lsp.config` + `vim.lsp.enable` — no `require("lspconfig")` needed. nvim-lspconfig provides `lsp/` directory configs read automatically by `vim.lsp.enable`.
 
-LSP servers are managed in two places: the binary in `home/packages.nix` and the name in `nvim/lua/lsp.lua` → `vim.lsp.enable { ... }`. A third, `nvim/lsp/<name>.lua`, is optional and only needed when that server has settings of its own. Note `vim.lsp.enable` does not discover the directory, and globbing the runtimepath for `lsp/*.lua` is not an alternative because nvim-lspconfig ships 406 of them.
+LSP servers are managed in two places: the binary in the `brewfile` and the name in `nvim/lua/lsp.lua` → `vim.lsp.enable { ... }`. A third, `nvim/lsp/<name>.lua`, is optional and only needed when that server has settings of its own. Note `vim.lsp.enable` does not discover the directory, and globbing the runtimepath for `lsp/*.lua` is not an alternative because nvim-lspconfig ships 406 of them.
 
 A server only attaches to the filetypes its `lsp/<name>.lua` claims, so check them against `vim.filetype.add` in `options.lua`. `helm_ls` claims `helm` and `yaml.helm-values` — mapping Helm templates to `gotmpl` silently left them with no LSP. The `helm` parser inherits `gotmpl` and additionally injects `yaml`, so it is the better choice anyway (parse tree becomes `[helm, yaml]`).
 
-`programs.neovim.extraPackages` is intentionally NOT used — it wraps binaries into neovim's own PATH (appended as a suffix), making them invisible to the shell and to other editors. `helix` is installed and resolves LSP servers from PATH, so everything lives in `home.packages` instead. Note `clangd`/`clang-format` come from `clang-tools`, which is also used directly as a CLI tool.
+LSP servers live on the shell `PATH`, not in an editor-private one, because `helix` resolves them from `PATH` too. **`clangd` currently resolves to Apple's `/usr/bin/clangd`**: Homebrew's `llvm` is keg-only and its `bin` is not in `PATH` yet (pending decision, see `.claude/rules/fish.md`).
 
 ```lua
 vim.lsp.config("*", { capabilities = ... })   -- global config
@@ -38,12 +40,14 @@ Shared per-buffer setup therefore lives in an `LspAttach` autocmd, which fires f
 
 **`vim.lsp.config[name]` is the reliable instrument, and it *does* include the wildcard.** `runtime/lua/vim/lsp.lua:355` resolves it as `tbl_deep_extend('force', _configs['*'], rtp_config, _configs[name])`. An earlier note here claimed the opposite; it was wrong, and it licensed reading a correct signal as noise.
 
-**Never test a change to this config with `set rtp+=`.** It *appends*, so `~/.config/nvim` — the last deployed generation — still wins `require "lsp"`, and every such check silently measures the old code. That is what hid the `on_attach` regression through several rounds of "verification". Use an isolated config instead:
+**Never test a change to this config with `set rtp+=`.** It *appends*, so `~/.config/nvim` still wins `require "lsp"`. Under nix that meant every such check silently measured the last deployed generation, which hid the `on_attach` regression through several rounds of "verification". With stow `~/.config/nvim` *is* the repo, so the stale-code half of the trap is gone — but a probe should still not touch the live data and cache. Use an isolated config and data dir:
 
 ```sh
-mkdir -p /tmp/iso && ln -s ~/.config/env/nvim /tmp/iso/nvim
-env XDG_CONFIG_HOME=/tmp/iso nvim --headless <file> -c '...' -c qa
+I=$(mktemp -d); mkdir -p $I/config; ln -s "$(git rev-parse --show-toplevel)/stow/nvim/.config/nvim" $I/config/nvim
+env XDG_CONFIG_HOME=$I/config XDG_DATA_HOME=$I/data XDG_STATE_HOME=$I/state XDG_CACHE_HOME=$I/cache nvim --headless <file> -c '...' -c qa
 ```
+
+The first run installs every plugin and parser into `$I/data`. It also writes `nvim-pack-lock.json` **through the symlink into the repo** — delete it afterwards (it is gitignored, but stow would link it).
 
 Confirm which file won with `vim.api.nvim_get_runtime_file("lua/lsp.lua", true)` before trusting any result.
 
@@ -51,7 +55,7 @@ Confirm which file won with `vim.api.nvim_get_runtime_file("lua/lsp.lua", true)`
 
 ### Python Server
 
-`basedpyright`, not `pyright`, for Neovim. **`pyright` stays in `home/packages.nix` anyway**: Claude Code's `pyright-lsp` plugin runs `pyright-langserver --stdio`, which `basedpyright` does not provide (it ships `basedpyright-langserver`), and the official marketplace has no basedpyright plugin. The two packages share no executable names, so both install cleanly. It is a fork on the same type-checking engine, so diagnostics are unchanged, but it advertises `textDocument/inlayHint` and `semanticTokens/full`, neither of which `pyright` 1.1.414 does — so the `LspAttach` inlay-hint logic now actually fires for Python. Compared by attaching each candidate to the same file: `basedpyright` 1.39.8, `pyrefly` 1.3.1, `ty` 0.0.84 and `zuban` 0.9.1 all support both and all caught the planted type error. `pyrefly` is the mature Rust option if speed on a large codebase ever matters; `ty` (Astral) was still pre-1.0.
+`basedpyright`, not `pyright`, for Neovim. **`pyright` stays in the `brewfile` anyway**: Claude Code's `pyright-lsp` plugin runs `pyright-langserver --stdio`, which `basedpyright` does not provide (it ships `basedpyright-langserver`), and the official marketplace has no basedpyright plugin. The two packages share no executable names, so both install cleanly. It is a fork on the same type-checking engine, so diagnostics are unchanged, but it advertises `textDocument/inlayHint` and `semanticTokens/full`, neither of which `pyright` 1.1.414 does — so the `LspAttach` inlay-hint logic now actually fires for Python. Compared by attaching each candidate to the same file: `basedpyright` 1.39.8, `pyrefly` 1.3.1, `ty` 0.0.84 and `zuban` 0.9.1 all support both and all caught the planted type error. `pyrefly` is the mature Rust option if speed on a large codebase ever matters; `ty` (Astral) was still pre-1.0.
 
 lspconfig's `basedpyright` ships its own `on_attach`, the same shape that broke `pyright` when shared setup sat in the wildcard. Under `LspAttach` both survive: the buffer gets this config's `K` and inlay hints *and* lspconfig's `LspPyrightOrganizeImports` / `LspPyrightSetPythonPath`.
 
@@ -81,7 +85,7 @@ vim.api.nvim_create_autocmd("InsertEnter", { group = hint_group, buffer = bufnr,
 
 ### Per-Filetype Options
 
-`nvim/after/ftplugin/<filetype>.lua` is the mechanism, not a `FileType` autocmd. Neovim already has `~/.config/nvim/after` on the runtimepath because `~/.config/nvim` is the config root, so the directory only needed linking: `xdg.configFile."nvim/after".source = ../nvim/after;` in `home/neovim.nix`, alongside the `nvim/lua` entry. `after/` rather than plain `ftplugin/` because it runs *after* the bundled ftplugin for that filetype and therefore wins.
+`nvim/after/ftplugin/<filetype>.lua` is the mechanism, not a `FileType` autocmd. Neovim already has `~/.config/nvim/after` on the runtimepath because `~/.config/nvim` is the config root, so the directory only needs to exist under the stowed tree. `after/` rather than plain `ftplugin/` because it runs *after* the bundled ftplugin for that filetype and therefore wins.
 
 Prose filetypes (`markdown`, `text`) turn on `wrap`, `linebreak` and `breakindent` there; code keeps the global `wrap = false` from `options.lua`. `breakindent` is the one that matters — without it a wrapped line's continuation starts at column 0 and the indent structure is lost. Adding another filetype means another file; there is no pattern matching, which is the trade for not having to register an autocmd.
 
@@ -95,7 +99,7 @@ Do not "helpfully" re-add these — each was removed after checking:
 
 - **`opt.hlsearch` / `opt.grepformat`** — identical to Neovim's defaults. Neovim also picks `grepprg` itself: `"rg --vimgrep -uu "` when rg is on PATH, `"grep -HIn $* /dev/null"` otherwise, so an `executable("rg")` guard duplicates it. Nothing here uses `:grep`; fzf-lua builds its own rg invocation and never reads `grepprg`.
 - **blink's `snippets` source** — it serves snippet *libraries* found on the runtimepath, and none are installed, so it returned nothing on every keystroke. LSP snippets arrive through the `lsp` source instead; `snippetSupport = true` is hardcoded in blink (`sources/lib/init.lua`), not an option. Snippet libraries are unwanted; LSP-driven completion is.
-- **`nvim-treesitter` is never `require`d but must stay** — `treesitter.lua` uses the native `vim.treesitter.start()`, parsers come from `nvim-treesitter-grammars`, but the *queries* come from this plugin. Neovim bundles queries for only 7 languages (`c lua markdown markdown_inline query vim vimdoc`); go, nix, python, typescript, yaml and helm all rely on the 323 sets it ships.
+- **`nvim-treesitter` (the `main` branch) supplies parsers and queries; highlighting stays native.** `treesitter.lua` calls `require("nvim-treesitter").install { … }` with the language list and then `vim.treesitter.start()` per buffer. Parsers are compiled locally (`tree-sitter-cli` from the brewfile, Apple clang) into `~/.local/share/nvim/site/parser/`. `install()` is async; with no UI (`#vim.api.nvim_list_uis() == 0`) the file waits on it, so `nvim --headless +qa` installs every parser — that is what `just plugins` relies on. Neovim bundles queries for only 7 languages (`c lua markdown markdown_inline query vim vimdoc`); the rest come from this plugin. The old `diff` parser/query mismatch (`Invalid node type "change"`) is gone since the switch from nixpkgs' grammars.
 
 ### mini.nvim Modules
 
@@ -118,14 +122,13 @@ vim.fn.nr2char(0xea61)  -- Codicon lightbulb
 
 Six symbols are used in the whole repo: `▎` (U+258E, mini.diff signs), `▏` (U+258F, snacks indent), `○`/`●` (U+25CB/25CF, tmux windows), `■` (U+25A0, tmux zoom), and U+E0B6/U+E0B4 (the solid half-circles that cap tmux's bubble segments).
 
-In nix, write them as `builtins.fromJSON ''"\ue0b6"''` rather than pasting the character — pasting silently produced `○` where `●` was meant. Beware substring collisions when scripting an edit over such bindings: a replacement targeting `active` also matches inside `inactive`, which is how both dots ended up identical; the bindings are now `dotDim`/`dotOn`.
+In a script, write them as escapes (`\ue0b6`) rather than pasting the character — pasting silently produced `○` where `●` was meant. Beware substring collisions when scripting an edit over such bindings: a replacement targeting `active` also matches inside `inactive`, which is how both dots ended up identical; the bindings are now `dotDim`/`dotOn`.
 
 Three things to check before adding another:
 
 - **Is the glyph in Maple Mono?** macOS falls back to another font when it is not, so it renders but with a mismatched weight and no guarantee on another machine. `▣` (U+25A3), `⛶`, `⤢` and `⊞` are all absent; `■`, `█`, `◉`, `◎` are present. Check with:
   ```sh
-  nix shell --impure --expr 'let p = (builtins.getFlake "nixpkgs").legacyPackages.aarch64-darwin;
-    in p.python3.withPackages (ps: [ ps.fonttools ])' --command python3 -c \
+  uv run --with fonttools python3 -c \
     "from fontTools.ttLib import TTFont; print(0x25A0 in TTFont('<font>.ttf', fontNumber=0).getBestCmap())"
   ```
 - **`bold` does nothing to geometric shapes.** `●` has an identical glyph and advance width in the Regular and Bold faces, so `#[fg=…,bold]` on one is dead styling.
@@ -193,11 +196,10 @@ Neovim 0.12 default LSP keys: `grr` (references), `gri` (implementation), `gra` 
 ### Formatters
 
 - Lua: `stylua` (config at `nvim/.stylua.toml`)
-- Nix: `nixfmt <files>` — on PATH via `home/packages.nix`, no `nix run` needed
 
 conform is configured without `format_on_save` — format manually with `<leader>cf`.
 
-`smartindent` is deliberately **not** set. `indentexpr` overrules it, so it was a no-op for python, yaml, lua, go and sh, while nix has no `indentexpr` and there it treated a leading `#` as a preprocessor directive and stripped the indentation off every comment. `autoindent` is on by default and keeps ordinary lines indented.
+`smartindent` is deliberately **not** set. `indentexpr` overrules it, so it was a no-op for python, yaml, lua, go and sh, while a filetype with no `indentexpr` (nix, when it was used here) had it treat a leading `#` as a preprocessor directive and stripped the indentation off every comment. `autoindent` is on by default and keeps ordinary lines indented.
 
 ### Startup Performance
 

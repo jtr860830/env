@@ -1,5 +1,5 @@
 ---
-paths: ["home/tmux.nix"]
+paths: ["stow/tmux/**"]
 ---
 
 ## Tmux Quirks
@@ -7,11 +7,11 @@ paths: ["home/tmux.nix"]
 - Mode detection without plugins: `#{?client_prefix,...}` and `#{?pane_in_mode,...}` are built-in tmux format strings
 - `pane-border-style` and `pane-active-border-style` set to the same color — a shared border between an active and an inactive pane renders half in each style. Re-verified on tmux 3.7c, so do not try giving the active border its own color again
 - **`message-style` needs `fill=`, not just `bg=`.** tmux draws the message over the existing status line and only paints the cells the text occupies, so the rest of the row shows through — `display-message HELLO` over `jtr860830@…` rendered as `HELLO60830@…`. `fill` makes it clear to end of line
-- **Options the module already covers must not be repeated in `extraConfig`.** `escapeTime`, `historyLimit`, `focusEvents` each ended up emitted twice, with `extraConfig` winning only by line order; `baseIndex` alone sets both `base-index` and `pane-base-index`. Check with:
+- **An option set twice is set by whichever line comes last.** home-manager's module once emitted `escape-time`, `history-limit` and `focus-events` alongside hand-written copies; the file is plain now, but check before adding one:
   ```sh
-  nix eval --raw '.#darwinConfigurations.pro-darwin.config.home-manager.users.jtr860830.xdg.configFile."tmux/tmux.conf".text' \
-    | grep -oE '^set(w)? +(-[a-z]+ +)*[a-z-]+' | awk '{print $NF}' | sort | uniq -d
+  grep -oE '^set(w)? +(-[a-z]+ +)*[a-z@_-]+' stow/tmux/.config/tmux/tmux.conf | awk '{print $NF}' | sort | uniq -d
   ```
+- **tmux 3.8 (Homebrew) changed default styles** with its built-in themes. `window-status-current-style` became `underscore`, which drew a line under the current window until it was set back to `default`. After any tmux upgrade, compare `tmux show -g` / `show -gw` against the file for styles it does not set.
 - Split keybinds need `-c "#{pane_current_path}"` to inherit current directory; omitting it always opens in `$HOME`
 - `window-style = "dim"` does NOT work with truecolor apps — SGR dim only affects 16-color ANSI; truecolor RGB values are unaffected. Background color difference is the only reliable inactive-pane visual cue, but Neovim overrides it too.
 - `set -g set-clipboard on` enables OSC 52 clipboard sync (replaces yank plugin; requires terminal support e.g. Ghostty)
