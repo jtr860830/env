@@ -1,6 +1,6 @@
 set shell := ["bash", "-euo", "pipefail", "-c"]
 
-packages := "claude codex fish ghostty git go npm nvim ssh tmux"
+packages := "bin claude codex fish ghostty git go npm nvim ssh tmux"
 
 default:
     @just --list
@@ -17,6 +17,7 @@ update:
 plugins:
     fish -c 'fisher update'
     nvim --headless '+lua vim.pack.update(nil, { force = true })' +qa
+    nvim --headless '+lua require("nvim-treesitter").update():wait(600000)' +qa
     nvim --headless +qa
 
 link:

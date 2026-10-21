@@ -25,7 +25,7 @@ Edits under `stow/` are live immediately — `~` holds symlinks into the repo. R
 | `just link` | `stow --no-folding` every package — after adding a file under `stow/` |
 | `just relink` | removes dangling links at exactly the paths `stow/` owns, then `link` — after moving the repo |
 | `just install` / `just update` | `brew bundle install` / with `--upgrade`, then `just plugins` |
-| `just plugins` | `fisher update`, `vim.pack.update`, then a headless nvim run that installs missing parsers |
+| `just plugins` | `fisher update`, `vim.pack.update`, nvim-treesitter's `update()` for parsers already installed, then a headless nvim run that installs missing ones |
 | `just etc` | writes the three `/etc` files below and sets the login shell (sudo) |
 | `just check` | `brew bundle check`, `scripts/check-store-refs.sh`, `stow -n` dry run |
 | `just clean` | `brew bundle cleanup --force` — removes anything not in `brewfile` |
@@ -34,6 +34,8 @@ Edits under `stow/` are live immediately — `~` holds symlinks into the repo. R
 A new machine runs `./bootstrap.sh`: it installs Homebrew and `just` — exporting `XDG_CONFIG_HOME` first, so `~/.homebrew` is never created — and `exec`s `just setup`. Everything else lives in the `justfile`, which resolves paths from its own directory. Moving the repo was tested: 20 links dangled, `just relink` repointed them, nvim, fish and git kept working.
 
 **`stow --no-folding` is required, not a style choice.** With folding, a target directory that does not exist yet becomes a single link into the repo, and fisher (`conf.d/`, `functions/`) and vim.pack (`nvim-pack-lock.json`) then write their own files *into the repo*. Without it every directory under `~` is real and only leaf files are links.
+
+`stow/bin/` holds `~/.local/bin/vi` and `vim`, two-line `exec nvim "$@"` wrappers replacing home-manager's `viAlias`/`vimAlias`; without them `vim` opens Apple's unconfigured Vim. They are scripts rather than symlinks because stow refuses an absolute symlink as a source, and a relative one would tie the repo to its location.
 
 ### System Files
 
