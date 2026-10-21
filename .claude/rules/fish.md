@@ -10,11 +10,11 @@ It lives in `conf.d/` rather than `config.fish` because conf.d is sourced first,
 
 | Path | Holds |
 |------|-------|
-| `~/.local/bin`, `~/.local/share/go/bin`, `~/.local/share/cargo/bin` | user-installed binaries, ahead of everything |
+| `~/.local/bin` | every user-installed binary, ahead of everything: `XDG_BIN_HOME`, uv tools, `go install` (`GOBIN`), `cargo install` (`CARGO_INSTALL_ROOT=$HOME/.local`) |
 | `/opt/homebrew/bin`, `/opt/homebrew/sbin` | the brewfile |
 | `/usr/local/bin`, `/usr/local/sbin`, `/usr/bin`, `/usr/sbin`, `/bin`, `/sbin` | the system, locality-first |
 
-**Pending a decision:** gnubin directories (`make`, `gnu-sed`, `inetutils`) and keg-only `bin` directories (`curl`, `openjdk`, `llvm`, `rustup`) are not in `PATH`. Until they are, `sed`/`make`/`ping`/`curl`/`clangd` resolve to Apple's versions, `java` is Apple's stub, and `rustup`/`rustc`/`cargo` are absent.
+**Pending a decision:** gnubin directories (`make`, `gnu-sed`, `inetutils`) and keg-only `bin` directories (`curl`, `openjdk`, `llvm`, `rustup`) are not in `PATH`. Until they are, `sed`/`make`/`ping`/`curl`/`clangd` resolve to Apple's versions, `java` is Apple's stub, and `rustup`/`rustc`/`cargo` are absent. When rustup is wired up, use the brew keg's `bin`: `rustup-init` would put its proxies in `$CARGO_HOME/bin`, which is no longer in `PATH`.
 
 `man` needs no `MANPATH`: macOS's `/usr/bin/man` derives its search path from `PATH` and still reaches sections 2 and 3 in the Command Line Tools SDK — verified with `man -w 2 open`, `man -w rg` and `man -w ls`.
 

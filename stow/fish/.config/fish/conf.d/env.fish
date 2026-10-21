@@ -6,8 +6,6 @@ set -gx XDG_STATE_HOME $HOME/.local/state
 
 set -gx PATH \
     $HOME/.local/bin \
-    $HOME/.local/share/go/bin \
-    $HOME/.local/share/cargo/bin \
     /opt/homebrew/bin \
     /opt/homebrew/sbin \
     /usr/local/bin \
@@ -24,6 +22,7 @@ set -gx MANPAGER 'nvim +Man!'
 set -gx TERMINFO_DIRS /opt/homebrew/opt/ncurses/share/terminfo
 
 set -gx CARGO_HOME $XDG_DATA_HOME/cargo
+set -gx CARGO_INSTALL_ROOT $HOME/.local
 set -gx CLAUDE_CONFIG_DIR $XDG_CONFIG_HOME/claude
 set -gx CODEX_HOME $XDG_CONFIG_HOME/codex
 set -gx COREPACK_HOME $XDG_DATA_HOME/corepack

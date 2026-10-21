@@ -47,7 +47,9 @@ A new machine runs `./bootstrap.sh`: it installs Homebrew and `just` — exporti
 
 ## PATH and System Binaries
 
-`stow/fish/.config/fish/conf.d/env.fish` sets the whole `PATH`: the user directories, `/opt/homebrew/bin` and `sbin`, then `/usr/local/bin /usr/local/sbin /usr/bin /usr/sbin /bin /sbin`. `path_helper` is deliberately not used. The reasoning, the collision check and the ordering argument are in `.claude/rules/fish.md`.
+`stow/fish/.config/fish/conf.d/env.fish` sets the whole `PATH`: `~/.local/bin`, `/opt/homebrew/bin` and `sbin`, then `/usr/local/bin /usr/local/sbin /usr/bin /usr/sbin /bin /sbin`. `path_helper` is deliberately not used. The reasoning, the collision check and the ordering argument are in `.claude/rules/fish.md`.
+
+**`~/.local/bin` is the one directory for user-installed binaries** — it is `XDG_BIN_HOME`, uv puts its tools there, `GOBIN` points there, and `CARGO_INSTALL_ROOT=$HOME/.local` makes `cargo install` write `~/.local/bin`. The costs are accepted: cargo keeps its install records (`.crates.toml`, `.crates2.json`) in the root, i.e. `~/.local/`, and same-named binaries overwrite one another (`go install` silently; cargo and uv refuse without `--force`). Before this, `~/.local/share/cargo/bin` held old `fd` and `rg` that shadowed the brewfile's — they were removed, along with an unused `rustlings`. `CARGO_HOME` (registry, caches) stays at `~/.local/share/cargo`.
 
 **Pending a decision:** Homebrew's gnubin directories (`make`, `gnu-sed`, `inetutils`) and keg-only `bin` directories (`curl`, `openjdk`, `llvm`, `rustup`) are not in `PATH`. Under nix the profile shadowed `/usr/bin` with all of them; until this is decided, `sed`/`make`/`ping`/`hostname`/`ifconfig`/`whois`/`traceroute`/`curl`/`clangd` are Apple's, `java` is Apple's stub with no runtime, and `rustup`/`rustc`/`cargo` are absent. Scripts in this repo must therefore run under BSD tools — `sed -i ''`, not `sed -i`. Tools that are not keg-only (`ssh` from `openssh`, `git`, `python3`) already win from `/opt/homebrew/bin`.
 
@@ -76,7 +78,7 @@ Deliberately declined rather than blocked, kept here so they are not re-proposed
 
 ## Go
 
-`go` comes from the brewfile; `GOPATH`/`GOBIN` are not environment variables but entries in the file `go env` reads, which on Darwin is `~/Library/Application Support/go/env` — stowed from `stow/go/`. `go env GOPATH` answers `~/.local/share/go`; `conf.d/env.fish` hardcodes `~/.local/share/go/bin` in `PATH` rather than deriving it from `GOBIN`.
+`go` comes from the brewfile; `GOPATH`/`GOBIN` are not environment variables but entries in the file `go env` reads, which on Darwin is `~/Library/Application Support/go/env` — stowed from `stow/go/`. `GOPATH` is `~/.local/share/go`; `GOBIN` is `~/.local/bin`, so `go install` lands on `PATH` with nothing Go-specific in it.
 
 **`go env -w` works again, and it writes into the repo**, because the stowed file is a symlink into `stow/go/`. Under home-manager the file was a read-only store path and `go env -w` failed with `permission denied`. Review `git diff` after using it.
 
