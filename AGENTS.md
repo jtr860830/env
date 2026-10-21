@@ -35,7 +35,7 @@ A new machine runs `./bootstrap.sh`: it installs Homebrew and `just` — exporti
 
 **`stow --no-folding` is required, not a style choice.** With folding, a target directory that does not exist yet becomes a single link into the repo, and fisher (`conf.d/`, `functions/`) and vim.pack (`nvim-pack-lock.json`) then write their own files *into the repo*. Without it every directory under `~` is real and only leaf files are links.
 
-`stow/bin/` holds `~/.local/bin/vi` and `vim`, two-line `exec nvim "$@"` wrappers replacing home-manager's `viAlias`/`vimAlias`; without them `vim` opens Apple's unconfigured Vim. They are scripts rather than symlinks because stow refuses an absolute symlink as a source, and a relative one would tie the repo to its location.
+`vi` and `vim` are fish functions (`functions/vi.fish`, `vim.fish`, `--wraps nvim`), replacing home-manager's `viAlias`/`vimAlias`; without them `vim` opens Apple's unconfigured Vim. home-manager's versions were real binaries on `PATH`; functions only apply where fish runs the command, which is accepted — `EDITOR` and git's `core.editor` already name `nvim`, so only something invoking the literal name `vim` from outside fish misses them. Same mechanism as `ls`, `rm` and `wget`.
 
 ### System Files
 

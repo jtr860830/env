@@ -1,6 +1,6 @@
 set shell := ["bash", "-euo", "pipefail", "-c"]
 
-packages := "bin claude codex fish ghostty git go npm nvim ssh tmux"
+packages := "claude codex fish ghostty git go npm nvim ssh tmux"
 
 default:
     @just --list
