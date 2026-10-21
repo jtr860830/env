@@ -12,13 +12,22 @@ It lives in `conf.d/` rather than `config.fish` because conf.d is sourced first,
 |------|-------|
 | `~/.local/bin`, `~/.local/share/go/bin`, `~/.local/share/cargo/bin` | user-installed binaries, ahead of everything |
 | `/opt/homebrew/bin`, `/opt/homebrew/sbin` | the brewfile |
-| the output of `path_helper` | macOS's own system PATH: `/etc/paths` then `/etc/paths.d/*`, twelve entries here |
+| `/usr/local/bin`, `/usr/local/sbin`, `/usr/bin`, `/usr/sbin`, `/bin`, `/sbin` | the system, locality-first |
 
 **Pending a decision:** gnubin directories (`make`, `gnu-sed`, `inetutils`) and keg-only `bin` directories (`curl`, `openjdk`, `llvm`, `rustup`) are not in `PATH`. Until they are, `sed`/`make`/`ping`/`curl`/`clangd` resolve to Apple's versions, `java` is Apple's stub, and `rustup`/`rustc`/`cargo` are absent.
 
 `man` needs no `MANPATH`: macOS's `/usr/bin/man` derives its search path from `PATH` and still reaches sections 2 and 3 in the Command Line Tools SDK — verified with `man -w 2 open`, `man -w rg` and `man -w ls`.
 
-**The system part is generated, not written out.** `env -i /usr/libexec/path_helper -s` produces it, so entries that packages add through `/etc/paths.d` — the cryptex directories, `/pkg/env/global/bin`, Wireshark's `Contents/MacOS` from the `wireshark-app` cask — arrive on their own. The nix-era list hardcoded six of them and silently dropped the other six. `env -i` matters: without it `path_helper` merges the current `PATH` in. Cost is about 5 ms per shell.
+**The system part is six hardcoded directories, locality-first, and `path_helper` is deliberately not used.** Its output is twelve entries here — `/System/Cryptexes/App/usr/bin`, three `cryptexd` bootstrap directories, `/pkg/env/global/bin` and Wireshark's `Contents/MacOS` on top of the six — and the owner chose a short, predictable list over following whatever `/etc/paths.d` accumulates. Anything that needs one of those is called by full path or added here explicitly. Across the six there are 1,273 distinct names (2026-10-21) and **zero collisions**, so locality-first versus bin-then-sbin changes nothing about which binary wins; re-check before reopening it:
+
+```sh
+python3 -c "
+import os,collections
+d=collections.defaultdict(list)
+for p in '/usr/local/bin /usr/local/sbin /usr/bin /usr/sbin /bin /sbin'.split():
+    for f in (os.listdir(p) if os.path.isdir(p) else []): d[f].append(p)
+print({k:v for k,v in d.items() if len(v)>1} or 'no collisions')"
+```
 
 `/nix/var/nix/profiles/default/bin` still appears first while nix is installed: the Determinate installer wrote `/opt/homebrew/etc/fish/conf.d/nix.fish`, which sorts after `env.fish` and prepends it. It is listed in `/nix/receipt.json`, so the uninstaller removes it.
 

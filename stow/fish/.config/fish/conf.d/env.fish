@@ -10,7 +10,12 @@ set -gx PATH \
     $HOME/.local/share/cargo/bin \
     /opt/homebrew/bin \
     /opt/homebrew/sbin \
-    (env -i /usr/libexec/path_helper -s | string match -rg 'PATH="([^"]*)"' | string split :)
+    /usr/local/bin \
+    /usr/local/sbin \
+    /usr/bin \
+    /usr/sbin \
+    /bin \
+    /sbin
 
 set -gx LANG en_US.UTF-8
 set -gx EDITOR nvim
