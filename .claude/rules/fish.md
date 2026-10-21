@@ -14,7 +14,7 @@ It lives in `conf.d/` rather than `config.fish` because conf.d is sourced first,
 | `/opt/homebrew/bin`, `/opt/homebrew/sbin` | the brewfile |
 | `/usr/local/bin`, `/usr/local/sbin`, `/usr/bin`, `/usr/sbin`, `/bin`, `/sbin` | the system, locality-first |
 
-**Keg-only formulae are linked (`link: true` in the brewfile), not added to `PATH`** — `rustup` is, so `cargo`/`rustc` resolve from `/opt/homebrew/bin`. **Pending a decision:** gnubin directories (`make`, `gnu-sed`, `inetutils`) and the keg-only `curl`, `openjdk` and `llvm`. Until then `sed`/`make`/`ping`/`curl`/`clangd` resolve to Apple's versions and `java` is Apple's stub.
+**Keg-only formulae are linked (`link: true` in the brewfile), not added to `PATH`** — `curl`, `llvm` and `rustup` are, so their binaries resolve from `/opt/homebrew/bin`. `ncurses` and `openjdk` are deliberately not linked, and the gnubin formulae are reached by their `g`-prefixed names; the reasons are in AGENTS.md.
 
 `man` needs no `MANPATH`: macOS's `/usr/bin/man` derives its search path from `PATH` and still reaches sections 2 and 3 in the Command Line Tools SDK — verified with `man -w 2 open`, `man -w rg` and `man -w ls`.
 

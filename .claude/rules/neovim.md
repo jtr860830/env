@@ -20,7 +20,7 @@ LSP servers are managed in two places: the binary in the `brewfile` and the name
 
 A server only attaches to the filetypes its `lsp/<name>.lua` claims, so check them against `vim.filetype.add` in `options.lua`. `helm_ls` claims `helm` and `yaml.helm-values` — mapping Helm templates to `gotmpl` silently left them with no LSP. The `helm` parser inherits `gotmpl` and additionally injects `yaml`, so it is the better choice anyway (parse tree becomes `[helm, yaml]`).
 
-LSP servers live on the shell `PATH`, not in an editor-private one, because `helix` resolves them from `PATH` too. **`clangd` currently resolves to Apple's `/usr/bin/clangd`**: Homebrew's `llvm` is keg-only and its `bin` is not in `PATH` yet (pending decision, see `.claude/rules/fish.md`).
+LSP servers live on the shell `PATH`, not in an editor-private one, because `helix` resolves them from `PATH` too. `clangd` and `clang-format` come from Homebrew's `llvm`, linked with `link: true` in the brewfile — without it `clangd` fell back to Apple's and conform's C formatter had no `clang-format` at all.
 
 ```lua
 vim.lsp.config("lua_ls", { settings = ... })  -- per-server override
