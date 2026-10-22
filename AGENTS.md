@@ -113,7 +113,7 @@ brew ruby -e 'puts ENV["HOMEBREW_USER_CONFIG_HOME"]'
 Steps `just setup` cannot perform — local UI state, app preferences and licences:
 
 - **macOS settings** — Dock, Finder, key repeat, screenshots, hostname and DNS are not managed. They persist on this machine; a new one sets them by hand, and the last declared values are `darwin/system.nix` in git history.
-- **OmniWM** — permissions and Start at Login, see `## OmniWM`. Trackpad: turn off macOS's three- and four-finger swipes (System Settings → Trackpad → More Gestures), which OmniWM's gestures replace.
+- **OmniWM** — permissions and Start at Login, see `.claude/rules/omniwm.md`. Trackpad: turn off macOS's three- and four-finger swipes (System Settings → Trackpad → More Gestures), which OmniWM's gestures replace.
 - **Claude Code** — `pluginConfigs["cc-plugin-agents-md@builtin"].options.instructionFiles = "claude-md-and-agents-md"` in `~/.config/claude/settings.json` (see `## AGENTS.md, Not CLAUDE.md`).
 - **Alfred** — enter the Powerpack licence; point the sync folder at iCloud, which restores workflows, themes and preferences; set the theme for *both* light and dark appearance (see below); set the hotkey to `⌘Space`; turn off System Settings → Keyboard → Keyboard Shortcuts → Spotlight → "Show Spotlight search", which otherwise owns that key.
 
@@ -122,34 +122,6 @@ Alfred's config is **deliberately not in this repo**. Its sync folder moves the 
 **Do not try to disable the Spotlight hotkey declaratively.** It lives at `AppleSymbolicHotKeys` key `64` in `com.apple.symbolichotkeys`, and `system.defaults.CustomUserPreferences` emits `defaults write <domain> <key> <plist>` — a whole-dict *replacement*, which would wipe the other ~50 hotkey entries (Mission Control, screenshots, input sources…). `PlistBuddy -c "Set :AppleSymbolicHotKeys:64:enabled false"` edits in place and would work, but needs `killall cfprefsd` for the preference cache and would need its own recipe — not worth it for a one-time toggle.
 
 `⌘` combinations never reach programs inside the terminal (macOS handles them at the app layer), so they are the safe modifier for global hotkeys; `⌃` and `⌥` do reach tmux and Neovim — `⌃Space` is already blink.cmp's completion trigger and `⌥hjkl` is mini.move.
-
-## OmniWM
-
-Tiling window manager (cask `omniwm`, 0.7.6). `config/omniwm/.config/omniwm/settings.toml` is stowed: OmniWM live-reloads it on every save and writes Settings-window changes back **through the symlink** — verified both ways, the link survived a GUI save and the edit landed in the repo. Runtime state (window placements, clipboard) lives in `~/.local/state/omniwm`, not in this file. The schema is strict: change values in place, never delete keys — a missing key rejects the whole file (OmniWM then keeps the previous settings). It drops comments when it rewrites, which matches this repo's no-comment rule. The upstream docs on `main` describe schema 5; this install writes schema 4, so check a key against the generated file before relying on the docs.
-
-Layout follows how the machine is used — one window fills each screen. Workspaces 1–3 live on the built-in display (1 Ghostty, 2 Zen, 3 for anything else) and 4–5 on the secondary display. There is no way to make a workspace exist only while its display is connected: when the home display is missing, 0.7.6 places the workspace on the nearest connected one (`effectiveMonitor` in `WorkspaceManager+MonitorResolution.swift`; `specificDisplay` assignments fall back the same way), so unplugged, 4 and 5 join the built-in display — read from source, not yet observed. Splitting the numbers per display keeps the built-in set stable either way, and `workspaceBar.hideEmptyWorkspaces = true` hides any inactive empty workspace from the bar and Overview and makes next/previous navigation (the three-finger swipe) skip it — so an unplugged 4–5 with nothing in them stays out of sight. `⌥1-5` and `⌥⇧1-5` still reach empty workspaces; only drag-and-drop onto one is lost, since it is no longer drawn. Niri with `visibleContainerCount = 1` and `defaultContainerPrimarySpan = 1.0`, so every column is full width; `⌥.`/`⌥,` cycle a column through ⅓/½/⅔ for a side-by-side view and `⌥⇧F` toggles full width back. `edgeGaps = false` and `gaps.size = 8`, otherwise a full-width column is inset 16pt on every side once a workspace holds two windows. The focus border is off: with one window per screen it marked nothing and cost 5pt on each edge.
-
-`assignToWorkspace` rules route Ghostty to 1 and Zen to 2, but only for an app's **first** tracked window — later windows open on whatever workspace is active. Keeping workspace 1 terminal-only would need a `omniwmctl watch windows-changed` guard; declined for now.
-
-**Everything else tiles on workspace 3 (`Etc`).** A last rule with an empty `bundleId`, `titleRegex = ".*"`, `assignToWorkspace = "3"` and `layout = "tile"` sends any app without its own rule to the built-in display's catch-all as a full-width column. 3 rather than 5 because it exists with or without the secondary display, and a rule names one workspace. It replaced a catch-all `layout = "float"`, which kept ad-hoc windows from pushing the tiled one aside but left them loose on whatever workspace was active. The rule works through specificity (`AppRule.specificity` in 0.7.6: bundle ID +2, each other matcher +1), resolved **per setting**: Ghostty's and Zen's rules (2) win, but only for settings they set, so both carry an explicit `assignToWorkspace` and `layout`. A window with no AX title fails the regex (`guard let title … else { return false }`) and tiles on the active workspace. Verified with TextEdit: it opened as a column on 3 while Ghostty stayed on 1. Limits observed: `assignToWorkspace` moves only an app's first tracked window, so a second window of the same app becomes a column on the active workspace — send it on with `⌥⇧3`; and Calculator, a fixed-size window, appeared on no workspace at all once the rule said `tile` (it floated at 230×408 under the old rule) — cause not read from source, so a non-resizable tool that misbehaves needs its own `layout = "float"` rule. `⌥⇧Space` toggles `toggleFocusedWindowFloating` for one window (unassigned by default; the i3/sway `mod+shift+space` convention, and free among the 67 bound chords — plain `⌥Space` types a no-break space in macOS text fields).
-
-**The Quake terminal is off** (`quakeTerminal.enabled = false`). It is OmniWM's embedded libghostty and reads the same Ghostty config files, so Ghostty's `command` — which starts tmux, see `## Ghostty and tmux` — would attach it to the main session as a second client. A shell-side guard was tried first (`$__CFBundleIdentifier` is `com.barut.OmniWM` in a Quake shell, `com.mitchellh.ghostty` in Ghostty) and dropped in favour of keeping tmux out of the shell config entirely. Measured from a Quake shell before it was disabled: `GHOSTTY_BIN_DIR` inside `OmniWM.app`, `TERM_PROGRAM=ghostty`, `TERM_PROGRAM_VERSION=1.3.2-main+…`, `TERM=xterm-256color`. Re-enabling Quake means first giving it a config that does not carry `command`.
-
-**A floating window belongs to the workspace it opened on — there is no sticky / all-workspaces window in 0.7.6.** The source sets `canJoinAllSpaces` only on OmniWM's own panels (workspace bar, Quake, tooltips), app rules can set layout, workspace, minimum size and initial span but nothing like "every workspace", and OmniWM workspaces are not macOS Spaces (off-workspace windows are parked off-screen), so the native "assign to all desktops" does not apply either. The only thing that follows workspace switches is a revealed scratchpad; auto-assigning new floating windows into one with a `omniwmctl watch windows-changed` launchd agent was weighed and declined — every ad-hoc window would share one slot, `scratchpad assign` acts on whichever window has focus, and assignments vanish on restart. Move a float with `⌥⇧1-3` instead.
-
-**Hidden Bar is off** (`hiddenBar.enabled = false`). It conceals menu-bar icons, but only with Full Disk Access granted to OmniWM and only while the workspace bar is on; it had nothing selected and no such permission, so it did nothing. If the notch ever starts swallowing menu-bar icons, a standalone tool (OmniWM's docs point to Thaw) is the better trade than giving the window manager Full Disk Access.
-
-Scratchpads were considered for summon-on-demand apps; their membership lasts only for the OmniWM process (labels persist, assignments do not), so they need re-assigning after every restart and are unused for now.
-
-The menu bar item shows OmniWM's icon followed by the active workspace's number (`statusBar`: `showIcon = true`, `showWorkspaceName = true`, `useWorkspaceId = true`). The workspace bar shows each workspace's number and its app icons, over the menu bar, revealed by holding `⌥` (`revealModifier`), which pairs with the `⌥1-3` workspace keys. Each workspace has a `displayName` — 1 `Term`, 2 `Web`, 3 `Etc`, 4 `Ref` (the secondary display's main workspace: reading docs, code and papers, mostly in a browser), 5 `Etc` — which the bar shows as its label. 3 and 5 are each display's catch-all and share a name on purpose: `displayName` need not be unique (0.7.6 accepted the duplicate, and every `switch-workspace` form takes a number, never a display name), and the bar draws each display's workspaces separately, so the two never appear side by side; `name` stays the number, so `⌥1-5` and the menu bar's number (`useWorkspaceId`) are unaffected. Two things were tried and dropped on the way: Nerd Font glyphs as names — the bar and menu bar render in the system font, and CoreText resolves U+E795 to `LastResort`, the boxed question mark (`swift` with `CTFontCreateForString` is the instrument) — and bottom placement, which shares its reveal edge with the auto-hidden Dock. The bar's leading OmniWM button is hard-coded in 0.7.6 (`showsOmniWMButton` is `slice != .secondary`) and cannot be turned off until the OmniShell bar ships.
-
-**Overview colours.** Only the selected window's border can follow light/dark: with `overview.matchFocusBorder = true` it takes the focus border's colour (`OverviewAppearance` calls `BorderConfig.from(settings:isDark:)`), and `borders` has both `color` (light) and `darkColor` (dark) in 0.7.6. Those are set to purple — `#a626a4` / `#c678dd`, the colour that means "current" everywhere else (`TabLineSel`, tmux's current window) — while the focus border itself stays disabled; only its colour is borrowed. Backdrop, resting and hovered borders take a single colour for both appearances and stay at OmniWM's defaults: the backdrop is fully transparent, so they are drawn over the wallpaper and a contrast measurement against the palette would not mean anything.
-
-**Trackpad gestures**: three fingers scroll Niri columns left/right and switch workspaces up/down (OmniWM's defaults — the two share a finger count because their axes differ); four fingers swiping up/down open and close Overview. macOS's own three- and four-finger swipes (full-screen apps, Mission Control) are turned off in System Settings, since both would fire on the same swipe. Window move and resize gestures stay off: 0.7.6's `GestureSettingsValidation` requires each to have a finger count no other enabled gesture uses, three and four are taken, and two fingers is ordinary scrolling — `⌥`-drag with the mouse or trackpad covers both.
-
-Hotkeys stay on OmniWM's `⌥` defaults. They take `⌥←→↑↓` from fish (word motion, token history search) — accepted, since vi mode moves with `w`/`b` — and Hyper was not set up. `updateChecksEnabled = false` (brew updates it) and `ipcEnabled = true` (for `omniwmctl`).
-
-Manual setup: grant Accessibility and Input Monitoring on first launch (Screen Recording is optional), keep **Displays have separate Spaces** on, and turn on **Start at Login** in OmniWM's menu — it is a macOS login item, not a key in `settings.toml`.
 
 ## Container Stack
 
@@ -169,41 +141,21 @@ So **never let a `CLAUDE.md` appear at the repo root**. `/init`, `/revise-claude
 
 Scope is project-only on purpose. At user scope Claude Code reads only `CLAUDE.md` — its built-in Codex importer copies Codex's `AGENTS.md` *into* Claude's user `CLAUDE.md`, which it would not need to do otherwise — so `config/claude/.config/claude/CLAUDE.md` keeps its name. It is also written in Claude's first person ("execution goes to Codex"), which would read backwards to Codex; sharing it would need a split into a neutral common part and a Claude-only part first.
 
-The `.claude/rules/` and `.claude/skills/` material below is loaded automatically by Claude Code only. Codex does not see it unless it opens those files, so read the relevant one before touching Neovim, tmux, fish or anything colour-related.
+The `.claude/rules/` and `.claude/skills/` material below is loaded automatically by Claude Code only. Codex does not see it unless it opens those files, so read the relevant one before touching Neovim, tmux, fish, Ghostty, OmniWM or anything colour-related.
 
 ## Path-Scoped Rules
 
-Three bodies of guidance were moved out of this file into `.claude/rules/`, where a `paths` frontmatter key loads each one only when a matching file is actually being edited. Nothing was dropped — every measured finding and negative result is still recorded, just not in every session's context.
+Five bodies of guidance were moved out of this file into `.claude/rules/`, where a `paths` frontmatter key loads each one only when a matching file is actually being edited. Nothing was dropped — every measured finding and negative result is still recorded, just not in every session's context.
 
 | File | Loads when editing | Covers |
 |------|--------------------|--------|
 | `.claude/rules/neovim.md` | `config/nvim/**` | plugins via `vim.pack`, the 0.11+/0.12 LSP API, LspAttach patterns, mini.nvim's per-module `setup()` traps, nerd font icons and the `nr2char` requirement, keymap organisation, formatters, snacks, sign column, fzf-lua colours, startup timings, and what is deliberately absent |
 | `.claude/rules/tmux.md` | `config/tmux/**` | the style/format quirks, `message-style` needing `fill=`, extended-keys negotiation, duplicate options, and tmux 3.8's changed default styles |
 | `.claude/rules/fish.md` | `config/fish/**` | why `PATH` is written outright in `conf.d/env.fish`, the ordering table and collision check, the pending gnubin/keg-only decision, the conf.d layout and why `theme.fish` must sort after `pure.fish`, and the valid `fish_color_*`/`pure_color_*`/`EZA_COLORS` names |
+| `.claude/rules/ghostty.md` | `config/ghostty/**`, `config/tmux/**`, `config/fish/**` | why Ghostty's `command` starts tmux (absolute path, `env -u TMUX`) and fish has no tmux logic, shell integration being off, and `macos-option-as-alt` |
+| `.claude/rules/omniwm.md` | `config/omniwm/**` | the stowed `settings.toml` and its strict schema, workspaces per display and their names, app rules and the catch-all to workspace 3, Quake and Hidden Bar being off, no sticky windows, menu bar and workspace bar, Overview colours, trackpad gestures and hotkeys |
 
 Same reasoning as the `theme` skill above: measured values that are expensive to re-derive but irrelevant most of the time. Prefer this mechanism over adding another always-loaded section when new guidance is tied to one file.
-
-## Ghostty and tmux
-
-Ghostty starts tmux itself — `command = /usr/bin/env -u TMUX /opt/homebrew/bin/tmux new-session -A -s main` in its config — and fish's config has no tmux logic at all. So only Ghostty windows land in the `main` session; a shell started anywhere else (Zed's terminal, an SSH login, a subshell) is plain fish, with nothing to exclude. The previous `exec tmux` in `config.fish` needed a guard for every non-Ghostty host.
-
-- **Absolute path**: Ghostty launched from the Dock or Alfred has only launchd's `PATH` (`/usr/bin:/bin:/usr/sbin:/sbin`), and `command` runs before fish's `env.fish`.
-- **`env -u TMUX`**: an app launched with `open` from inside tmux inherits `TMUX` (see `### GUI Apps Launched From a Terminal`); tmux would refuse to start with *sessions should be nested with care*. Clearing it makes a polluted launch attach normally.
-- Detaching closes the window, as `exec` did; panes run the login shell (`/opt/homebrew/bin/fish`), where `env.fish` sets `PATH`.
-
-Verified with two fresh instances (`open -na /Applications/Ghostty.app`): one under the clean launchd environment, one inheriting this shell's `TMUX` — both attached to `main` as a new client.
-
-## Ghostty Shell Integration
-
-`shell-integration = none` — disabled; tmux handles working directory and pane management, making all features redundant.
-Available features: `cursor`, `sudo`, `title`, `ssh-env`, `ssh-terminfo`, `path`. In tmux `TERM=tmux-256color` so `ssh-env` TERM conversion does not trigger.
-Verify integration is actually loaded: `fish -c 'functions __ghostty_setup'` — returns "not loaded" if disabled correctly. `$GHOSTTY_SHELL_FEATURES` is set by Ghostty process itself and is not a reliable indicator.
-
-## Key Keybinding Patterns
-
-Tmux handles all split and pane management. No custom Ghostty keybindings — tmux workflow makes them redundant. Tmux prefix is `Ctrl+B`.
-
-Ghostty requires `macos-option-as-alt = true` for `<A-*>` keybindings to work in Neovim on macOS — without it, Option sends special characters instead.
 
 ## Terminfo
 

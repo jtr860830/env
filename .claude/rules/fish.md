@@ -6,7 +6,7 @@ paths: ["config/fish/**"]
 
 `conf.d/env.fish` sets the whole `PATH` with `set -gx PATH` rather than prepending with `fish_add_path`, **deliberately**: macOS's `path_helper` reads `/etc/paths` and `/etc/paths.d/*` and *prepends* the system entries, which would push `/usr/bin` ahead of Homebrew. Writing the list outright keeps it out of the way — do not "simplify" this to an append-style call.
 
-It lives in `conf.d/` rather than `config.fish` so it is set for every fish — interactive or not — before anything else runs; a GUI-launched process inherits only launchd's `/usr/bin:/bin:/usr/sbin:/sbin`. nix-darwin used to hide this by setting `PATH` in `/etc/fish`. tmux is not started from fish at all: Ghostty's `command` does it (AGENTS.md, `## Ghostty and tmux`).
+It lives in `conf.d/` rather than `config.fish` so it is set for every fish — interactive or not — before anything else runs; a GUI-launched process inherits only launchd's `/usr/bin:/bin:/usr/sbin:/sbin`. nix-darwin used to hide this by setting `PATH` in `/etc/fish`. tmux is not started from fish at all: Ghostty's `command` does it (`.claude/rules/ghostty.md`).
 
 | Path | Holds |
 |------|-------|
