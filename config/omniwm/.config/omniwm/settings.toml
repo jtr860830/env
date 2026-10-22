@@ -20,7 +20,7 @@ green = 1.0
 red = 0.08458520228437894
 
 [clipboard]
-historyEnabled = false
+historyEnabled = true
 ignoredTypes = []
 maxItemBytes = 8388608
 maxItems = 200
@@ -86,7 +86,7 @@ workspaceSwipeFingerCount = 3
 
 [hiddenBar]
 enabled = true
-hiddenBundleIDs = []
+hiddenBundleIDs = ["com.1password.1password", "jp.naver.line.mac", "com.cloudflare.1dot1dot1dot1.macos", "io.tailscale.ipn.macsys", "ru.keepcoder.Telegram"]
 rehideIntervalSeconds = 5.0
 
 [monitors]
@@ -255,6 +255,7 @@ minWidth = 574.0
 assignToWorkspace = "2"
 bundleId = "app.zen-browser.zen"
 id = "1CF39647-F30D-4E76-9686-79B551F1B094"
+layout = "tile"
 minHeight = 495.0
 minWidth = 500.0
 
@@ -286,6 +287,7 @@ minWidth = 800.0
 assignToWorkspace = "1"
 bundleId = "com.mitchellh.ghostty"
 id = "7876C9EF-437E-4D4F-9C27-B1B02F4AABCE"
+layout = "tile"
 minHeight = 48.0
 minWidth = 90.0
 
@@ -300,6 +302,12 @@ bundleId = "com.apple.MobileSMS"
 id = "552FB77D-BF0E-4737-90A6-B5BC6986C579"
 minHeight = 320.0
 minWidth = 660.0
+
+[[appRules]]
+bundleId = ""
+id = "90CF1933-A52C-4069-9D2E-C6D9CB574035"
+layout = "float"
+titleRegex = ".*"
 
 [[hotkeys]]
 binding = "Unassigned"
