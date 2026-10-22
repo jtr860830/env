@@ -184,8 +184,8 @@ monitorName = "Built-in Retina Display"
 
 [statusBar]
 showAppNames = false
-showIcon = false
-showWorkspaceName = true
+showIcon = true
+showWorkspaceName = false
 useWorkspaceId = true
 
 [workspaceBar]
@@ -211,7 +211,7 @@ revealModifier = "option"
 showAccentHighlights = true
 showFloatingWindows = false
 showItemBackgrounds = true
-showLabels = false
+showLabels = true
 solidBlackBackground = false
 systemStatsButton = false
 transparentBackground = false
@@ -1066,7 +1066,6 @@ binding = "Unassigned"
 id = "toggleSystemStats"
 
 [[workspaces]]
-displayName = "💻"
 id = "AD36F001-C57E-41A5-AC1D-DF5249D007F0"
 layoutType = "niri"
 name = "1"
@@ -1075,7 +1074,6 @@ name = "1"
 type = "main"
 
 [[workspaces]]
-displayName = "🌐"
 id = "454CECD4-5E9D-4ED1-95D7-979D48817F5F"
 layoutType = "niri"
 name = "2"
@@ -1084,7 +1082,6 @@ name = "2"
 type = "main"
 
 [[workspaces]]
-displayName = "🖥️"
 id = "BEB842B5-E894-4791-9FD1-397C3CDD3538"
 layoutType = "niri"
 name = "3"
