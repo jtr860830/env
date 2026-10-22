@@ -92,7 +92,7 @@ workspaceSwipeFingerCount = 3
 
 [hiddenBar]
 enabled = true
-hiddenBundleIDs = ["com.1password.1password", "jp.naver.line.mac", "com.cloudflare.1dot1dot1dot1.macos", "io.tailscale.ipn.macsys", "ru.keepcoder.Telegram"]
+hiddenBundleIDs = ["com.1password.1password", "jp.naver.line.mac", "com.cloudflare.1dot1dot1dot1.macos", "io.tailscale.ipn.macsys", "ru.keepcoder.Telegram", "com.hnc.Discord", "org.mozilla.nightly", "com.apple.Passwords", "com.apple.ScriptMonitor", "com.microsoft.rdc.macos", "app.zen-browser.zen"]
 rehideIntervalSeconds = 5.0
 
 [monitors]
@@ -1080,6 +1080,7 @@ binding = "Unassigned"
 id = "toggleSystemStats"
 
 [[workspaces]]
+displayName = "Term"
 id = "AD36F001-C57E-41A5-AC1D-DF5249D007F0"
 layoutType = "niri"
 name = "1"
@@ -1088,6 +1089,7 @@ name = "1"
 type = "main"
 
 [[workspaces]]
+displayName = "Web"
 id = "454CECD4-5E9D-4ED1-95D7-979D48817F5F"
 layoutType = "niri"
 name = "2"
@@ -1096,6 +1098,7 @@ name = "2"
 type = "main"
 
 [[workspaces]]
+displayName = "Misc"
 id = "BEB842B5-E894-4791-9FD1-397C3CDD3538"
 layoutType = "niri"
 name = "3"
@@ -1104,6 +1107,7 @@ name = "3"
 type = "main"
 
 [[workspaces]]
+displayName = "Ext"
 id = "E577C705-7E72-4CF1-B2A8-FEDB9455C134"
 layoutType = "niri"
 name = "4"
@@ -1112,6 +1116,7 @@ name = "4"
 type = "secondary"
 
 [[workspaces]]
+displayName = "Ext2"
 id = "BB8D3CE8-4BB3-426C-B5E5-F42176749902"
 layoutType = "niri"
 name = "5"
