@@ -85,7 +85,7 @@ workspaceSwipeEnabled = false
 workspaceSwipeFingerCount = 3
 
 [hiddenBar]
-enabled = true
+enabled = false
 hiddenBundleIDs = ["com.1password.1password", "jp.naver.line.mac", "com.cloudflare.1dot1dot1dot1.macos", "io.tailscale.ipn.macsys", "ru.keepcoder.Telegram"]
 rehideIntervalSeconds = 5.0
 
