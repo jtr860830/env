@@ -36,11 +36,11 @@ useGlobalGaps = true
 
 [focus]
 crossesMonitorAtEdge = false
-followsMouse = false
-followsWindowToMonitor = false
+followsMouse = true
+followsWindowToMonitor = true
 lockModifier = "off"
 moveCrossesMonitorAtEdge = false
-moveMouseToFocusedWindow = false
+moveMouseToFocusedWindow = true
 raiseOnMouseFocus = false
 
 [gaps]
@@ -1093,6 +1093,22 @@ type = "main"
 id = "BEB842B5-E894-4791-9FD1-397C3CDD3538"
 layoutType = "niri"
 name = "3"
+
+[workspaces.monitorAssignment]
+type = "main"
+
+[[workspaces]]
+id = "E577C705-7E72-4CF1-B2A8-FEDB9455C134"
+layoutType = "niri"
+name = "4"
+
+[workspaces.monitorAssignment]
+type = "secondary"
+
+[[workspaces]]
+id = "BB8D3CE8-4BB3-426C-B5E5-F42176749902"
+layoutType = "niri"
+name = "5"
 
 [workspaces.monitorAssignment]
 type = "secondary"
