@@ -1,5 +1,5 @@
 status is-interactive; and begin
-    if not set -q TMUX
+    if not set -q TMUX; and test "$__CFBundleIdentifier" != com.barut.OmniWM
         exec tmux new-session -A -s main
     end
 
