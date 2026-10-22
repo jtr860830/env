@@ -1030,7 +1030,7 @@ binding = "Unassigned"
 id = "rescueOffscreenWindows"
 
 [[hotkeys]]
-binding = "Unassigned"
+binding = "Option+Shift+Space"
 id = "toggleFocusedWindowFloating"
 
 [[hotkeys]]
