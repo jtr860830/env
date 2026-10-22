@@ -113,7 +113,7 @@ brew ruby -e 'puts ENV["HOMEBREW_USER_CONFIG_HOME"]'
 Steps `just setup` cannot perform — local UI state, app preferences and licences:
 
 - **macOS settings** — Dock, Finder, key repeat, screenshots, hostname and DNS are not managed. They persist on this machine; a new one sets them by hand, and the last declared values are `darwin/system.nix` in git history.
-- **OmniWM** — permissions and Start at Login, see `## OmniWM`.
+- **OmniWM** — permissions and Start at Login, see `## OmniWM`. Trackpad: turn off macOS's three- and four-finger swipes (System Settings → Trackpad → More Gestures), which OmniWM's gestures replace.
 - **Claude Code** — `pluginConfigs["cc-plugin-agents-md@builtin"].options.instructionFiles = "claude-md-and-agents-md"` in `~/.config/claude/settings.json` (see `## AGENTS.md, Not CLAUDE.md`).
 - **Alfred** — enter the Powerpack licence; point the sync folder at iCloud, which restores workflows, themes and preferences; set the theme for *both* light and dark appearance (see below); set the hotkey to `⌘Space`; turn off System Settings → Keyboard → Keyboard Shortcuts → Spotlight → "Show Spotlight search", which otherwise owns that key.
 
@@ -142,6 +142,8 @@ Layout follows how the machine is used — one window fills each screen: workspa
 Scratchpads were considered for summon-on-demand apps; their membership lasts only for the OmniWM process (labels persist, assignments do not), so they need re-assigning after every restart and are unused for now.
 
 The menu bar item is OmniWM's own icon only (`statusBar.showWorkspaceName = false`). The workspace bar shows each workspace's number and its app icons, over the menu bar, revealed by holding `⌥` (`revealModifier`), which pairs with the `⌥1-3` workspace keys. Workspaces have no `displayName`, so the bar's label is the number. Two things were tried and dropped on the way: Nerd Font glyphs as names — the bar and menu bar render in the system font, and CoreText resolves U+E795 to `LastResort`, the boxed question mark (`swift` with `CTFontCreateForString` is the instrument) — and bottom placement, which shares its reveal edge with the auto-hidden Dock. The bar's leading OmniWM button is hard-coded in 0.7.6 (`showsOmniWMButton` is `slice != .secondary`) and cannot be turned off until the OmniShell bar ships.
+
+**Trackpad gestures**: three fingers scroll Niri columns left/right and switch workspaces up/down (OmniWM's defaults — the two share a finger count because their axes differ); four fingers swiping up/down open and close Overview. macOS's own three- and four-finger swipes (full-screen apps, Mission Control) are turned off in System Settings, since both would fire on the same swipe. Window move and resize gestures stay off: 0.7.6's `GestureSettingsValidation` requires each to have a finger count no other enabled gesture uses, three and four are taken, and two fingers is ordinary scrolling — `⌥`-drag with the mouse or trackpad covers both.
 
 Hotkeys stay on OmniWM's `⌥` defaults. They take `⌥←→↑↓` from fish (word motion, token history search) — accepted, since vi mode moves with `w`/`b` — and Hyper was not set up. `updateChecksEnabled = false` (brew updates it) and `ipcEnabled = true` (for `omniwmctl`).
 
