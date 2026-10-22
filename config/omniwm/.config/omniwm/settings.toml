@@ -91,7 +91,7 @@ workspaceSwipeEnabled = true
 workspaceSwipeFingerCount = 3
 
 [hiddenBar]
-enabled = false
+enabled = true
 hiddenBundleIDs = ["com.1password.1password", "jp.naver.line.mac", "com.cloudflare.1dot1dot1dot1.macos", "io.tailscale.ipn.macsys", "ru.keepcoder.Telegram"]
 rehideIntervalSeconds = 5.0
 
@@ -190,7 +190,7 @@ monitorName = "Built-in Retina Display"
 
 [statusBar]
 showAppNames = false
-showIcon = false
+showIcon = true
 showWorkspaceName = true
 useWorkspaceId = true
 
