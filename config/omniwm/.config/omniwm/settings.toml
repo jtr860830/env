@@ -1107,7 +1107,7 @@ name = "3"
 type = "main"
 
 [[workspaces]]
-displayName = "Ext"
+displayName = "Ref"
 id = "E577C705-7E72-4CF1-B2A8-FEDB9455C134"
 layoutType = "niri"
 name = "4"
@@ -1116,7 +1116,7 @@ name = "4"
 type = "secondary"
 
 [[workspaces]]
-displayName = "Ext2"
+displayName = "Misc2"
 id = "BB8D3CE8-4BB3-426C-B5E5-F42176749902"
 layoutType = "niri"
 name = "5"
