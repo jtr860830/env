@@ -113,6 +113,7 @@ brew ruby -e 'puts ENV["HOMEBREW_USER_CONFIG_HOME"]'
 Steps `just setup` cannot perform — local UI state, app preferences and licences:
 
 - **macOS settings** — Dock, Finder, key repeat, screenshots, hostname and DNS are not managed. They persist on this machine; a new one sets them by hand, and the last declared values are `darwin/system.nix` in git history.
+- **OmniWM** — permissions and Start at Login, see `## OmniWM`.
 - **Claude Code** — `pluginConfigs["cc-plugin-agents-md@builtin"].options.instructionFiles = "claude-md-and-agents-md"` in `~/.config/claude/settings.json` (see `## AGENTS.md, Not CLAUDE.md`).
 - **Alfred** — enter the Powerpack licence; point the sync folder at iCloud, which restores workflows, themes and preferences; set the theme for *both* light and dark appearance (see below); set the hotkey to `⌘Space`; turn off System Settings → Keyboard → Keyboard Shortcuts → Spotlight → "Show Spotlight search", which otherwise owns that key.
 
@@ -121,6 +122,20 @@ Alfred's config is **deliberately not in this repo**. Its sync folder moves the 
 **Do not try to disable the Spotlight hotkey declaratively.** It lives at `AppleSymbolicHotKeys` key `64` in `com.apple.symbolichotkeys`, and `system.defaults.CustomUserPreferences` emits `defaults write <domain> <key> <plist>` — a whole-dict *replacement*, which would wipe the other ~50 hotkey entries (Mission Control, screenshots, input sources…). `PlistBuddy -c "Set :AppleSymbolicHotKeys:64:enabled false"` edits in place and would work, but needs `killall cfprefsd` for the preference cache and would need its own recipe — not worth it for a one-time toggle.
 
 `⌘` combinations never reach programs inside the terminal (macOS handles them at the app layer), so they are the safe modifier for global hotkeys; `⌃` and `⌥` do reach tmux and Neovim — `⌃Space` is already blink.cmp's completion trigger and `⌥hjkl` is mini.move.
+
+## OmniWM
+
+Tiling window manager (cask `omniwm`, 0.7.6). `config/omniwm/.config/omniwm/settings.toml` is stowed: OmniWM live-reloads it on every save and writes Settings-window changes back **through the symlink** — verified both ways, the link survived a GUI save and the edit landed in the repo. Runtime state (window placements, clipboard) lives in `~/.local/state/omniwm`, not in this file. The schema is strict: change values in place, never delete keys — a missing key rejects the whole file (OmniWM then keeps the previous settings). It drops comments when it rewrites, which matches this repo's no-comment rule. The upstream docs on `main` describe schema 5; this install writes schema 4, so check a key against the generated file before relying on the docs.
+
+Layout follows how the machine is used — one window fills each screen: workspace 1 💻 Ghostty and 2 🌐 Zen on the built-in display, 3 🖥️ on the secondary display. Niri with `visibleContainerCount = 1` and `defaultContainerPrimarySpan = 1.0`, so every column is full width; `⌥.`/`⌥,` cycle a column through ⅓/½/⅔ for a side-by-side view and `⌥⇧F` toggles full width back. `edgeGaps = false` and `gaps.size = 8`, otherwise a full-width column is inset 16pt on every side once a workspace holds two windows. The focus border is off: with one window per screen it marked nothing and cost 5pt on each edge.
+
+`assignToWorkspace` rules route Ghostty to 1 and Zen to 2, but only for an app's **first** tracked window — later windows open on whatever workspace is active. Keeping workspace 1 terminal-only would need a `omniwmctl watch windows-changed` guard; declined for now.
+
+The menu bar item shows the active workspace (`statusBar`, number). Workspace names are emoji because the bar and menu bar render in the system font, which has no Nerd Font glyphs — CoreText resolves U+E795 to `LastResort`, the boxed question mark; `swift` with `CTFontCreateForString` is the instrument. The workspace bar shows app icons only, over the menu bar, revealed by holding `⌥` (`revealModifier`), which pairs with the `⌥1-3` workspace keys; bottom placement was dropped because it shares the reveal edge with the auto-hidden Dock. Its leading OmniWM button is hard-coded in 0.7.6 (`showsOmniWMButton` is `slice != .secondary`) and cannot be turned off until the OmniShell bar ships.
+
+Hotkeys stay on OmniWM's `⌥` defaults. They take `⌥←→↑↓` from fish (word motion, token history search) — accepted, since vi mode moves with `w`/`b` — and Hyper was not set up. `updateChecksEnabled = false` (brew updates it) and `ipcEnabled = true` (for `omniwmctl`).
+
+Manual setup: grant Accessibility and Input Monitoring on first launch (Screen Recording is optional), keep **Displays have separate Spaces** on, and turn on **Start at Login** in OmniWM's menu — it is a macOS login item, not a key in `settings.toml`.
 
 ## Container Stack
 
