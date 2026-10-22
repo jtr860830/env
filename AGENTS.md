@@ -76,7 +76,7 @@ Better approaches that exist but are not usable yet. Each line gives the check t
 - **Ghostty 1.4 may make a status bar possible.** 1.3.1 has no such option among its 200 config keys, and the closest surfaces (`title`, `window-subtitle`) take a literal string or a fixed enum. The 1.4 roadmap promises scriptability and "a true Tmux control mode" but says nothing about a status bar; the open request is [Discussion #2421](https://github.com/ghostty-org/ghostty/discussions/2421). Control mode is the more interesting half — it would render tmux windows as native tabs rather than duplicating tmux's bar. Expect roughly September 2026 on the 6-month cycle from 1.3.0.
 - **fish theme files cannot hold the whole palette.** `~/.config/fish/themes/*.theme` takes `[light]`/`[dark]` sections and `fish_config theme choose` follows the terminal from them, which would be more idiomatic than a hand-written handler — but theme files only set `fish_color_*`/`fish_pager_color_*`, so `pure_color_*`, `EZA_COLORS` and `LS_COLORS` would still need one. Worth revisiting only if a shipped theme is ever seen setting something outside those two prefixes.
 
-Deliberately declined rather than blocked, kept here so they are not re-proposed as if new: `snacks.scroll` (smooth scrolling, installed and un-`setup()`); `@variable`/`Identifier` → plain foreground, Zed's one portable idea, which would take light-mode variables from 3.51 to 10.86 but moves further from One Dark Pro's style; hardening `config.fish`'s `if not set -q TMUX` to also check the socket is live; `column.ui = "auto"`, which fights `branch.sort = "-committerdate"`; and writing an own theme rather than hosting on onedarkpro, scoped at 327 highlight groups of which 69 are pure links.
+Deliberately declined rather than blocked, kept here so they are not re-proposed as if new: `snacks.scroll` (smooth scrolling, installed and un-`setup()`); `@variable`/`Identifier` → plain foreground, Zed's one portable idea, which would take light-mode variables from 3.51 to 10.86 but moves further from One Dark Pro's style; `column.ui = "auto"`, which fights `branch.sort = "-committerdate"`; and writing an own theme rather than hosting on onedarkpro, scoped at 327 highlight groups of which 69 are pure links.
 
 ## Git Conventions
 
@@ -133,7 +133,7 @@ Layout follows how the machine is used — one window fills each screen: workspa
 
 **Everything else floats.** A last rule with an empty `bundleId`, `titleRegex = ".*"` and `layout = "float"` makes any app opened ad hoc float over the current screen instead of becoming a full-width column that pushes the tiled window aside — no per-app sorting needed. It works through specificity (`AppRule.specificity` in 0.7.6: bundle ID +2, each other matcher +1), resolved **per setting**: Ghostty's and Zen's rules (2) win, but only for settings they set, so both carry an explicit `layout = "tile"` — without it they would inherit the catch-all's `float`. A window with no AX title fails the regex (`guard let title … else { return false }`) and tiles as before. Verified by launching Calculator: it opened floating at its own 230×408 while Ghostty stayed 1512×949. A new app that should tile needs its own rule with `layout = "tile"`. To move one window in or out of the layout without a rule, `⌥⇧Space` toggles `toggleFocusedWindowFloating` (unassigned by default; the i3/sway `mod+shift+space` convention, and free among the 67 bound chords — plain `⌥Space` types a no-break space in macOS text fields).
 
-**The Quake terminal (`` ⌥` ``) runs a plain fish, not tmux.** It is OmniWM's own embedded libghostty, so fish's `exec tmux new-session -A -s main` would attach it to the main session as a second client and drag that session's size down to the drop-down's. `config.fish` therefore skips the exec when `$__CFBundleIdentifier` is `com.barut.OmniWM` — macOS sets that variable to the launching app's bundle ID, and it was the one reliable difference found (Ghostty: `com.mitchellh.ghostty`). Its other environment, measured from a Quake shell: `GHOSTTY_BIN_DIR` inside `OmniWM.app`, `TERM_PROGRAM=ghostty`, `TERM_PROGRAM_VERSION=1.3.2-main+…` (newer than the Ghostty app's 1.3.1), and **`TERM=xterm-256color`** rather than `xterm-ghostty`. It reads the Ghostty config files but whether it follows the light/dark switch (DEC 2031) is unverified. Ghostty stays the main terminal — a WM-hosted terminal dies with every OmniWM quit, which an OmniWM upgrade requires.
+**The Quake terminal is off** (`quakeTerminal.enabled = false`). It is OmniWM's embedded libghostty and reads the same Ghostty config files, so Ghostty's `command` — which starts tmux, see `## Ghostty and tmux` — would attach it to the main session as a second client. A shell-side guard was tried first (`$__CFBundleIdentifier` is `com.barut.OmniWM` in a Quake shell, `com.mitchellh.ghostty` in Ghostty) and dropped in favour of keeping tmux out of the shell config entirely. Measured from a Quake shell before it was disabled: `GHOSTTY_BIN_DIR` inside `OmniWM.app`, `TERM_PROGRAM=ghostty`, `TERM_PROGRAM_VERSION=1.3.2-main+…`, `TERM=xterm-256color`. Re-enabling Quake means first giving it a config that does not carry `command`.
 
 Scratchpads were considered for summon-on-demand apps; their membership lasts only for the OmniWM process (labels persist, assignments do not), so they need re-assigning after every restart and are unused for now.
 
@@ -174,6 +174,16 @@ Three bodies of guidance were moved out of this file into `.claude/rules/`, wher
 | `.claude/rules/fish.md` | `config/fish/**` | why `PATH` is written outright in `conf.d/env.fish`, the ordering table and collision check, the pending gnubin/keg-only decision, the conf.d layout and why `theme.fish` must sort after `pure.fish`, and the valid `fish_color_*`/`pure_color_*`/`EZA_COLORS` names |
 
 Same reasoning as the `theme` skill above: measured values that are expensive to re-derive but irrelevant most of the time. Prefer this mechanism over adding another always-loaded section when new guidance is tied to one file.
+
+## Ghostty and tmux
+
+Ghostty starts tmux itself — `command = /usr/bin/env -u TMUX /opt/homebrew/bin/tmux new-session -A -s main` in its config — and fish's config has no tmux logic at all. So only Ghostty windows land in the `main` session; a shell started anywhere else (Zed's terminal, an SSH login, a subshell) is plain fish, with nothing to exclude. The previous `exec tmux` in `config.fish` needed a guard for every non-Ghostty host.
+
+- **Absolute path**: Ghostty launched from the Dock or Alfred has only launchd's `PATH` (`/usr/bin:/bin:/usr/sbin:/sbin`), and `command` runs before fish's `env.fish`.
+- **`env -u TMUX`**: an app launched with `open` from inside tmux inherits `TMUX` (see `### GUI Apps Launched From a Terminal`); tmux would refuse to start with *sessions should be nested with care*. Clearing it makes a polluted launch attach normally.
+- Detaching closes the window, as `exec` did; panes run the login shell (`/opt/homebrew/bin/fish`), where `env.fish` sets `PATH`.
+
+Verified with two fresh instances (`open -na /Applications/Ghostty.app`): one under the clean launchd environment, one inheriting this shell's `TMUX` — both attached to `main` as a new client.
 
 ## Ghostty Shell Integration
 
@@ -228,7 +238,7 @@ A tmux server is not the only thing that pins a stale environment. macOS `open` 
 
 The failure does not name its cause:
 
-- stale `TMUX` — `config.fish`'s `if not set -q TMUX` sees a value, skips `exec tmux`, and a new window lands in a bare fish with no tmux at all. The variable can point at a server that has since been killed; the guard only tests existence, not liveness
+- stale `TMUX` — when fish started tmux behind an `if not set -q TMUX` guard, an inherited value made a new window land in a bare fish with no tmux. Ghostty's `command` now clears it with `env -u TMUX`, so this one no longer bites
 
 Read what an app is actually holding with `ps -Eww -o command= -p <pid>`; `launchctl getenv` shows only the launchd session and stays empty in this case. A Finder- or Dock-launched app gets launchd's environment (about a dozen variables — `HOME` `PATH` `USER` `SHELL` `TMPDIR` `SSH_AUTH_SOCK` `XPC_*` …), which is the baseline to compare against. To relaunch one cleanly from a shell, give it that set explicitly rather than subtracting offenders one at a time:
 

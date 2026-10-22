@@ -6,7 +6,7 @@ paths: ["config/fish/**"]
 
 `conf.d/env.fish` sets the whole `PATH` with `set -gx PATH` rather than prepending with `fish_add_path`, **deliberately**: macOS's `path_helper` reads `/etc/paths` and `/etc/paths.d/*` and *prepends* the system entries, which would push `/usr/bin` ahead of Homebrew. Writing the list outright keeps it out of the way — do not "simplify" this to an append-style call.
 
-It lives in `conf.d/` rather than `config.fish` because conf.d is sourced first, and `config.fish` opens with `exec tmux` — a GUI-launched shell inherits only launchd's `/usr/bin:/bin:/usr/sbin:/sbin`, so `tmux` would not be found if `PATH` were set after it. nix-darwin used to hide this by setting `PATH` in `/etc/fish`.
+It lives in `conf.d/` rather than `config.fish` so it is set for every fish — interactive or not — before anything else runs; a GUI-launched process inherits only launchd's `/usr/bin:/bin:/usr/sbin:/sbin`. nix-darwin used to hide this by setting `PATH` in `/etc/fish`. tmux is not started from fish at all: Ghostty's `command` does it (AGENTS.md, `## Ghostty and tmux`).
 
 | Path | Holds |
 |------|-------|
@@ -31,7 +31,7 @@ print({k:v for k,v in d.items() if len(v)>1} or 'no collisions')"
 
 ## conf.d Layout
 
-`config.fish` holds only behaviour — `exec tmux`, vi key bindings, zoxide. Everything else is in `conf.d/`, which fish sources first, in filename order: `_pure_init.fish` and `pure.fish` (fisher's), `env.fish`, `theme.fish`.
+`config.fish` holds only behaviour — vi key bindings and zoxide; tmux is started by Ghostty, not here. Everything else is in `conf.d/`, which fish sources first, in filename order: `_pure_init.fish` and `pure.fish` (fisher's), `env.fish`, `theme.fish`.
 
 **The theme is `conf.d/theme.fish`, not an autoloaded `functions/__apply_theme.fish`.** A function file is read only on first call, so its `--on-variable` handler would register only because something happens to call it at startup; a conf.d file is always sourced, so the handler always exists. It opens with `status is-interactive; or return`.
 
