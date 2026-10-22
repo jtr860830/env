@@ -310,9 +310,10 @@ minHeight = 320.0
 minWidth = 660.0
 
 [[appRules]]
+assignToWorkspace = "3"
 bundleId = ""
 id = "90CF1933-A52C-4069-9D2E-C6D9CB574035"
-layout = "float"
+layout = "tile"
 titleRegex = ".*"
 
 [[hotkeys]]
