@@ -184,8 +184,8 @@ monitorName = "Built-in Retina Display"
 
 [statusBar]
 showAppNames = false
-showIcon = true
-showWorkspaceName = false
+showIcon = false
+showWorkspaceName = true
 useWorkspaceId = true
 
 [workspaceBar]
