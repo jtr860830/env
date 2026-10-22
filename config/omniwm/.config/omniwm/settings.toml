@@ -1116,7 +1116,7 @@ name = "4"
 type = "secondary"
 
 [[workspaces]]
-displayName = "Misc2"
+displayName = "Etc"
 id = "BB8D3CE8-4BB3-426C-B5E5-F42176749902"
 layoutType = "niri"
 name = "5"
