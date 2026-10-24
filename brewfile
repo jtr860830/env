@@ -9,7 +9,6 @@ brew "clusterctl"
 brew "container"
 brew "crane"
 brew "curl", link: true
-brew "deno"
 brew "erdtree"
 brew "eza"
 brew "fastfetch"
