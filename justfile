@@ -1,6 +1,6 @@
 set shell := ["bash", "-euo", "pipefail", "-c"]
 
-packages := "claude codex fish ghostty git npm nvim omniwm ssh tealdeer tmux"
+packages := "claude codex fish ghostty git npm nvim omniwm pi ssh tealdeer tmux"
 
 default:
     @just --list
