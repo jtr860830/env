@@ -126,7 +126,7 @@ Steps `just setup` cannot perform — local UI state, app preferences and licenc
 
 - **macOS settings** — Dock, Finder, key repeat, screenshots, hostname and DNS are not managed. They persist on this machine; a new one sets them by hand, and the last declared values are `darwin/system.nix` in git history.
 - **OmniWM** — permissions and Start at Login, see `.claude/rules/omniwm.md`. Trackpad: turn off macOS's three- and four-finger swipes (System Settings → Trackpad → More Gestures), which OmniWM's gestures replace.
-- **pi** — `"shellPath": "/opt/homebrew/bin/bash"` in `~/.config/pi/settings.json` (see `## Claude Code and Codex`); log in with `/login`.
+- **pi** — `"shellPath": "/opt/homebrew/bin/bash"` in `~/.config/pi/settings.json` (see `.claude/rules/pi.md`); log in with `/login`.
 - **Claude Code** — `pluginConfigs["cc-plugin-agents-md@builtin"].options.instructionFiles = "claude-md-and-agents-md"` in `~/.config/claude/settings.json` (see `## AGENTS.md, Not CLAUDE.md`).
 - **Alfred** — enter the Powerpack licence; point the sync folder at iCloud, which restores workflows, themes and preferences; set the theme for *both* light and dark appearance (see below); set the hotkey to `⌘Space`; turn off System Settings → Keyboard → Keyboard Shortcuts → Spotlight → "Show Spotlight search", which otherwise owns that key.
 
@@ -154,11 +154,11 @@ So **never let a `CLAUDE.md` appear at the repo root**. `/init`, `/revise-claude
 
 Scope is project-only on purpose. At user scope Claude Code reads only `CLAUDE.md` — its built-in Codex importer copies Codex's `AGENTS.md` *into* Claude's user `CLAUDE.md`, which it would not need to do otherwise — so `config/claude/.config/claude/CLAUDE.md` keeps its name. It is also written in Claude's first person ("execution goes to Codex"), which would read backwards to Codex; sharing it would need a split into a neutral common part and a Claude-only part first.
 
-The `.claude/rules/` and `.claude/skills/` material below is loaded automatically by Claude Code only. Codex does not see it unless it opens those files, so read the relevant one before touching Neovim, tmux, fish, Ghostty, OmniWM or anything colour-related.
+The `.claude/rules/` and `.claude/skills/` material below is loaded automatically by Claude Code only. Codex does not see it unless it opens those files, so read the relevant one before touching Neovim, tmux, fish, Ghostty, OmniWM, pi or anything colour-related.
 
 ## Path-Scoped Rules
 
-Five bodies of guidance were moved out of this file into `.claude/rules/`, where a `paths` frontmatter key loads each one only when a matching file is actually being edited. Nothing was dropped — every measured finding and negative result is still recorded, just not in every session's context.
+Six bodies of guidance were moved out of this file into `.claude/rules/`, where a `paths` frontmatter key loads each one only when a matching file is actually being edited. Nothing was dropped — every measured finding and negative result is still recorded, just not in every session's context.
 
 | File | Loads when editing | Covers |
 |------|--------------------|--------|
@@ -167,6 +167,7 @@ Five bodies of guidance were moved out of this file into `.claude/rules/`, where
 | `.claude/rules/fish.md` | `config/fish/**` | why `PATH` is written outright in `conf.d/env.fish`, the ordering table and collision check, the pending gnubin/keg-only decision, the conf.d layout and why `theme.fish` must sort after `pure.fish`, and the valid `fish_color_*`/`pure_color_*`/`EZA_COLORS` names |
 | `.claude/rules/ghostty.md` | `config/ghostty/**`, `config/tmux/**`, `config/fish/**` | why Ghostty's `command` starts tmux (absolute path, `env -u TMUX`) and fish has no tmux logic, shell integration being off, and `macos-option-as-alt` |
 | `.claude/rules/omniwm.md` | `config/omniwm/**` | the stowed `settings.toml` and its strict schema, workspaces per display and their names, app rules and the catch-all to workspace 3, Quake and Hidden Bar being off, no sticky windows, menu bar and workspace bar, Overview colours, trackpad gestures and hotkeys |
+| `.claude/rules/pi.md` | `config/pi/**`, `config/fish/**` | pi's lack of XDG support and the two `PI_CODING_AGENT_*` variables, why sessions are DATA not STATE, why only `AGENTS.md` is stowed, and `shellPath` on brew's bash |
 
 Same reasoning as the `theme` skill above: measured values that are expensive to re-derive but irrelevant most of the time. Prefer this mechanism over adding another always-loaded section when new guidance is tied to one file.
 
@@ -176,8 +177,9 @@ Same reasoning as the `theme` skill above: measured values that are expensive to
 
 ## Man Pages
 
-No `MANPATH` is set. macOS's `/usr/bin/man` is a mandoc front end that derives its search path from `PATH`, so Homebrew's pages (`man -w rg`) and the system's (`man -w ls`) both resolve, and sections 2 and 3 — which macOS no longer ships in `/usr/share/man` — come from the Command Line Tools SDK (`man -w 2 open`). Under home-manager, setting `MANPATH` at all had stopped mandoc consulting the system defaults and hid every macOS manual; leaving it unset is what avoids that. `MANPAGER` is `nvim +Man!`.
+This repo sets no `MANPATH`, but one is present in every shell anyway. Ghostty exports `MANPATH=:<Ghostty.app>/Contents/Resources/ghostty/../man` to its children (the tmux server holds it; the Ghostty process itself does not), and because it is set, fish's built-in `__fish_macos_set_env` then rebuilds it the way `path_helper` would — `/etc/manpaths` and `/etc/manpaths.d/*` (Wireshark) first, the inherited entries after, and an empty element appended. That empty element is what matters: macOS's `/usr/bin/man` is a mandoc front end that expands it to its own default search, derived from `PATH`, so Homebrew's pages (`man -w rg`) and the system's (`man -w ls`) both resolve, and sections 2 and 3 — which macOS no longer ships in `/usr/share/man` — come from the Command Line Tools SDK (`man -w 2 open`). Under home-manager a `MANPATH` without that empty element had hidden every macOS manual. `MANPAGER` is `nvim +Man!`.
 
+**Do not install Homebrew's `mandoc`.** It is 1.14.6 (upstream's last release, 2021), not keg-only, so its `man`/`apropos`/`whatis` would land in `/opt/homebrew/bin` ahead of Apple's; upstream mandoc expands the empty element to its own compiled-in defaults, which know neither `/opt/homebrew/share/man` nor the SDK. `/usr/bin/mandoc` is already there for `-T html` or `-T lint`.
 ## Claude Code Plugin State
 
 The `remember` plugin keeps two separate directories, and only one of them is per-project:
@@ -198,10 +200,6 @@ The user-scope instruction file — loaded in every project, unlike this one —
 **Only that one file is stowed, deliberately.** `~/.config/claude/settings.json` and `~/.config/codex/config.toml` are written by the tools themselves — `/plugin`, `enabledPlugins`, usage counters, `codex mcp`, `codex plugin` — so they stay ordinary local files.
 
 **Codex refuses to create `CODEX_HOME`** — verified against 0.154.0, which prints `CODEX_HOME points to …, but that path does not exist` and degrades (`codex doctor`: `config could not be loaded`). `config/codex/.config/codex/.keep` exists so `just link` creates the directory. Codex is installed so that openai/codex-plugin-cc finds a binary instead of offering `npm install -g @openai/codex`; auth is Codex's own (`codex login`).
-
-pi (`brew "pi-coding-agent"`, 1.4.0) has no XDG handling: `dist/config.js` builds every path from `join(homedir(), ".pi", "agent")` unless `PI_CODING_AGENT_DIR` is set, and upstream closed the XDG request as wontfix ([earendil-works/pi#2870](https://github.com/earendil-works/pi/issues/2870)), so the two variables in `env.fish` are the permanent answer — `PI_CODING_AGENT_DIR=$XDG_CONFIG_HOME/pi` (settings, models, `auth.json`, prompts, themes) and `PI_CODING_AGENT_SESSION_DIR=$XDG_DATA_HOME/pi/sessions`. Sessions go to DATA, not STATE. The spec's STATE is for what is "not important or portable enough to the user" for DATA — "actions history" and undo history are its examples — and pi treats sessions as the opposite: never pruned (no retention setting exists; `PI_CACHE_RETENTION` is provider prompt caching), compaction keeps the original entries, abandoned branches survive, and sessions are named, searched, forked, cloned, exported and shared (`docs/sessions.md`). STATE was the first choice, reasoned from the "actions history" example alone; a cold question to Codex and then pi's own docs both pointed to DATA, and OpenCode keeps its sessions there too. Verified on first run: `auth.json` and `models-store.json` landed in `~/.config/pi`, and `~/.pi` was never created. Its `fd`/`rg` downloader checks `PATH` first, so with both in the brewfile nothing is downloaded into the agent dir's `bin/`. Like the Go variables, these reach only processes started from fish.
-
-Of pi's agent directory only `AGENTS.md` is stowed (`config/pi/.config/pi/AGENTS.md`), pi's user-level context file — a neutral copy of the language rule, since Claude's `CLAUDE.md` is written in Claude's first person and is mostly about Codex. `settings.json` stays local for the same reason as Claude's and Codex's: pi writes it itself (`writeFileSync`, so a stowed link would survive, but the writes would land in this public repo), including a `deviceId` that regenerates when removed and a `lastChangelogVersion` that changes on every upgrade. Its one hand-set value is listed under `## Manual Setup`: `shellPath`, because pi's `bash` tool otherwise runs `/bin/bash` 3.2, and models routinely write bash 4+ (associative arrays, `globstar`, `mapfile`). `brew "bash"` is in the brewfile for that; being earlier on `PATH`, it also becomes the `bash` that `#!/usr/bin/env bash` scripts get. Verified through pi: `$BASH_VERSION` reports 5.3, and a Chinese reply used 軟體.
 
 npm reads `NPM_CONFIG_USERCONFIG=~/.config/npm/npmrc` (stowed), with `NODE_REPL_HISTORY` and `COREPACK_HOME` beside it in `env.fish`.
 
