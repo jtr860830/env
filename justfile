@@ -30,7 +30,7 @@ relink:
 etc:
     grep -qx /opt/homebrew/bin/fish /etc/shells || echo /opt/homebrew/bin/fish | sudo tee -a /etc/shells >/dev/null
     sudo mkdir -p /etc/homebrew
-    printf 'HOMEBREW_CACHE=%s/.cache/Homebrew\nHOMEBREW_XDG_CONFIG_HOME=%s/.config\n' "$HOME" "$HOME" | sudo tee /etc/homebrew/brew.env >/dev/null
+    printf 'HOMEBREW_CACHE=%s/.cache/homebrew\nHOMEBREW_XDG_CONFIG_HOME=%s/.config\n' "$HOME" "$HOME" | sudo tee /etc/homebrew/brew.env >/dev/null
     printf 'auth       optional       /opt/homebrew/lib/pam/pam_reattach.so\nauth       sufficient     pam_tid.so\n' | sudo tee /etc/pam.d/sudo_local >/dev/null
     sudo chmod 444 /etc/pam.d/sudo_local
     [ "$(dscl . -read ~ UserShell | cut -d' ' -f2)" = /opt/homebrew/bin/fish ] || chsh -s /opt/homebrew/bin/fish

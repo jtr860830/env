@@ -100,7 +100,7 @@ They used to live in the file `go env` reads (`~/Library/Application Support/go/
 - `GOMODCACHE=$XDG_CACHE_HOME/go/mod` — the module cache defaults to `$GOPATH/pkg/mod`, i.e. DATA, but it is a re-downloadable cache
 - `_ZO_DATA_DIR=$XDG_DATA_HOME/zoxide` — zoxide kept `db.zo` in `~/Library/Application Support/zoxide`; it was moved, not recreated
 - tealdeer's cache — `cache_dir = "~/.cache/tealdeer"` in the stowed `config/tealdeer/.config/tealdeer/config.toml`. `TEALDEER_CACHE_DIR` works but 1.9.1 prints a deprecation warning on every call; the config file expands `~` (tested) but not `$HOME`, and has no way to read `XDG_CACHE_HOME`, so the default value is written out
-- `HOMEBREW_CACHE=$HOME/.cache/Homebrew` — in `/etc/homebrew/brew.env` beside `HOMEBREW_XDG_CONFIG_HOME`, not in fish, for the same reason (see `## Homebrew`)
+- `HOMEBREW_CACHE=$HOME/.cache/homebrew` — in `/etc/homebrew/brew.env` beside `HOMEBREW_XDG_CONFIG_HOME`, not in fish, for the same reason (see `## Homebrew`)
 
 Left as is: lima's download cache (`~/Library/Caches/lima` — the binary reads no cache variable), `~/Library/Caches/goimports` (no variable found), Go's own `env` file (see `## Go`), and Claude Code and Codex, which take one directory each and keep transcripts and caches inside it. Like `GOPATH`, the fish-set variables reach only processes started from fish.
 
