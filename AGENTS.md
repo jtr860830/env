@@ -43,7 +43,7 @@ A new machine runs `./bootstrap.sh`: it installs Homebrew and `just` — exporti
 
 - `/etc/shells` gains `/opt/homebrew/bin/fish` — `chsh` refuses a shell not listed there
 - `/etc/pam.d/sudo_local` — `pam_reattach.so` from `/opt/homebrew/lib/pam/`, then `pam_tid.so`, so Touch ID works for sudo including inside tmux
-- `/etc/homebrew/brew.env` — see `## Homebrew`
+- `/etc/homebrew/brew.env` — `HOMEBREW_CACHE` and `HOMEBREW_XDG_CONFIG_HOME`, see `## Homebrew`
 
 ## PATH and System Binaries
 
@@ -91,6 +91,18 @@ Deliberately declined rather than blocked, kept here so they are not re-proposed
 They used to live in the file `go env` reads (`~/Library/Application Support/go/env` on Darwin), stowed from the repo. That file **cannot use variables**: Go reads it literally, so `$HOME/...` and `${HOME}/...` fail with `GOPATH entry is relative; must be absolute path` and `~/...` with `cannot start with shell metacharacter '~'` — and a bad `GOPATH` there breaks every `go` command, not just `go env`. Keeping it meant a hardcoded `/Users/jtr860830`; moving to the environment trades that for one limit, accepted: only processes started from fish see the variables, so an editor launched from the Dock falls back to Go's default `~/go`. nvim and gopls start from fish. `go env -w` now writes the ordinary file at the default location, not the repo.
 
 `go telemetry` reports `local`, Go's default — counters on disk, nothing uploaded without an explicit `go telemetry on`.
+
+## XDG on macOS
+
+`$HOME` holds only `.ssh` (OpenSSH hardcodes it) and macOS's `.Trash`. The usual macOS leak is not a dotfile but `~/Library`: Go's `os.UserCacheDir`/`os.UserConfigDir` and Rust's `dirs` crate return `~/Library/Caches` and `~/Library/Application Support` on Darwin and ignore `XDG_*` entirely, so a tool that honours XDG on Linux can still write to `~/Library` here. Each fix below names a variable that was confirmed with `strings` on the installed binary before use:
+
+- `GOCACHE=$XDG_CACHE_HOME/go-build` and `GOPLSCACHE=$XDG_CACHE_HOME/gopls` — both had been under `~/Library/Caches`
+- `GOMODCACHE=$XDG_CACHE_HOME/go/mod` — the module cache defaults to `$GOPATH/pkg/mod`, i.e. DATA, but it is a re-downloadable cache
+- `_ZO_DATA_DIR=$XDG_DATA_HOME/zoxide` — zoxide kept `db.zo` in `~/Library/Application Support/zoxide`; it was moved, not recreated
+- tealdeer's cache — `cache_dir = "~/.cache/tealdeer"` in the stowed `config/tealdeer/.config/tealdeer/config.toml`. `TEALDEER_CACHE_DIR` works but 1.9.1 prints a deprecation warning on every call; the config file expands `~` (tested) but not `$HOME`, and has no way to read `XDG_CACHE_HOME`, so the default value is written out
+- `HOMEBREW_CACHE=$HOME/.cache/Homebrew` — in `/etc/homebrew/brew.env` beside `HOMEBREW_XDG_CONFIG_HOME`, not in fish, for the same reason (see `## Homebrew`)
+
+Left as is: lima's download cache (`~/Library/Caches/lima` — the binary reads no cache variable), `~/Library/Caches/goimports` (no variable found), Go's own `env` file (see `## Go`), and Claude Code and Codex, which take one directory each and keep transcripts and caches inside it. Like `GOPATH`, the fish-set variables reach only processes started from fish.
 
 ## Homebrew
 
