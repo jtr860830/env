@@ -186,6 +186,8 @@ The user-scope instruction file — loaded in every project, unlike this one —
 
 **Codex refuses to create `CODEX_HOME`** — verified against 0.154.0, which prints `CODEX_HOME points to …, but that path does not exist` and degrades (`codex doctor`: `config could not be loaded`). `config/codex/.config/codex/.keep` exists so `just link` creates the directory. Codex is installed so that openai/codex-plugin-cc finds a binary instead of offering `npm install -g @openai/codex`; auth is Codex's own (`codex login`).
 
+pi (`brew "pi-coding-agent"`, 1.4.0) has no XDG handling: `dist/config.js` builds every path from `join(homedir(), ".pi", "agent")` unless `PI_CODING_AGENT_DIR` is set, and upstream closed the XDG request as wontfix ([earendil-works/pi#2870](https://github.com/earendil-works/pi/issues/2870)), so the two variables in `env.fish` are the permanent answer — `PI_CODING_AGENT_DIR=$XDG_CONFIG_HOME/pi` (settings, models, `auth.json`, prompts, themes) and `PI_CODING_AGENT_SESSION_DIR=$XDG_STATE_HOME/pi/sessions`. Sessions go to STATE, not DATA, because the spec lists "actions history" under STATE. Verified on first run: `auth.json` and `models-store.json` landed in `~/.config/pi`, sessions in `~/.local/state/pi/sessions`, and `~/.pi` was never created. Its `fd`/`rg` downloader checks `PATH` first, so with both in the brewfile nothing is downloaded into the agent dir's `bin/`. Like the Go variables, these reach only processes started from fish.
+
 npm reads `NPM_CONFIG_USERCONFIG=~/.config/npm/npmrc` (stowed), with `NODE_REPL_HISTORY` and `COREPACK_HOME` beside it in `env.fish`.
 
 ## Stale Environments

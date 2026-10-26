@@ -33,6 +33,8 @@ set -gx KUBECONFIG $XDG_CONFIG_HOME/kube
 set -gx LIMA_HOME $XDG_DATA_HOME/lima
 set -gx NODE_REPL_HISTORY $XDG_DATA_HOME/node_repl_history
 set -gx NPM_CONFIG_USERCONFIG $XDG_CONFIG_HOME/npm/npmrc
+set -gx PI_CODING_AGENT_DIR $XDG_CONFIG_HOME/pi
+set -gx PI_CODING_AGENT_SESSION_DIR $XDG_STATE_HOME/pi/sessions
 set -gx REMEMBER_RUNTIME_DIR $XDG_STATE_HOME/remember/run
 set -gx RUSTUP_HOME $XDG_DATA_HOME/rustup
 set -gx SSH_AUTH_SOCK "$HOME/Library/Group Containers/2BUA8C4S2C.com.1password/t/agent.sock"
