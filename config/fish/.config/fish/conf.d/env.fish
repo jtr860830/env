@@ -25,7 +25,6 @@ set -gx CARGO_HOME $XDG_DATA_HOME/cargo
 set -gx CARGO_INSTALL_ROOT $HOME/.local
 set -gx CLAUDE_CONFIG_DIR $XDG_CONFIG_HOME/claude
 set -gx CODEX_HOME $XDG_CONFIG_HOME/codex
-set -gx COREPACK_HOME $XDG_DATA_HOME/corepack
 set -gx GOBIN $HOME/.local/bin
 set -gx GOCACHE $XDG_CACHE_HOME/go-build
 set -gx GOMODCACHE $XDG_CACHE_HOME/go/mod
@@ -41,5 +40,4 @@ set -gx PI_CODING_AGENT_SESSION_DIR $XDG_DATA_HOME/pi/sessions
 set -gx REMEMBER_RUNTIME_DIR $XDG_STATE_HOME/remember/run
 set -gx RUSTUP_HOME $XDG_DATA_HOME/rustup
 set -gx SSH_AUTH_SOCK "$HOME/Library/Group Containers/2BUA8C4S2C.com.1password/t/agent.sock"
-set -gx WGETRC $XDG_CONFIG_HOME/wgetrc
 set -gx _ZO_DATA_DIR $XDG_DATA_HOME/zoxide

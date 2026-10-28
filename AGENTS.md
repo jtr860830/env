@@ -201,7 +201,7 @@ The user-scope instruction file — loaded in every project, unlike this one —
 
 **Codex refuses to create `CODEX_HOME`** — verified against 0.154.0, which prints `CODEX_HOME points to …, but that path does not exist` and degrades (`codex doctor`: `config could not be loaded`). `config/codex/.config/codex/.keep` exists so `just link` creates the directory. Codex is installed so that openai/codex-plugin-cc finds a binary instead of offering `npm install -g @openai/codex`; auth is Codex's own (`codex login`).
 
-npm reads `NPM_CONFIG_USERCONFIG=~/.config/npm/npmrc` (stowed), with `NODE_REPL_HISTORY` and `COREPACK_HOME` beside it in `env.fish`.
+npm reads `NPM_CONFIG_USERCONFIG=~/.config/npm/npmrc` (stowed), with `NODE_REPL_HISTORY` beside it in `env.fish`. `COREPACK_HOME` was dropped on 2026-10-28: Node 25 stopped bundling corepack, `corepack` is not on `PATH` under Node 26, and nothing reads the variable. `WGETRC` went the same day — it pointed at an empty, unmanaged `~/.config/wgetrc` from 2023; wget's one XDG need, the HSTS file, is the `--hsts-file=$XDG_CACHE_HOME/wget-hsts` in `functions/wget.fish`.
 
 ## Stale Environments
 
