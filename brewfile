@@ -114,8 +114,5 @@ cask "wireshark-app"
 cask "zed"
 cask "zen"
 
-mas "1Password for Safari", id: 1569813296
-mas "Dropover", id: 1355679052
 mas "LINE", id: 539883307
-mas "Wappalyzer", id: 1520333300
 mas "Windows App", id: 1295203466
