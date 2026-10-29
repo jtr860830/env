@@ -17,7 +17,9 @@ update:
 plugins:
     fish -c 'fisher update'
     nvim --headless '+lua vim.pack.update(nil, { force = true })' +qa
+    @echo >&2
     nvim --headless '+lua require("nvim-treesitter").update():wait(600000)' +qa
+    @echo >&2
     nvim --headless +qa
 
 link:
