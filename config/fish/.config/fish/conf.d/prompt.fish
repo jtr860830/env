@@ -3,21 +3,20 @@ status is-interactive; or return
 set -g fish_transient_prompt 1
 
 function __prompt_enter
-    if not string match -qr '\S' -- (commandline | string collect)
+    if string match -qr '\S' -- "$(commandline)"
+        commandline -f execute
+    else
         commandline ''
         __prompt_git
         commandline -f repaint
-    else
-        commandline -f execute
     end
 end
 
 function __prompt_spacing --on-event fish_prompt
-    if set -q __prompt_cleared[1]
-        set -e __prompt_cleared
-        set -e __prompt_gap
+    if set -q __prompt_seen
+        set -g __prompt_gap 1
     else
-        set -q __prompt_seen[1]; and set -g __prompt_gap 1
+        set -e __prompt_gap
     end
     set -g __prompt_seen 1
 end
@@ -27,64 +26,35 @@ function __prompt_drop_gap
 end
 
 function __prompt_after_clear --on-event fish_postexec
-    string match -qr '^\s*clear\s*$' -- $argv[1]; and set -g __prompt_cleared 1
+    string match -qr '^\s*clear\s*$' -- $argv[1]; and set -e __prompt_seen
 end
 
 function __prompt_git --on-event fish_prompt
-    set -g __prompt_git_text
+    set -e __prompt_git_head __prompt_git_dirty __prompt_git_ahead __prompt_git_behind __prompt_git_op
     set -l lines (command git -c core.fsmonitor=false --no-optional-locks status --porcelain=v2 --branch 2>/dev/null)
     or return
+    set -l gitdir (command git -c core.fsmonitor=false rev-parse --absolute-git-dir 2>/dev/null)
 
-    set -l head
-    set -l oid
-    set -l ahead 0
-    set -l behind 0
-    set -l dirty
-    for line in $lines
-        switch $line
-            case '# branch.head *'
-                set head (string sub -s 15 -- $line)
-            case '# branch.oid *'
-                set oid (string sub -s 14 -l 7 -- $line)
-            case '# branch.ab *'
-                set -l ab (string split ' ' -- $line)
-                set ahead (string trim -c + -- $ab[3])
-                set behind (string trim -c - -- $ab[4])
-            case '#*'
-            case '*'
-                set dirty 1
-        end
-    end
+    set -l head (string replace -f '# branch.head ' '' -- $lines)
     if test "$head" = '(detached)'
-        set head $oid
-        set -l name (string replace refs/heads/ '' < (command git -c core.fsmonitor=false rev-parse --git-path rebase-merge/head-name) 2>/dev/null)
-        test -n "$name"; and set head $name
+        set -l name
+        test -f $gitdir/rebase-merge/head-name; and read name < $gitdir/rebase-merge/head-name
+        set head (string replace refs/heads/ '' -- $name)
+        test -n "$head"; or set head (string replace -rf '^# branch\.oid (.{7}).*' '$1' -- $lines)
     end
+    set -g __prompt_git_head (string replace -ra '\p{Cc}' '' -- $head)
 
-    set head (string replace -ra '\p{Cc}' '' -- $head)
-    set -l text (set_color $__prompt_c_comment)on (set_color $__prompt_c_cyan)\ue725 $head
-    set -q dirty[1]; and set text[-1] $text[-1](set_color $__prompt_c_yellow)'*'
-    set -l arrows
-    test "$ahead" -gt 0 2>/dev/null; and set -a arrows ↑$ahead
-    test "$behind" -gt 0 2>/dev/null; and set -a arrows ↓$behind
-    set -q arrows[1]; and set -a text (set_color $__prompt_c_cyan)(string join '' $arrows)
-    set -l op (__prompt_git_operation)
-    test -n "$op"; and set -a text (set_color $__prompt_c_red)$op
-    set -g __prompt_git_text (string join ' ' -- $text)
+    string match -qv '#*' -- $lines; and set -g __prompt_git_dirty 1
+    if string match -rq '^# branch\.ab \+(?<ahead>\d+) -(?<behind>\d+)$' -- $lines
+        test $ahead -gt 0; and set -g __prompt_git_ahead $ahead
+        test $behind -gt 0; and set -g __prompt_git_behind $behind
+    end
+    set -g __prompt_git_op (__prompt_git_operation $gitdir)
 end
 
 function __prompt_git_operation
-    set -l dir $PWD
-    while not test -e $dir/.git
-        test "$dir" = /; and return
-        set dir (path dirname $dir)
-    end
-    set -l gitdir $dir/.git
-    if test -f $gitdir
-        set gitdir (string replace -r '^gitdir: ' '' < $gitdir)
-        string match -q '/*' -- $gitdir; or set gitdir $dir/$gitdir
-    end
-
+    set -l gitdir $argv[1]
+    test -n "$gitdir"; or return
     if test -d $gitdir/rebase-merge
         __prompt_progress REBASE $gitdir/rebase-merge/msgnum $gitdir/rebase-merge/end
     else if test -d $gitdir/rebase-apply
@@ -97,12 +67,14 @@ function __prompt_git_operation
         echo REVERT
     else if test -f $gitdir/BISECT_LOG
         echo BISECT
-    end 2>/dev/null
+    end
 end
 
 function __prompt_progress
-    read -l done < $argv[2] 2>/dev/null
-    read -l total < $argv[3] 2>/dev/null
+    set -l done
+    set -l total
+    test -f $argv[2]; and read done < $argv[2]
+    test -f $argv[3]; and read total < $argv[3]
     if string match -qr '^[0-9]+$' -- "$done"; and string match -qr '^[0-9]+$' -- "$total"
         echo $argv[1] $done/$total
     else

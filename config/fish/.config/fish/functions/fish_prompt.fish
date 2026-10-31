@@ -3,16 +3,27 @@ function __prompt_pill
 end
 
 function __prompt_dir
-    set -l dir (string replace -r "^$HOME(?=/|\$)" '~' -- $PWD)
-    test "$argv[1]" = short; and set dir (prompt_pwd)
-    set -l parent (string replace -r '[^/]*$' '' -- $dir)
-    set -l base (string match -r '[^/]*$' -- $dir)
+    set -l dir (prompt_pwd --dir-length=0)
+    contains -- --short $argv; and set dir (prompt_pwd)
+    string match -rq '^(?<parent>.*/)?(?<base>[^/]*)$' -- $dir
     echo -n -s (set_color $__prompt_c_blue) \uf07b ' ' $parent (set_color --bold $__prompt_c_blue) $base (set_color normal)
+end
+
+function __prompt_git_pill
+    set -q __prompt_git_head; or return
+    set -l text (set_color $__prompt_c_comment)on (set_color $__prompt_c_cyan)\ue725 $__prompt_git_head
+    set -q __prompt_git_dirty; and set text[-1] $text[-1](set_color $__prompt_c_yellow)'*'
+    set -l arrows
+    set -q __prompt_git_ahead; and set -a arrows ↑$__prompt_git_ahead
+    set -q __prompt_git_behind; and set -a arrows ↓$__prompt_git_behind
+    set -q arrows[1]; and set -a text (set_color $__prompt_c_cyan)(string join '' $arrows)
+    test -n "$__prompt_git_op"; and set -a text (set_color $__prompt_c_red)$__prompt_git_op
+    __prompt_pill $text
 end
 
 function fish_prompt
     set -l last_status $status
-    set -q __prompt_gap[1]; and echo
+    set -q __prompt_gap; and echo
     if contains -- --final-rendering $argv
         echo -n -s (set_color $__prompt_c_comment) '❯ ' (set_color normal)
         return
@@ -30,37 +41,31 @@ function fish_prompt
         set -a right (__prompt_pill (set_color $__prompt_c_yellow)$text)
     end
 
-    set -l git
-    test -n "$__prompt_git_text"; and set git (__prompt_pill $__prompt_git_text)
+    set -l git (__prompt_git_pill)
     if set -q VIRTUAL_ENV
         set -l venv $VIRTUAL_ENV_PROMPT
         test -n "$venv"; or set venv (path basename $VIRTUAL_ENV)
         set -a git (__prompt_pill (set_color $__prompt_c_yellow)\U000f0320 (set_color $__prompt_c_fg)(string trim -c '() ' -- $venv))
     end
 
+    set -l dir (__prompt_dir)
     set -l width (math $COLUMNS - 1)
     set -l head
     set -l tail
-    set -l rule 1
-    for fit in full no-right short no-git
-        set -l dir (__prompt_dir)
-        set -l keep_git $git
-        set -l keep_right $right
-        switch $fit
-            case no-right
-                set keep_right
-            case short
-                set keep_right
-                set dir (__prompt_dir short)
-            case no-git
-                set keep_right
-                set dir (__prompt_dir short)
-                set keep_git
-        end
-        set head $line'╭' $dir $keep_git
-        set tail $keep_right $line'╮'
+    set -l rule
+    for drop in right path git ''
+        set head $line'╭' $dir $git
+        set tail $right $line'╮'
         set rule (math $width - (string length --visible -- (string join ' ' -- $head $tail)) - 1)
         test $rule -ge 1; and break
+        switch $drop
+            case right
+                set right
+            case path
+                set dir (__prompt_dir --short)
+            case git
+                set git
+        end
     end
     test $rule -lt 1; and set rule 1
 
