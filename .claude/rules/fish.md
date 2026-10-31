@@ -46,7 +46,7 @@ Hand-written (`functions/fish_prompt.fish`, `functions/fish_mode_prompt.fish`, `
 Shown with `( … )` for a pill and `<name>` for a Nerd Font icon:
 
 ```
-╭ <folder> ~/.config/env (on <branch> main* ⇑ REBASE 2/5) (<python> demo) ──── (<pause> 1) (✘ 1) (1m12s) ╮
+╭ <folder> ~/.config/env (on <branch> main* ↑2 REBASE 2/5) (<python> demo) ──── (<pause> 1) (✘ 1) (1m12s) ╮
   ❯
 ```
 
@@ -56,7 +56,7 @@ It follows the bars' rule from the `theme` skill — **a pill marks an indicator
 |---|---|---|
 | frame `╭ ─ ╮` | always | `gray` → `WinSeparator` |
 | directory | always | `blue` → `Directory` |
-| git: `on`, branch, `⇑⇓` | in a repo | `comment`, `cyan`, `cyan` (pure's branch and info colours, kept) |
+| git: `on`, branch, `↑2↓1` | in a repo; the arrows only when ahead or behind, with counts | `comment`, `cyan`, `cyan` (pure's branch and info colours, kept) |
 | dirty `*` | uncommitted changes, untracked included | `yellow` |
 | operation | `.git/` holds `rebase-merge`, `rebase-apply`, `MERGE_HEAD`, `CHERRY_PICK_HEAD`, `REVERT_HEAD` or `BISECT_LOG` | `red` — a state to resolve |
 | virtualenv | `$VIRTUAL_ENV` set | icon `yellow` → `MiniIconsYellow` (mini.icons' own python glyph U+F0320), name `fg` → `UserPill` |
@@ -73,7 +73,7 @@ The palette is `__prompt_c_*` in both branches of `__apply_theme`, ten keys — 
 
 Measured per prompt with a warm cache: ~14 ms in this repo and `tk8s`, ~45 ms in `k8s-website-kubeadm` (12,369 files), of which `git status` is 40 ms and its untracked scan the largest part. Two earlier readings were wrong and should not be repeated: 102 ms was the first visit with a cold cache, and 25 ms for `git symbolic-ref` was `python3`'s own startup in the timer — time with zsh's `$EPOCHREALTIME`. Alternatives weighed and declined at those numbers: branch-only (saves ~30 ms in the one large repo, loses dirty everywhere); `core.fsmonitor` + `core.untrackedCache` (~65 ms cold, and a daemon per repo — set it per repo in `.git/config` if one ever matters); Tide's async scheme — a disowned background `fish -c` renders into a universal `_tide_prompt_<pid>`, an `--on-variable` handler repaints, the previous job is killed — which hides latency rather than removing it and flashes stale state; Starship, which is synchronous (1.27.0's `starship.fish` calls `starship prompt` directly) and keeps its palette in TOML, splitting it from `theme.fish`.
 
-**Glyphs.** pure's `⇡⇣` are not in Maple Mono (they rendered from a fallback face); `⇑⇓` are, and are Neutral width. Private-use glyphs are written as fish escapes — `\ue0b6`, `\ue0b4`, `\uf07b`, `\ue725`, `\uf04c`, `\U000f0320` — which fish expands both unquoted and inside `printf`'s format. The Write and Edit tools turn a `\uXXXX` in new text into the literal character, so after any edit check the files with a script for code points in U+E000–U+F8FF and re-escape; the characters themselves came through intact each time.
+**Glyphs.** The arrows are `↑`/`↓` with counts, chosen by the owner as the commonest form. pure's `⇡⇣` — also p10k's, Tide's and Tern's — are not in Maple Mono (they rendered from a fallback face), so they were ruled out; `⇑⇓` were used first, being in the font and Neutral width, but read as unfamiliar. `↑↓` are in the font but East Asian **Ambiguous**, one cell only under `LANG=en_US.UTF-8` — the same accepted condition as the tmux and sign-column symbols in `.claude/rules/neovim.md`. Private-use glyphs are written as fish escapes — `\ue0b6`, `\ue0b4`, `\uf07b`, `\ue725`, `\uf04c`, `\U000f0320` — which fish expands both unquoted and inside `printf`'s format. The Write and Edit tools turn a `\uXXXX` in new text into the literal character, so after any edit check the files with a script for code points in U+E000–U+F8FF and re-escape; the characters themselves came through intact each time.
 
 ### EZA Colors
 

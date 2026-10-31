@@ -35,8 +35,8 @@ function __prompt_git --on-event fish_prompt
     set -l text (set_color $__prompt_c_comment)on (set_color $__prompt_c_cyan)\ue725 $head
     set -q dirty[1]; and set text[-1] $text[-1](set_color $__prompt_c_yellow)'*'
     set -l arrows
-    test "$ahead" -gt 0 2>/dev/null; and set -a arrows ⇑
-    test "$behind" -gt 0 2>/dev/null; and set -a arrows ⇓
+    test "$ahead" -gt 0 2>/dev/null; and set -a arrows ↑$ahead
+    test "$behind" -gt 0 2>/dev/null; and set -a arrows ↓$behind
     set -q arrows[1]; and set -a text (set_color $__prompt_c_cyan)(string join '' $arrows)
     set -l op (__prompt_git_operation)
     test -n "$op"; and set -a text (set_color $__prompt_c_red)$op
