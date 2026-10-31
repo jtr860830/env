@@ -3,15 +3,19 @@ function __prompt_pill
 end
 
 function __prompt_dir
+    argparse short 'max=' -- $argv
     set -l dir (prompt_pwd --dir-length=0)
-    contains -- --short $argv; and set dir (prompt_pwd)
+    set -q _flag_short; and set dir (prompt_pwd)
+    set -q _flag_max; and set dir (string shorten --left -m $_flag_max -- $dir)
     string match -rq '^(?<parent>.*/)?(?<base>[^/]*)$' -- $dir
     echo -n -s (set_color $__prompt_c_blue) \uf07b ' ' $parent (set_color --bold $__prompt_c_blue) $base (set_color normal)
 end
 
 function __prompt_git_pill
     set -q __prompt_git_head; or return
-    set -l text (set_color $__prompt_c_comment)on (set_color $__prompt_c_cyan)\ue725 $__prompt_git_head
+    set -l head $__prompt_git_head
+    set -q argv[1]; and set head (string shorten -m $argv[1] -- $head)
+    set -l text (set_color $__prompt_c_comment)on (set_color $__prompt_c_cyan)\ue725 $head
     set -q __prompt_git_dirty; and set text[-1] $text[-1](set_color $__prompt_c_yellow)'*'
     set -l arrows
     set -q __prompt_git_ahead; and set -a arrows ↑$__prompt_git_ahead
@@ -19,6 +23,17 @@ function __prompt_git_pill
     set -q arrows[1]; and set -a text (set_color $__prompt_c_cyan)(string join '' $arrows)
     test -n "$__prompt_git_op"; and set -a text (set_color $__prompt_c_red)$__prompt_git_op
     __prompt_pill $text
+end
+
+function __prompt_duration
+    set -l s (math --scale=0 $argv[1] / 1000)
+    if test $s -ge 3600
+        echo (math --scale=0 $s / 3600)h(math --scale=0 $s % 3600 / 60)m
+    else if test $s -ge 60
+        echo (math --scale=0 $s / 60)m(math $s % 60)s
+    else
+        echo {$s}s
+    end
 end
 
 function fish_prompt
@@ -30,41 +45,56 @@ function fish_prompt
     end
     set -l line (set_color $__prompt_c_gray)
 
-    set -l right
+    set -l jobs_pill
     set -l jobs (jobs -g 2>/dev/null | count)
-    test $jobs -gt 0; and set -a right (__prompt_pill (set_color $__prompt_c_blue)\uf04c $jobs)
-    test $last_status -ne 0; and set -a right (__prompt_pill (set_color $__prompt_c_red)✘ $last_status)
-    if test "$CMD_DURATION" -ge 5000 2>/dev/null
-        set -l s (math --scale=0 $CMD_DURATION / 1000)
-        set -l text {$s}s
-        test $s -ge 60; and set text (math --scale=0 $s / 60)m(math $s % 60)s
-        set -a right (__prompt_pill (set_color $__prompt_c_yellow)$text)
-    end
-
-    set -l git (__prompt_git_pill)
+    test $jobs -gt 0; and set jobs_pill (__prompt_pill (set_color $__prompt_c_blue)\uf04c $jobs)
+    set -l error_pill
+    test $last_status -ne 0; and set error_pill (__prompt_pill (set_color $__prompt_c_red)✘ $last_status)
+    set -l duration_pill
+    test "$CMD_DURATION" -ge 5000 2>/dev/null; and set duration_pill (__prompt_pill (set_color $__prompt_c_yellow)(__prompt_duration $CMD_DURATION))
+    set -l venv_pill
     if set -q VIRTUAL_ENV
         set -l venv $VIRTUAL_ENV_PROMPT
         test -n "$venv"; or set venv (path basename $VIRTUAL_ENV)
-        set -a git (__prompt_pill (set_color $__prompt_c_yellow)\U000f0320 (set_color $__prompt_c_fg)(string trim -c '() ' -- $venv))
+        set venv_pill (__prompt_pill (set_color $__prompt_c_yellow)\U000f0320 (set_color $__prompt_c_fg)(string trim -c '() ' -- $venv))
     end
 
-    set -l dir (__prompt_dir)
     set -l width (math $COLUMNS - 1)
+    set -l path_flags
+    set -l branch_max
+    set -l show_git 1
     set -l head
     set -l tail
     set -l rule
-    for drop in right path git ''
-        set head $line'╭' $dir $git
-        set tail $right $line'╮'
+    for drop in short duration jobs branch path venv path git path error path ''
+        set -l git
+        set -q show_git[1]; and set git (__prompt_git_pill $branch_max)
+        set head $line'╭' (__prompt_dir $path_flags) $git $venv_pill
+        set tail $jobs_pill $error_pill $duration_pill $line'╮'
         set rule (math $width - (string length --visible -- (string join ' ' -- $head $tail)) - 1)
         test $rule -ge 1; and break
+        set -l need (math 1 - $rule)
         switch $drop
-            case right
-                set right
+            case duration
+                set duration_pill
+            case jobs
+                set jobs_pill
+            case short
+                set -a path_flags --short
+            case branch
+                set -q __prompt_git_head; and set branch_max (math "max(8, $(string length --visible -- $__prompt_git_head) - $need)")
             case path
-                set dir (__prompt_dir --short)
+                set -l current (prompt_pwd)
+                set path_flags --short --max=(math "max(8, $(string length --visible -- $current) - $need)")
+            case venv
+                set venv_pill
+                set path_flags --short
             case git
-                set git
+                set show_git
+                set path_flags --short
+            case error
+                set error_pill
+                set path_flags --short
         end
     end
     test $rule -lt 1; and set rule 1
