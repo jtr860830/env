@@ -2,7 +2,7 @@ status is-interactive; or return
 
 function __prompt_git --on-event fish_prompt
     set -g __prompt_git_text
-    set -l lines (command git --no-optional-locks status --porcelain=v2 --branch 2>/dev/null)
+    set -l lines (command git -c core.fsmonitor=false --no-optional-locks status --porcelain=v2 --branch 2>/dev/null)
     or return
 
     set -l head
@@ -27,7 +27,7 @@ function __prompt_git --on-event fish_prompt
     end
     if test "$head" = '(detached)'
         set head $oid
-        set -l name (string replace refs/heads/ '' < (command git rev-parse --git-path rebase-merge/head-name) 2>/dev/null)
+        set -l name (string replace refs/heads/ '' < (command git -c core.fsmonitor=false rev-parse --git-path rebase-merge/head-name) 2>/dev/null | string replace -ra '[[:cntrl:]]' '')
         test -n "$name"; and set head $name
     end
 
@@ -55,9 +55,9 @@ function __prompt_git_operation
     end
 
     if test -d $gitdir/rebase-merge
-        echo REBASE (string trim < $gitdir/rebase-merge/msgnum)/(string trim < $gitdir/rebase-merge/end)
+        __prompt_progress REBASE $gitdir/rebase-merge/msgnum $gitdir/rebase-merge/end
     else if test -d $gitdir/rebase-apply
-        echo REBASE (string trim < $gitdir/rebase-apply/next)/(string trim < $gitdir/rebase-apply/last)
+        __prompt_progress REBASE $gitdir/rebase-apply/next $gitdir/rebase-apply/last
     else if test -f $gitdir/MERGE_HEAD
         echo MERGE
     else if test -f $gitdir/CHERRY_PICK_HEAD
@@ -67,4 +67,14 @@ function __prompt_git_operation
     else if test -f $gitdir/BISECT_LOG
         echo BISECT
     end 2>/dev/null
+end
+
+function __prompt_progress
+    set -l done (string trim < $argv[2] 2>/dev/null)
+    set -l total (string trim < $argv[3] 2>/dev/null)
+    if string match -qr '^[0-9]+$' -- $done; and string match -qr '^[0-9]+$' -- $total
+        echo $argv[1] $done/$total
+    else
+        echo $argv[1]
+    end
 end
