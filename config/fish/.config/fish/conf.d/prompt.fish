@@ -1,5 +1,12 @@
 status is-interactive; or return
 
+set -g fish_transient_prompt 1
+
+function __prompt_spacing --on-event fish_prompt
+    set -q __prompt_seen[1]; and set -g __prompt_gap 1
+    set -g __prompt_seen 1
+end
+
 function __prompt_git --on-event fish_prompt
     set -g __prompt_git_text
     set -l lines (command git -c core.fsmonitor=false --no-optional-locks status --porcelain=v2 --branch 2>/dev/null)

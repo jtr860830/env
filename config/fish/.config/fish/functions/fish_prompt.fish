@@ -12,6 +12,11 @@ end
 
 function fish_prompt
     set -l last_status $status
+    set -q __prompt_gap[1]; and echo
+    if contains -- --final-rendering $argv
+        echo -n -s '  ' (set_color $__prompt_c_comment) '❯ ' (set_color normal)
+        return
+    end
     set -l line (set_color $__prompt_c_gray)
 
     set -l right
