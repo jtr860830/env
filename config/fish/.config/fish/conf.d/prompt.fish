@@ -2,6 +2,16 @@ status is-interactive; or return
 
 set -g fish_transient_prompt 1
 
+function __prompt_enter
+    if not string match -qr '\S' -- (commandline | string collect)
+        commandline ''
+        __prompt_git
+        commandline -f repaint
+    else
+        commandline -f execute
+    end
+end
+
 function __prompt_spacing --on-event fish_prompt
     set -q __prompt_seen[1]; and set -g __prompt_gap 1
     set -g __prompt_seen 1
