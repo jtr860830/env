@@ -27,10 +27,11 @@ function __prompt_git --on-event fish_prompt
     end
     if test "$head" = '(detached)'
         set head $oid
-        set -l name (string replace refs/heads/ '' < (command git -c core.fsmonitor=false rev-parse --git-path rebase-merge/head-name) 2>/dev/null | string replace -ra '[[:cntrl:]]' '')
+        set -l name (string replace refs/heads/ '' < (command git -c core.fsmonitor=false rev-parse --git-path rebase-merge/head-name) 2>/dev/null)
         test -n "$name"; and set head $name
     end
 
+    set head (string replace -ra '\p{Cc}' '' -- $head)
     set -l text (set_color $__prompt_c_comment)on (set_color $__prompt_c_cyan)\ue725 $head
     set -q dirty[1]; and set text[-1] $text[-1](set_color $__prompt_c_yellow)'*'
     set -l arrows
@@ -70,9 +71,9 @@ function __prompt_git_operation
 end
 
 function __prompt_progress
-    set -l done (string trim < $argv[2] 2>/dev/null)
-    set -l total (string trim < $argv[3] 2>/dev/null)
-    if string match -qr '^[0-9]+$' -- $done; and string match -qr '^[0-9]+$' -- $total
+    read -l done < $argv[2] 2>/dev/null
+    read -l total < $argv[3] 2>/dev/null
+    if string match -qr '^[0-9]+$' -- "$done"; and string match -qr '^[0-9]+$' -- "$total"
         echo $argv[1] $done/$total
     else
         echo $argv[1]
