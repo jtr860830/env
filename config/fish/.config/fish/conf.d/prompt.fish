@@ -35,12 +35,16 @@ function __prompt_git --on-event fish_prompt
     or return
     set -l gitdir (command git -c core.fsmonitor=false rev-parse --absolute-git-dir 2>/dev/null)
 
-    set -l head (string replace -f '# branch.head ' '' -- $lines)
+    set -l head (string match -rg '^# branch\.head (.*)$' -- $lines)
     if test "$head" = '(detached)'
-        set -l name
-        test -f $gitdir/rebase-merge/head-name; and read name < $gitdir/rebase-merge/head-name
-        set head (string replace refs/heads/ '' -- $name)
-        test -n "$head"; or set head (string replace -rf '^# branch\.oid (.{7}).*' '$1' -- $lines)
+        set head
+        for backend in rebase-merge rebase-apply
+            test -f $gitdir/$backend/head-name; or continue
+            read -l name < $gitdir/$backend/head-name
+            set head (string replace refs/heads/ '' -- $name)
+            break
+        end
+        test -n "$head"; or set head (string match -rg '^# branch\.oid (.{7})' -- $lines)
     end
     set -g __prompt_git_head (string replace -ra '\p{Cc}' '' -- $head)
 
