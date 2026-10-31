@@ -13,8 +13,21 @@ function __prompt_enter
 end
 
 function __prompt_spacing --on-event fish_prompt
-    set -q __prompt_seen[1]; and set -g __prompt_gap 1
+    if set -q __prompt_cleared[1]
+        set -e __prompt_cleared
+        set -e __prompt_gap
+    else
+        set -q __prompt_seen[1]; and set -g __prompt_gap 1
+    end
     set -g __prompt_seen 1
+end
+
+function __prompt_drop_gap
+    set -e __prompt_gap
+end
+
+function __prompt_after_clear --on-event fish_postexec
+    string match -qr '^\s*clear\s*$' -- $argv[1]; and set -g __prompt_cleared 1
 end
 
 function __prompt_git --on-event fish_prompt
