@@ -25,7 +25,7 @@ Edits under `config/` are live immediately — `~` holds symlinks into the repo.
 | `just link` | `stow --no-folding` every package — after adding a file under `config/` |
 | `just relink` | removes dangling links at exactly the paths `config/` owns, then `link` — after moving the repo |
 | `just install` / `just update` | `brew bundle install` / with `--upgrade`, then `just plugins` |
-| `just plugins` | `fisher update`, `vim.pack.update`, nvim-treesitter's `update()` for parsers already installed, then a headless nvim run that installs missing ones |
+| `just plugins` | `vim.pack.update`, nvim-treesitter's `update()` for parsers already installed, then a headless nvim run that installs missing ones |
 | `just etc` | writes the three `/etc` files below and sets the login shell (sudo) |
 | `just check` | `brew bundle check`, a grep of `config/` for the repo's absolute path, `stow -n` dry run |
 | `just clean` | `brew bundle cleanup --force` — removes anything not in `brewfile` |
@@ -33,7 +33,7 @@ Edits under `config/` are live immediately — `~` holds symlinks into the repo.
 
 A new machine runs `./bootstrap.sh`: it installs Homebrew and `just` — exporting `XDG_CONFIG_HOME` first, so `~/.homebrew` is never created — and `exec`s `just setup`. Everything else lives in the `justfile`, which resolves paths from its own directory. Moving the repo was tested: 20 links dangled, `just relink` repointed them, nvim, fish and git kept working.
 
-**`stow --no-folding` is required, not a style choice.** With folding, a target directory that does not exist yet becomes a single link into the repo, and fisher (`conf.d/`, `functions/`) and vim.pack (`nvim-pack-lock.json`) then write their own files *into the repo*. Without it every directory under `~` is real and only leaf files are links.
+**`stow --no-folding` is required, not a style choice.** With folding, a target directory that does not exist yet becomes a single link into the repo, and fish (`fish_variables`) and vim.pack (`nvim-pack-lock.json`) then write their own files *into the repo*. Without it every directory under `~` is real and only leaf files are links.
 
 `vi` and `vim` are fish functions (`functions/vi.fish`, `vim.fish`, `--wraps nvim`), replacing home-manager's `viAlias`/`vimAlias`; without them `vim` opens Apple's unconfigured Vim. home-manager's versions were real binaries on `PATH`; functions only apply where fish runs the command, which is accepted — `EDITOR` and git's `core.editor` already name `nvim`, so only something invoking the literal name `vim` from outside fish misses them. Same mechanism as `ls`, `rm` and `wget`.
 
@@ -74,7 +74,7 @@ Git's own diff is also the *better* choice under a switching theme: it emits not
 Better approaches that exist but are not usable yet. Each line gives the check that says whether it has landed, so none of this needs re-deriving.
 
 - **Ghostty 1.4 may make a status bar possible.** 1.3.1 has no such option among its 200 config keys, and the closest surfaces (`title`, `window-subtitle`) take a literal string or a fixed enum. The 1.4 roadmap promises scriptability and "a true Tmux control mode" but says nothing about a status bar; the open request is [Discussion #2421](https://github.com/ghostty-org/ghostty/discussions/2421). Control mode is the more interesting half — it would render tmux windows as native tabs rather than duplicating tmux's bar. Expect roughly September 2026 on the 6-month cycle from 1.3.0.
-- **fish theme files cannot hold the whole palette.** `~/.config/fish/themes/*.theme` takes `[light]`/`[dark]` sections and `fish_config theme choose` follows the terminal from them, which would be more idiomatic than a hand-written handler — but theme files only set `fish_color_*`/`fish_pager_color_*`, so `pure_color_*`, `EZA_COLORS` and `LS_COLORS` would still need one. Worth revisiting only if a shipped theme is ever seen setting something outside those two prefixes.
+- **fish theme files cannot hold the whole palette.** `~/.config/fish/themes/*.theme` takes `[light]`/`[dark]` sections and `fish_config theme choose` follows the terminal from them, which would be more idiomatic than a hand-written handler — but theme files only set `fish_color_*`/`fish_pager_color_*`, so the prompt's `__prompt_c_*`, `EZA_COLORS` and `LS_COLORS` would still need one. Worth revisiting only if a shipped theme is ever seen setting something outside those two prefixes.
 
 Deliberately declined rather than blocked, kept here so they are not re-proposed as if new: `snacks.scroll` (smooth scrolling, installed and un-`setup()`); `@variable`/`Identifier` → plain foreground, Zed's one portable idea, which would take light-mode variables from 3.51 to 10.86 but moves further from One Dark Pro's style; `column.ui = "auto"`, which fights `branch.sort = "-committerdate"`; and writing an own theme rather than hosting on onedarkpro, scoped at 327 highlight groups of which 69 are pure links.
 
@@ -164,7 +164,7 @@ Six bodies of guidance were moved out of this file into `.claude/rules/`, where 
 |------|--------------------|--------|
 | `.claude/rules/neovim.md` | `config/nvim/**` | plugins via `vim.pack`, the 0.11+/0.12 LSP API, LspAttach patterns, mini.nvim's per-module `setup()` traps, nerd font icons and the `nr2char` requirement, keymap organisation, formatters, snacks, sign column, fzf-lua colours, startup timings, and what is deliberately absent |
 | `.claude/rules/tmux.md` | `config/tmux/**` | the style/format quirks, `message-style` needing `fill=`, extended-keys negotiation, duplicate options, and tmux 3.8's changed default styles |
-| `.claude/rules/fish.md` | `config/fish/**` | why `PATH` is written outright in `conf.d/env.fish`, the ordering table and collision check, the pending gnubin/keg-only decision, the conf.d layout and why `theme.fish` must sort after `pure.fish`, and the valid `fish_color_*`/`pure_color_*`/`EZA_COLORS` names |
+| `.claude/rules/fish.md` | `config/fish/**` | why `PATH` is written outright in `conf.d/env.fish`, the ordering table and collision check, the pending gnubin/keg-only decision, the conf.d layout and why the theme and the prompt's git handler live in `conf.d/`, the valid `fish_color_*`/`EZA_COLORS` names, and the hand-written prompt — its segments and their nvim groups, the git caching and timings, and why pure, Starship and Tide were not used |
 | `.claude/rules/ghostty.md` | `config/ghostty/**`, `config/tmux/**`, `config/fish/**` | why Ghostty's `command` starts tmux (absolute path, `env -u TMUX`) and fish has no tmux logic, shell integration being off, and `macos-option-as-alt` |
 | `.claude/rules/omniwm.md` | `config/omniwm/**` | the stowed `settings.toml` and its strict schema, workspaces per display and their names, app rules and the catch-all to workspace 3, Quake and Hidden Bar being off, no sticky windows, menu bar and workspace bar, Overview colours, trackpad gestures and hotkeys |
 | `.claude/rules/pi.md` | `config/pi/**`, `config/fish/**` | pi's lack of XDG support and the two `PI_CODING_AGENT_*` variables, why sessions are DATA not STATE, why only `AGENTS.md` is stowed, and `shellPath` on brew's bash |
