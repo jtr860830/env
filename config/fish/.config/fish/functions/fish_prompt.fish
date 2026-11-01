@@ -96,14 +96,20 @@ function fish_prompt
         set -l git
         set -q show_git[1]; and set git (__prompt_git_pill $branch_max)
         set head $line'╭' (__prompt_dir $dir_max -- $dir) $git $venv_pill
-        set tail $jobs_pill $error_pill $duration_pill $line'╮'
-        set rule (math $width - (string length --visible -- (string join ' ' -- $head $tail)) - 1)
+        set tail $jobs_pill $error_pill $duration_pill
+        set rule (math $width - (string length --visible -- (string join ' ' -- $head $tail ╮)) - 1)
+        set -q tail[1]; or set rule (math $rule + 1)
         test $rule -ge 1; and break
         set need (math 1 - $rule)
     end
     test $rule -lt 1; and set rule 1
 
-    string join ' ' -- $head $line(string repeat -n $rule ─) $tail
+    set -l rule_line $line(string repeat -n $rule ─)
+    if set -q tail[1]
+        string join ' ' -- $head $rule_line $tail $line'╮'
+    else
+        string join ' ' -- $head $rule_line'╮'
+    end
     set_color normal
 
     set -l mode $__prompt_c_purple
