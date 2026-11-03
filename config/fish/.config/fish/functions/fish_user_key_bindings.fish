@@ -4,7 +4,4 @@ function fish_user_key_bindings
         bind -M default -m insert $key __prompt_enter
         bind -M replace -m insert $key __prompt_enter repaint-mode
     end
-    for mode in default insert visual
-        bind -M $mode ctrl-l __prompt_drop_open 'status test-terminal-feature scroll-content-up && commandline -f scrollback-push' clear-screen
-    end
 end

@@ -44,13 +44,9 @@ end
 
 function __prompt_close
     set -l error_pill
-    if set -q __prompt_close_status[1]
-        set -l codes $__prompt_close_status[1]
-        set -q __prompt_close_status[3]; and set codes $__prompt_close_status[2..]
-        string match -qv 0 -- $codes; and set error_pill (__prompt_pill (set_color $__prompt_c_red)✘ (string join '|' (fish_status_to_signal $codes)))
-    end
+    string match -qv 0 -- $argv[2..]; and set error_pill (__prompt_pill (set_color $__prompt_c_red)✘ (string join '|' (fish_status_to_signal $argv[2..])))
     set -l duration_pill
-    set -q __prompt_close_duration[1]; and test $__prompt_close_duration -ge 5000; and set duration_pill (__prompt_pill (set_color $__prompt_c_yellow)(__prompt_duration $__prompt_close_duration))
+    test $argv[1] -ge 5000; and set duration_pill (__prompt_pill (set_color $__prompt_c_yellow)(__prompt_duration $argv[1]))
     set -l width (math $COLUMNS - 1)
     set -l frame
     for drop in none duration error
@@ -64,12 +60,12 @@ function __prompt_close
         set frame (__prompt_frame $width (set_color $__prompt_c_gray)╰ "$pills" ╯)
         test (string length --visible -- $frame) -le $width; and break
     end
+    printf '%s⏎%s%s\r\e[K' (set_color $__prompt_c_comment) (set_color normal) (string repeat (math $COLUMNS - 1) ' ')
     echo $frame
     set_color normal
 end
 
 function fish_prompt
-    set -q __prompt_open; and __prompt_close
     set -l line (set_color $__prompt_c_gray)
 
     set -l jobs_pill

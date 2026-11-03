@@ -10,30 +10,16 @@ function __prompt_enter
     end
 end
 
-function __prompt_spacing --on-event fish_prompt
-    if set -q __prompt_seen
-        set -g __prompt_open 1
-    else
-        set -e __prompt_open
-    end
-    set -g __prompt_seen 1
-    set -g __prompt_close_status $__prompt_last_status
-    set -g __prompt_close_duration $__prompt_last_duration
-    set -e __prompt_last_status __prompt_last_duration
-end
-
-function __prompt_drop_open
-    set -e __prompt_open
-end
-
 function __prompt_postexec --on-event fish_postexec
     set -l result $status $pipestatus
+    set -l codes
     if test "$status_generation" != "$__prompt_generation"
         set -g __prompt_generation $status_generation
-        set -g __prompt_last_status $result
+        set codes $result[1]
+        set -q result[3]; and set codes $result[2..]
     end
-    set -g __prompt_last_duration $CMD_DURATION
-    string match -qr '^\s*clear\s*$' -- $argv[1]; and set -e __prompt_seen
+    string match -qr '^\s*clear\s*$' -- $argv[1]; and return
+    __prompt_close $CMD_DURATION $codes
 end
 
 function __prompt_git --on-event fish_prompt
