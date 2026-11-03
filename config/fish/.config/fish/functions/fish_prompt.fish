@@ -35,22 +35,47 @@ function __prompt_duration
     end
 end
 
+function __prompt_close
+    set -l line (set_color $__prompt_c_gray)
+    set -l error_pill
+    test $argv[1] -ne 0; and set error_pill (__prompt_pill (set_color $__prompt_c_red)✘ $argv[1])
+    set -l duration_pill
+    set -q CMD_DURATION; and test $CMD_DURATION -ge 5000; and set duration_pill (__prompt_pill (set_color $__prompt_c_yellow)(__prompt_duration $CMD_DURATION))
+    set -l width (math $COLUMNS - 1)
+    set -l pills
+    set -l rule
+    for drop in none duration error
+        switch $drop
+            case duration
+                set duration_pill
+            case error
+                set error_pill
+        end
+        set pills $error_pill $duration_pill
+        if set -q pills[1]
+            set rule (math $width - (string length --visible -- (string join ' ' -- ╰ $pills ╯)))
+        else
+            set rule (math $width - 2)
+        end
+        test $rule -ge 1; and break
+    end
+    test $rule -lt 1; and set rule 1
+    if set -q pills[1]
+        string join ' ' -- $line'╰'(string repeat -n $rule ─) $pills $line'╯'
+    else
+        echo $line'╰'(string repeat -n $rule ─)'╯'
+    end
+    set_color normal
+end
+
 function fish_prompt
     set -l last_status $status
-    set -q __prompt_gap; and echo
-    if contains -- --final-rendering $argv
-        echo -n -s (set_color $__prompt_c_comment) '❯ ' (set_color normal)
-        return
-    end
+    set -q __prompt_open; and __prompt_close $last_status
     set -l line (set_color $__prompt_c_gray)
 
     set -l jobs_pill
     set -l jobs (count (jobs -g 2>/dev/null))
     test $jobs -gt 0; and set jobs_pill (__prompt_pill (set_color $__prompt_c_blue)\uf04c $jobs)
-    set -l error_pill
-    test $last_status -ne 0; and set error_pill (__prompt_pill (set_color $__prompt_c_red)✘ $last_status)
-    set -l duration_pill
-    set -q CMD_DURATION; and test $CMD_DURATION -ge 5000; and set duration_pill (__prompt_pill (set_color $__prompt_c_yellow)(__prompt_duration $CMD_DURATION))
     set -l venv_pill
     if set -q VIRTUAL_ENV
         set -l venv $VIRTUAL_ENV_PROMPT
@@ -70,33 +95,29 @@ function fish_prompt
     set -l head
     set -l tail
     set -l rule
-    for drop in none short duration jobs branch path venv path git path error path
+    for drop in none short jobs branch path venv path git path
         switch $drop
             case short
                 set dir $short
-            case duration
-                set duration_pill
             case jobs
                 set jobs_pill
             case branch
                 set -q __prompt_git_head; and set branch_max (math "max(8, $(string length --visible -- $__prompt_git_head) - $need)")
             case path
                 set dir_max --max=(math "max(8, $(string length --visible -- $short) - $need)")
-            case venv git error
+            case venv git
                 set dir_max
                 switch $drop
                     case venv
                         set venv_pill
                     case git
                         set show_git
-                    case error
-                        set error_pill
                 end
         end
         set -l git
         set -q show_git[1]; and set git (__prompt_git_pill $branch_max)
         set head $line'╭' (__prompt_dir $dir_max -- $dir) $git $venv_pill
-        set tail $jobs_pill $error_pill $duration_pill
+        set tail $jobs_pill
         set rule (math $width - (string length --visible -- (string join ' ' -- $head $tail ╮)) - 1)
         set -q tail[1]; or set rule (math $rule + 1)
         test $rule -ge 1; and break

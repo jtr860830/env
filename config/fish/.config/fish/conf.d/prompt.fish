@@ -1,7 +1,5 @@
 status is-interactive; or return
 
-set -g fish_transient_prompt 1
-
 function __prompt_enter
     if string match -qr '\S' -- "$(commandline)"
         commandline -f execute
@@ -14,15 +12,15 @@ end
 
 function __prompt_spacing --on-event fish_prompt
     if set -q __prompt_seen
-        set -g __prompt_gap 1
+        set -g __prompt_open 1
     else
-        set -e __prompt_gap
+        set -e __prompt_open
     end
     set -g __prompt_seen 1
 end
 
-function __prompt_drop_gap
-    set -e __prompt_gap
+function __prompt_drop_open
+    set -e __prompt_open
 end
 
 function __prompt_after_clear --on-event fish_postexec
