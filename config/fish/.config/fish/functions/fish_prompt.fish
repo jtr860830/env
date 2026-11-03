@@ -35,15 +35,24 @@ function __prompt_duration
     end
 end
 
+function __prompt_frame
+    set -l right
+    test -n "$argv[3]"; and set right " $argv[3] "
+    set -l rule (math "max(1, $argv[1] - $(string length --visible -- "$argv[2]$right$argv[4]"))")
+    echo -n -s $argv[2] (set_color $__prompt_c_gray) (string repeat $rule ─) $right (set_color $__prompt_c_gray) $argv[4]
+end
+
 function __prompt_close
-    set -l line (set_color $__prompt_c_gray)
     set -l error_pill
-    test $argv[1] -ne 0; and set error_pill (__prompt_pill (set_color $__prompt_c_red)✘ $argv[1])
+    if set -q __prompt_close_status[1]
+        set -l codes $__prompt_close_status[1]
+        set -q __prompt_close_status[3]; and set codes $__prompt_close_status[2..]
+        string match -qv 0 -- $codes; and set error_pill (__prompt_pill (set_color $__prompt_c_red)✘ (string join '|' (fish_status_to_signal $codes)))
+    end
     set -l duration_pill
-    set -q CMD_DURATION; and test $CMD_DURATION -ge 5000; and set duration_pill (__prompt_pill (set_color $__prompt_c_yellow)(__prompt_duration $CMD_DURATION))
+    set -q __prompt_close_duration[1]; and test $__prompt_close_duration -ge 5000; and set duration_pill (__prompt_pill (set_color $__prompt_c_yellow)(__prompt_duration $__prompt_close_duration))
     set -l width (math $COLUMNS - 1)
-    set -l pills
-    set -l rule
+    set -l frame
     for drop in none duration error
         switch $drop
             case duration
@@ -51,26 +60,16 @@ function __prompt_close
             case error
                 set error_pill
         end
-        set pills $error_pill $duration_pill
-        if set -q pills[1]
-            set rule (math $width - (string length --visible -- (string join ' ' -- ╰ $pills ╯)))
-        else
-            set rule (math $width - 2)
-        end
-        test $rule -ge 1; and break
+        set -l pills $error_pill $duration_pill
+        set frame (__prompt_frame $width (set_color $__prompt_c_gray)╰ "$pills" ╯)
+        test (string length --visible -- $frame) -le $width; and break
     end
-    test $rule -lt 1; and set rule 1
-    if set -q pills[1]
-        string join ' ' -- $line'╰'(string repeat -n $rule ─) $pills $line'╯'
-    else
-        echo $line'╰'(string repeat -n $rule ─)'╯'
-    end
+    echo $frame
     set_color normal
 end
 
 function fish_prompt
-    set -l last_status $status
-    set -q __prompt_open; and __prompt_close $last_status
+    set -q __prompt_open; and __prompt_close
     set -l line (set_color $__prompt_c_gray)
 
     set -l jobs_pill
@@ -92,9 +91,7 @@ function fish_prompt
     set -l show_git 1
     set -l width (math $COLUMNS - 1)
     set -l need 0
-    set -l head
-    set -l tail
-    set -l rule
+    set -l frame
     for drop in none short jobs branch path venv path git path
         switch $drop
             case short
@@ -116,21 +113,11 @@ function fish_prompt
         end
         set -l git
         set -q show_git[1]; and set git (__prompt_git_pill $branch_max)
-        set head $line'╭' (__prompt_dir $dir_max -- $dir) $git $venv_pill
-        set tail $jobs_pill
-        set rule (math $width - (string length --visible -- (string join ' ' -- $head $tail ╮)) - 1)
-        set -q tail[1]; or set rule (math $rule + 1)
-        test $rule -ge 1; and break
-        set need (math 1 - $rule)
+        set frame (__prompt_frame $width "$(string join ' ' -- $line'╭' (__prompt_dir $dir_max -- $dir) $git $venv_pill) " "$jobs_pill" ╮)
+        set need (math (string length --visible -- $frame) - $width)
+        test $need -le 0; and break
     end
-    test $rule -lt 1; and set rule 1
-
-    set -l rule_line $line(string repeat -n $rule ─)
-    if set -q tail[1]
-        string join ' ' -- $head $rule_line $tail $line'╮'
-    else
-        string join ' ' -- $head $rule_line'╮'
-    end
+    echo $frame
     set_color normal
 
     set -l mode $__prompt_c_purple

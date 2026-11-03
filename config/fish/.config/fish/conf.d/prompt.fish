@@ -17,13 +17,22 @@ function __prompt_spacing --on-event fish_prompt
         set -e __prompt_open
     end
     set -g __prompt_seen 1
+    set -g __prompt_close_status $__prompt_last_status
+    set -g __prompt_close_duration $__prompt_last_duration
+    set -e __prompt_last_status __prompt_last_duration
 end
 
 function __prompt_drop_open
     set -e __prompt_open
 end
 
-function __prompt_after_clear --on-event fish_postexec
+function __prompt_postexec --on-event fish_postexec
+    set -l result $status $pipestatus
+    if test "$status_generation" != "$__prompt_generation"
+        set -g __prompt_generation $status_generation
+        set -g __prompt_last_status $result
+    end
+    set -g __prompt_last_duration $CMD_DURATION
     string match -qr '^\s*clear\s*$' -- $argv[1]; and set -e __prompt_seen
 end
 
