@@ -15,8 +15,7 @@ function __prompt_postexec --on-event fish_postexec
     set -l codes
     if test "$status_generation" != "$__prompt_generation"
         set -g __prompt_generation $status_generation
-        set codes $result[1]
-        set -q result[3]; and set codes $result[2..]
+        set codes $result
     end
     string match -qr '^\s*clear\s*$' -- $argv[1]; and return
     __prompt_close $CMD_DURATION $codes

@@ -43,11 +43,19 @@ function __prompt_frame
 end
 
 function __prompt_close
+    set -l codes
+    if set -q argv[4]; and string match -qv 0 -- $argv[3..]
+        set codes $argv[3..]
+    else if set -q argv[2]; and test $argv[2] -ne 0
+        set codes $argv[2]
+    end
     set -l error_pill
-    string match -qv 0 -- $argv[2..]; and set error_pill (__prompt_pill (set_color $__prompt_c_red)✘ (string join '|' (fish_status_to_signal $argv[2..])))
+    set -q codes[1]; and set error_pill (__prompt_pill (set_color $__prompt_c_red)✘ (string join '|' (fish_status_to_signal $codes)))
     set -l duration_pill
     test $argv[1] -ge 5000; and set duration_pill (__prompt_pill (set_color $__prompt_c_yellow)(__prompt_duration $argv[1]))
-    set -l width (math $COLUMNS - 1)
+    set -l columns (command stty size 2>/dev/null | string match -rg '^\d+ (\d+)$')
+    test -n "$columns"; or set columns $COLUMNS
+    set -l width (math "min($columns - 1, $__prompt_width)")
     set -l frame
     for drop in none duration error
         switch $drop
@@ -60,7 +68,7 @@ function __prompt_close
         set frame (__prompt_frame $width (set_color $__prompt_c_gray)╰ "$pills" ╯)
         test (string length --visible -- $frame) -le $width; and break
     end
-    printf '%s⏎%s%s\r\e[K' (set_color $__prompt_c_comment) (set_color normal) (string repeat (math $COLUMNS - 1) ' ')
+    printf '%s⏎%s%s\r\e[K' (set_color $__prompt_c_comment) (set_color normal) (string repeat (math $columns - 1) ' ')
     echo $frame
     set_color normal
 end
@@ -86,6 +94,7 @@ function fish_prompt
     set -l branch_max
     set -l show_git 1
     set -l width (math $COLUMNS - 1)
+    set -g __prompt_width $width
     set -l need 0
     set -l frame
     for drop in none short jobs branch path venv path git path
