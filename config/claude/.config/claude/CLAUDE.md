@@ -56,3 +56,5 @@ Disagreement is the useful output: report what each side concluded and where the
 Whatever Codex returns gets checked before it is reported as done. Delegated output earns the same suspicion as my own: when a number looks wrong, check the instrument rather than defending the number.
 
 A `Stop`-hook review gate exists (`/codex:setup --enable-review-gate`) and is off. It would cost a Codex round trip on every stop, so turning it on is the user's call even though `setup` is one I can invoke.
+
+@RTK.md
