@@ -69,6 +69,7 @@ brew "ripgrep-all"
 brew "rtk"
 brew "ruff"
 brew "rustup", link: true
+brew "shellcheck"
 brew "shfmt"
 brew "skopeo"
 brew "stow"
