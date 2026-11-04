@@ -134,5 +134,5 @@ function fish_prompt
         case replace replace_one
             set mode $__prompt_c_red
     end
-    echo -n -s (set_color $mode) '❯ ' (set_color normal)
+    echo -n -s '  ' (set_color $mode) '❯ ' (set_color normal)
 end
