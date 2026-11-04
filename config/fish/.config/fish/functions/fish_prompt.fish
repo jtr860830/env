@@ -43,11 +43,10 @@ function __prompt_duration
     end
 end
 
-function __prompt_frame
-    set -l right
-    test -n "$argv[3]"; and set right " $argv[3] "
-    set -l rule (math "max(1, $argv[1] - $(string length --visible -- "$argv[2]$right$argv[4]"))")
-    echo -n -s $argv[2] (set_color $__prompt_c_gray) (string repeat $rule ─) $right (set_color $__prompt_c_gray) $argv[4]
+function __prompt_frame --argument-names width left right corner
+    test -n "$right"; and set right " $right "
+    set -l rule (math "max(1, $width - $(string length --visible -- "$left$right$corner"))")
+    echo -n -s $left (set_color $__prompt_c_gray) (string repeat $rule ─) $right (set_color $__prompt_c_gray) $corner
 end
 
 function __prompt_close

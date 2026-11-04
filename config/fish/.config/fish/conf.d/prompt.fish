@@ -68,14 +68,14 @@ function __prompt_git_operation
     end
 end
 
-function __prompt_progress
+function __prompt_progress --argument-names label done_file total_file
     set -l done
     set -l total
-    test -f $argv[2]; and read done < $argv[2]
-    test -f $argv[3]; and read total < $argv[3]
+    test -f $done_file; and read done < $done_file
+    test -f $total_file; and read total < $total_file
     if string match -qr '^[0-9]+$' -- "$done"; and string match -qr '^[0-9]+$' -- "$total"
-        echo $argv[1] $done/$total
+        echo $label $done/$total
     else
-        echo $argv[1]
+        echo $label
     end
 end
