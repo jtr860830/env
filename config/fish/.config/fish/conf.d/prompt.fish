@@ -1,5 +1,7 @@
 status is-interactive; or return
 
+set -g fish_transient_prompt 1
+
 function __prompt_enter
     if string match -qr '\S' -- "$(commandline)"
         commandline -f execute
