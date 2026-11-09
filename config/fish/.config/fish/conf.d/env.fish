@@ -24,6 +24,7 @@ set -gx TERMINFO_DIRS /opt/homebrew/opt/ncurses/share/terminfo
 set -gx CARGO_HOME $XDG_DATA_HOME/cargo
 set -gx CARGO_INSTALL_ROOT $HOME/.local
 set -gx CLAUDE_CONFIG_DIR $XDG_CONFIG_HOME/claude
+set -gx CLAUDE_CODE_SEND_FEEDBACK 0
 set -gx CODEX_HOME $XDG_CONFIG_HOME/codex
 set -gx GOBIN $HOME/.local/bin
 set -gx GOCACHE $XDG_CACHE_HOME/go-build
@@ -37,7 +38,6 @@ set -gx NODE_REPL_HISTORY $XDG_DATA_HOME/node_repl_history
 set -gx NPM_CONFIG_USERCONFIG $XDG_CONFIG_HOME/npm/npmrc
 set -gx PI_CODING_AGENT_DIR $XDG_CONFIG_HOME/pi
 set -gx PI_CODING_AGENT_SESSION_DIR $XDG_DATA_HOME/pi/sessions
-set -gx REMEMBER_RUNTIME_DIR $XDG_STATE_HOME/remember/run
 set -gx RTK_DB_PATH $XDG_STATE_HOME/rtk/history.db
 set -gx RTK_TEE_DIR $XDG_CACHE_HOME/rtk/tee
 set -gx RUSTUP_HOME $XDG_DATA_HOME/rustup

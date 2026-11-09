@@ -43,6 +43,8 @@ Delegate: bulk mechanical implementation once the spec is settled; root-cause wo
 
 Do not delegate: loops where each step depends on the previous measurement; work where the accumulated context *is* the value; edits smaller than their own description; exploration that needs a judgement call partway through.
 
+Claude subagents follow the same economy. An Agent sent on a search or lookup gets `model: "haiku"`; one that has to weigh what it finds gets `sonnet`. The default inherits my model, which is wasted on a file sweep.
+
 ### Cross-checking what matters
 
 For things expensive to reverse or costly to get wrong, put the question to Codex **independently** with a read-only `task` and compare the answers. Ask it cold — **never hand over my conclusion first**, or it gets rubber-stamped.

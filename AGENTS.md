@@ -59,7 +59,7 @@ Linked (decided 2026-10-21 from fish history — 4,665 entries since 2022-02 —
 - **`llvm`** — puts brew's `clang`, `clang++`, `clangd` and `clang-format` ahead of Apple's. `clang-format` was the real gap: conform formats C with it and macOS ships none, so C formatting silently failed. Do not also install the standalone `clang-format` formula — it is the same 23.x binary and the two would fight over `/opt/homebrew/bin/clang-format`. Verified after linking: brew's `clang`/`clang++` find the SDK and build C and C++, and conform formats a C buffer. `brew link --dry-run llvm` reports a conflict with protobuf's `share/emacs/site-lisp`; it is spurious — the trees are disjoint and the real link succeeds.
 - **`rustup`** — see above.
 
-Deliberately not linked: `ncurses` (only its terminfo database is wanted; linking would shadow nine Apple binaries — see `## Terminfo`) and `openjdk` (`java`/`javac`/`mvn` last used 2022, so `java` stays Apple's stub). The gnubin formulae (`make`, `gnu-sed`, `inetutils`) are not keg-only: brew already ships them prefixed (`gmake`, `gsed`, `gping`) in `/opt/homebrew/bin`, and the unprefixed names stay Apple's. Scripts in this repo must therefore run under BSD tools — `sed -i ''`, not `sed -i`. Tools that are not keg-only (`ssh` from `openssh`, `git`, `python3`) already win from `/opt/homebrew/bin`.
+Deliberately not linked: `ncurses` (only its terminfo database is wanted; linking would shadow nine Apple binaries — see `.claude/rules/env.md`) and `openjdk` (`java`/`javac`/`mvn` last used 2022, so `java` stays Apple's stub). The gnubin formulae (`make`, `gnu-sed`, `inetutils`) are not keg-only: brew already ships them prefixed (`gmake`, `gsed`, `gping`) in `/opt/homebrew/bin`, and the unprefixed names stay Apple's. Scripts in this repo must therefore run under BSD tools — `sed -i ''`, not `sed -i`. Tools that are not keg-only (`ssh` from `openssh`, `git`, `python3`) already win from `/opt/homebrew/bin`.
 
 ## Tools Deliberately Absent
 
@@ -83,27 +83,6 @@ Deliberately declined rather than blocked, kept here so they are not re-proposed
 - Commit style: `type: description` (e.g. `feat:`, `chore:`, `fix:`)
 - Git signs commits via 1Password SSH agent (ED25519)
 - Default branch is `main`, matching `init.defaultBranch` in git's config. Renamed from `master` on 2026-08-15 with GitHub's `branches/{branch}/rename` API, which moves the default and leaves redirects behind.
-
-## Go
-
-`go` comes from the brewfile. `GOPATH` (`~/.local/share/go`) and `GOBIN` (`~/.local/bin`) are plain environment variables in `conf.d/env.fish`, written with `$XDG_DATA_HOME`/`$HOME`.
-
-They used to live in the file `go env` reads (`~/Library/Application Support/go/env` on Darwin), stowed from the repo. That file **cannot use variables**: Go reads it literally, so `$HOME/...` and `${HOME}/...` fail with `GOPATH entry is relative; must be absolute path` and `~/...` with `cannot start with shell metacharacter '~'` — and a bad `GOPATH` there breaks every `go` command, not just `go env`. Keeping it meant a hardcoded `/Users/jtr860830`; moving to the environment trades that for one limit, accepted: only processes started from fish see the variables, so an editor launched from the Dock falls back to Go's default `~/go`. nvim and gopls start from fish. `go env -w` now writes the ordinary file at the default location, not the repo.
-
-`go telemetry` reports `local`, Go's default — counters on disk, nothing uploaded without an explicit `go telemetry on`.
-
-## XDG on macOS
-
-`$HOME` holds only `.ssh` (OpenSSH hardcodes it) and macOS's `.Trash`. The usual macOS leak is not a dotfile but `~/Library`: Go's `os.UserCacheDir`/`os.UserConfigDir` and Rust's `dirs` crate return `~/Library/Caches` and `~/Library/Application Support` on Darwin and ignore `XDG_*` entirely, so a tool that honours XDG on Linux can still write to `~/Library` here. Each fix below names a variable that was confirmed with `strings` on the installed binary before use:
-
-- `GOCACHE=$XDG_CACHE_HOME/go-build` and `GOPLSCACHE=$XDG_CACHE_HOME/gopls` — both had been under `~/Library/Caches`
-- `GOMODCACHE=$XDG_CACHE_HOME/go/mod` — the module cache defaults to `$GOPATH/pkg/mod`, i.e. DATA, but it is a re-downloadable cache
-- `_ZO_DATA_DIR=$XDG_DATA_HOME/zoxide` — zoxide kept `db.zo` in `~/Library/Application Support/zoxide`; it was moved, not recreated
-- tealdeer's cache — `cache_dir = "~/.cache/tealdeer"` in the stowed `config/tealdeer/.config/tealdeer/config.toml`. `TEALDEER_CACHE_DIR` works but 1.9.1 prints a deprecation warning on every call; the config file expands `~` (tested) but not `$HOME`, and has no way to read `XDG_CACHE_HOME`, so the default value is written out
-- `RTK_DB_PATH=$XDG_STATE_HOME/rtk/history.db` and `RTK_TEE_DIR=$XDG_CACHE_HOME/rtk/tee` — rtk's 90-day savings history is action history, so STATE; the tee spool of failed commands' full output is disposable, so CACHE. Both read from `src/core/user_dirs.rs`; `RTK_CONFIG_DIR` looks like the config override but only redirects pipeline loading, verified — `rtk config` still names `~/Library/Application Support/rtk/config.toml`
-- `HOMEBREW_CACHE=$HOME/.cache/homebrew` — in `/etc/homebrew/brew.env` beside `HOMEBREW_XDG_CONFIG_HOME`, not in fish, for the same reason (see `## Homebrew`)
-
-Left as is: the rest of rtk's directory (`config.toml`, hook markers, trust store — `dirs::config_dir()`/`data_local_dir()`, which read no `XDG_*` on macOS and have no override), lima's download cache (`~/Library/Caches/lima` — the binary reads no cache variable), `~/Library/Caches/goimports` (no variable found), Go's own `env` file (see `## Go`), and Claude Code and Codex, which take one directory each and keep transcripts and caches inside it. Like `GOPATH`, the fish-set variables reach only processes started from fish.
 
 ## Homebrew
 
@@ -129,7 +108,8 @@ Steps `just setup` cannot perform — local UI state, app preferences and licenc
 - **OmniWM** — permissions and Start at Login, see `.claude/rules/omniwm.md`. Trackpad: turn off macOS's three- and four-finger swipes (System Settings → Trackpad → More Gestures), which OmniWM's gestures replace.
 - **pi** — `"shellPath": "/opt/homebrew/bin/bash"` in `~/.config/pi/settings.json` (see `.claude/rules/pi.md`); log in with `/login`.
 - **rtk** — `rtk init -g`, `rtk init -g --codex` and `rtk init -g --agent pi`. Each writes local files only (`~/.config/claude/RTK.md` and a `PreToolUse` Bash hook in `settings.json`; `~/.config/codex/{AGENTS.md,hooks.json,RTK.md}`; `~/.config/pi/extensions/rtk.ts`), except the `@RTK.md` line it appends to the stowed Claude `CLAUDE.md`, which is committed. `RTK.md` is what tells the agent its output is condensed and that `rtk bypass <cmd>` returns it raw, so `--hook-only` is not used. **Answer no to "Delegate oversize reads to a cheaper model"**: it writes a `pipeline.toml` extending `rtk:delegate-reads`, which routes any whole-file read over 350 lines to that model, sending the file out and keeping it from the agent, and it lies inert only until `GEMINI_API_KEY` happens to be set. It was accepted once on 2026-11-03 and removed; with no `pipeline.toml` rtk is on `rtk:default` (`rtk pipeline status`). The telemetry prompt is moot — the Homebrew build has no telemetry endpoint (`rtk telemetry status`).
-- **Claude Code** — `pluginConfigs["cc-plugin-agents-md@builtin"].options.instructionFiles = "claude-md-and-agents-md"` in `~/.config/claude/settings.json` (see `## AGENTS.md, Not CLAUDE.md`).
+- **Claude Code** — `pluginConfigs["cc-plugin-agents-md@builtin"].options.instructionFiles = "claude-md-and-agents-md"` in `~/.config/claude/settings.json` (see `## AGENTS.md, Not CLAUDE.md`); `autoMemoryEnabled` and `autoDreamEnabled` set to `false`; the `remember` plugin uninstalled (see `## Stateless Model`); `syncClaudeAiSkills` set to `false` — the 14 skills claude.ai syncs into `~/.config/claude/skills/synced/` cost about 2,000 tokens of descriptions per session and only `docx` was ever used (3 times, all in work projects), so nothing replaces them: when a Word, Excel, PowerPoint or PDF job comes up, copy that one skill's directory from anthropics/skills into the project's `.claude/skills/` for the duration. The `document-skills` plugin was tried and rejected on 2026-11-10: its marketplace manifest names those four, but Claude Code loads all 19 skills in the repo regardless, and `skillOverrides` does not reach plugin skills under either `document-skills:<name>` or `<name>` (verified with headless `claude -p` runs listing the loaded skills). Also in that file, from a token audit on 2026-11-10 of 532 session transcripts: `enableArtifact: false` (the Artifact tool's definition is about 5,500 tokens a turn, the largest single one, and it was called once), `disableBundledSkills: true` (no built-in skill was ever invoked by hand; `code-review`, `init` and the rest were only ever picked by the model, and the superpowers plugin covers the same ground — `/init` and `/doctor` stay typable) and `disableWorkflows: true` (never used, about 1,100 tokens). `CLAUDE_CODE_SEND_FEEDBACK=0` is in `conf.d/env.fish` for the same reason (one call ever, about 1,100 tokens). `skillOverrides` was not used because `disableBundledSkills` already removes the lot.
+- **Codex** — `[features] memories = false` in `~/.config/codex/config.toml` (see `## Stateless Model`).
 - **Alfred** — enter the Powerpack licence; point the sync folder at iCloud, which restores workflows, themes and preferences; set the theme for *both* light and dark appearance (see below); set the hotkey to `⌘Space`; turn off System Settings → Keyboard → Keyboard Shortcuts → Spotlight → "Show Spotlight search", which otherwise owns that key.
 
 Alfred's config is **deliberately not in this repo**. Its sync folder moves the whole `Alfred.alfredpreferences` bundle — app-owned mutable state that Alfred writes to directly, which is a different model from the declarative source the rest of the repo holds. iCloud handles it instead. The licence, clipboard database and usage data sit *outside* that bundle, so nothing secret travels with it.
@@ -156,11 +136,11 @@ So **never let a `CLAUDE.md` appear at the repo root**. `/init`, `/revise-claude
 
 Scope is project-only on purpose. At user scope Claude Code reads only `CLAUDE.md` — its built-in Codex importer copies Codex's `AGENTS.md` *into* Claude's user `CLAUDE.md`, which it would not need to do otherwise — so `config/claude/.config/claude/CLAUDE.md` keeps its name. It is also written in Claude's first person ("execution goes to Codex"), which would read backwards to Codex; sharing it would need a split into a neutral common part and a Claude-only part first.
 
-The `.claude/rules/` and `.claude/skills/` material below is loaded automatically by Claude Code only. Codex does not see it unless it opens those files, so read the relevant one before touching Neovim, tmux, fish, Ghostty, OmniWM, pi or anything colour-related.
+The `.claude/rules/` and `.claude/skills/` material below is loaded automatically by Claude Code only. Codex does not see it unless it opens those files, so read the relevant one before touching Neovim, tmux, fish, Ghostty, OmniWM, pi, environment variables or anything colour-related.
 
 ## Path-Scoped Rules
 
-Six bodies of guidance were moved out of this file into `.claude/rules/`, where a `paths` frontmatter key loads each one only when a matching file is actually being edited. Nothing was dropped — every measured finding and negative result is still recorded, just not in every session's context.
+Seven bodies of guidance were moved out of this file into `.claude/rules/`, where a `paths` frontmatter key loads each one only when a matching file is actually being edited. Nothing was dropped — every measured finding and negative result is still recorded, just not in every session's context.
 
 | File | Loads when editing | Covers |
 |------|--------------------|--------|
@@ -170,28 +150,21 @@ Six bodies of guidance were moved out of this file into `.claude/rules/`, where 
 | `.claude/rules/ghostty.md` | `config/ghostty/**`, `config/tmux/**`, `config/fish/**` | why Ghostty's `command` starts tmux (absolute path, `env -u TMUX`) and fish has no tmux logic, shell integration being off, and `macos-option-as-alt` |
 | `.claude/rules/omniwm.md` | `config/omniwm/**` | the stowed `settings.toml` and its strict schema, workspaces per display and their names, app rules and the catch-all to workspace 3, Quake and Hidden Bar being off, no sticky windows, menu bar and workspace bar, Overview colours, trackpad gestures and hotkeys |
 | `.claude/rules/pi.md` | `config/pi/**`, `config/fish/**` | pi's lack of XDG support and the two `PI_CODING_AGENT_*` variables, why sessions are DATA not STATE, why only `AGENTS.md` is stowed, and `shellPath` on brew's bash |
+| `.claude/rules/env.md` | `config/fish/**`, `config/tealdeer/**`, `config/ghostty/**` | `GOPATH`/`GOBIN` in the environment and why Go's own env file cannot hold variables; the `~/Library` leaks on macOS and the variable verified for each fix (`GOCACHE`, `GOMODCACHE`, `_ZO_DATA_DIR`, tealdeer, rtk, `HOMEBREW_CACHE`); `TERMINFO_DIRS` from keg-only ncurses; why no `MANPATH` is set and Homebrew's `mandoc` must not be installed; stale environments in a long-lived tmux server and in GUI apps launched from a terminal |
 
 Same reasoning as the `theme` skill above: measured values that are expensive to re-derive but irrelevant most of the time. Prefer this mechanism over adding another always-loaded section when new guidance is tied to one file.
 
-## Terminfo
+## Stateless Model
 
-`TERMINFO_DIRS=/opt/homebrew/opt/ncurses/share/terminfo` in `conf.d/env.fish`; `ncurses` is in the brewfile but keg-only, so its nine binaries (`clear`, `tput`, `infocmp`, …) do not shadow Apple's. Homebrew's database has 2,896 entries against the system's 2,684 — the same count nixpkgs' had — including `alacritty` and `wezterm`. ncurses searches `TERMINFO_DIRS` **plus the default compiled into each binary**, so macOS binaries still reach `/usr/share/terminfo` as well; `/usr/bin/infocmp -D` prints the effective list. Ghostty also exports `TERMINFO` pointing into its app bundle, which is searched first. Count entries by path (`find … \( -type f -o -type l \)`); `find -type f` alone skips the symlinked aliases and inflates the difference into the hundreds.
+Decided 2026-11-09: the model carries nothing of its own between sessions. Everything persistent lives in the two layers the user edits — `config/claude/.config/claude/CLAUDE.md` at user scope, and `AGENTS.md`, `.claude/rules/` and `.claude/skills/` per project — so what the model knows at session start is exactly what is in the repo. The same decision was taken for pi.
 
-## Man Pages
+What this turned off, each a store the model wrote to and read back without the user in the loop:
 
-This repo sets no `MANPATH`, but one is present in every shell anyway. Ghostty exports `MANPATH=:<Ghostty.app>/Contents/Resources/ghostty/../man` to its children (the tmux server holds it; the Ghostty process itself does not), and because it is set, fish's built-in `__fish_macos_set_env` then rebuilds it the way `path_helper` would — `/etc/manpaths` and `/etc/manpaths.d/*` (Wireshark) first, the inherited entries after, and an empty element appended. That empty element is what matters: macOS's `/usr/bin/man` is a mandoc front end that expands it to its own default search, derived from `PATH`, so Homebrew's pages (`man -w rg`) and the system's (`man -w ls`) both resolve, and sections 2 and 3 — which macOS no longer ships in `/usr/share/man` — come from the Command Line Tools SDK (`man -w 2 open`). Under home-manager a `MANPATH` without that empty element had hidden every macOS manual. `MANPAGER` is `nvim +Man!`.
+- **Claude Code auto-memory** — `autoMemoryEnabled: false` and `autoDreamEnabled: false` in `~/.config/claude/settings.json` (see `## Manual Setup`). `~/.config/claude/projects/<cwd>/memory/` is no longer read or written.
+- **The `remember` plugin** — uninstalled (`claude plugin uninstall remember@claude-plugins-official`). Disabling alone was not enough to stop a running session: hooks are loaded at session start, so the session that disabled it still fired its `SessionEnd` hook on exit and recreated `.remember/`. It kept a per-project `.remember/` store (self-ignoring via a `.gitignore` containing `*`) and injected it at `SessionStart`, plus spawn records under `REMEMBER_RUNTIME_DIR`; that variable left `conf.d/env.fish` with it. Its background summarizer also ran Claude in temp directories, leaving ~660 empty entries under `~/.config/claude/projects/`.
+- **Codex memories** — `codex features list` shows `memories` stable but off; `[features] memories = false` in `~/.config/codex/config.toml` pins it against a default flip.
 
-**Do not install Homebrew's `mandoc`.** It is 1.14.6 (upstream's last release, 2021), not keg-only, so its `man`/`apropos`/`whatis` would land in `/opt/homebrew/bin` ahead of Apple's; upstream mandoc expands the empty element to its own compiled-in defaults, which know neither `/opt/homebrew/share/man` nor the SDK. `/usr/bin/mandoc` is already there for `-T html` or `-T lint`.
-## Claude Code Plugin State
-
-The `remember` plugin keeps two separate directories, and only one of them is per-project:
-
-- `<project>/.remember/` — the memory store (`now.md`, `today-*.md`, `recent.md`). Self-ignoring via a `.gitignore` containing `*`, so it never shows in `git status`
-- `$HOME/.remember/run/` — spawn records bounding the background summarizer's concurrency and rate
-
-The split is deliberate: the cap has to span projects, or `cd`-ing elsewhere would lift it, and `spawn_guard.py` derives the path from `HOME` alone so a child that inherited no plugin environment resolves the same directory. Relocated to XDG with `REMEMBER_RUNTIME_DIR` in `conf.d/env.fish`, beside Claude Code's own `CLAUDE_CONFIG_DIR`.
-
-`$HOME/.remember/config.json` is a *read-only* lookup for user-global overrides — guarded by `[ -f ]` and never created — so with the runtime dir moved, nothing recreates the directory. `record_dir()` is its only writer. Note `bootstrap-dirs.sh` refuses to migrate `$HOME/.remember` as a legacy project store: opening a session with `cwd = $HOME` would otherwise consume the very config that directs the migration.
+Not state in this sense, and kept: session transcripts (`--resume` is conversation continuity and ages out with `cleanupPeriodDays`), and the `#` shortcut, which writes to the user `CLAUDE.md` — a user-layer edit the user sees and can revert, not model memory.
 
 ## Claude Code and Codex
 
@@ -205,21 +178,3 @@ The user-scope instruction file — loaded in every project, unlike this one —
 
 npm reads `NPM_CONFIG_USERCONFIG=~/.config/npm/npmrc` (stowed), with `NODE_REPL_HISTORY` beside it in `env.fish`. `COREPACK_HOME` was dropped on 2026-10-28: Node 25 stopped bundling corepack, `corepack` is not on `PATH` under Node 26, and nothing reads the variable. `WGETRC` went the same day — it pointed at an empty, unmanaged `~/.config/wgetrc` from 2023; wget's one XDG need, the HSTS file, is the `--hsts-file=$XDG_CACHE_HOME/wget-hsts` in `functions/wget.fish`.
 
-## Stale Environments
-
-A long-lived tmux server keeps the environment it started with, so a variable added to `conf.d/env.fish` is missing from new panes until `tmux kill-server`. Under home-manager this was worse — `hm-session-vars.fish` returned early on an inherited `__HM_SESS_VARS_SOURCED` — and that guard is gone, since `env.fish` sets everything unconditionally.
-
-### GUI Apps Launched From a Terminal
-
-A tmux server is not the only thing that pins a stale environment. macOS `open` **passes the caller's environment to the GUI app**, and everything that app later launches inherits it — so `open -a Alfred` from inside tmux gives Alfred `TMUX`, and `TERM=tmux-256color`, and a Ghostty launched from that Alfred hands the same set to every shell in it. Quitting and reopening the *terminal* does not help; the pollution lives upstream in the launcher.
-
-The failure does not name its cause:
-
-- stale `TMUX` — when fish started tmux behind an `if not set -q TMUX` guard, an inherited value made a new window land in a bare fish with no tmux. Ghostty's `command` now clears it with `env -u TMUX`, so this one no longer bites
-
-Read what an app is actually holding with `ps -Eww -o command= -p <pid>`; `launchctl getenv` shows only the launchd session and stays empty in this case. A Finder- or Dock-launched app gets launchd's environment (about a dozen variables — `HOME` `PATH` `USER` `SHELL` `TMPDIR` `SSH_AUTH_SOCK` `XPC_*` …), which is the baseline to compare against. To relaunch one cleanly from a shell, give it that set explicitly rather than subtracting offenders one at a time:
-
-```sh
-env -i HOME="$HOME" USER="$USER" LOGNAME="$LOGNAME" PATH=/usr/bin:/bin:/usr/sbin:/sbin \
-  TMPDIR="$TMPDIR" __CF_USER_TEXT_ENCODING="$__CF_USER_TEXT_ENCODING" open -a "<App>"
-```
