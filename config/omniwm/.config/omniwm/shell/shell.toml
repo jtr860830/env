@@ -1,0 +1,19 @@
+
+[profiles]
+
+[profiles.default]
+center = ["workspaces", "scratchpads"]
+leading = []
+trailing = []
+
+[profiles.default.hiddenBar]
+enabled = false
+
+[profiles.default.workspaceBar]
+autoHide = true
+fullWidth = false
+height = 24
+notchMode = "moveBelowMenuBar"
+position = "overlappingMenuBar"
+reserveLayoutSpace = false
+windowLevel = "popup"

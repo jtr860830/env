@@ -26,11 +26,11 @@ Each workspace's `displayName` is its number — `"1"` to `"5"`, the same as `na
 
 0.8.0 replaced the fixed bar with OmniShell — Luau widgets drawn by a *style*. The bar's configuration now resolves in this order, highest first:
 
-1. the user's profile, `~/.config/omniwm/shell/shell.toml`, section `[profiles.default.workspaceBar]` — **not stowed, not in this repo** (decision still open; it is the file Settings → Styles & Widgets → Bar writes to, and OmniWM re-sorts it on save);
+1. the user's profile, `~/.config/omniwm/shell/shell.toml`, section `[profiles.default.workspaceBar]` — stowed from `config/omniwm/.config/omniwm/shell/shell.toml` since 2026-11-10. It is the file Settings → Styles & Widgets → Bar writes to, and OmniWM re-sorts its keys alphabetically on save, through the symlink like `settings.toml`; `--no-folding` keeps `shell/` a real directory so the app-owned files beside it stay out of the repo;
 2. the style's own file, `~/.config/omniwm/shell/default/shell.toml`, which OmniWM overwrites on every update (Default: 32pt, full width, over the menu bar, reserving layout space, `backgroundOpacity = 0`, `showItemBackgrounds = false`, a System Stats button);
 3. `settings.toml`'s `[workspaceBar]`, which only decides keys neither layer above sets.
 
-Verified: `settings.toml` says `height = 24`, Default says 32, `omniwmctl query workspace-bar` reported 32 until the profile set 24. The docs promise only that `enabled`, `excludedBundleIDs` and `iconOverrides` stay global; in practice the keys `settings.toml` still owns here are `hideEmptyWorkspaces`, `revealModifier`, `revealHoldMilliseconds`, the autoHide delays, `hoverPreviewsEnabled`, `deduplicateAppIcons`, `showFloatingWindows`, `notificationBadges`, `hideInNativeFullscreen` and `notchActiveZoneWidth`. The profile currently holds, and must keep, these so the bar looks as it did under 0.7.6:
+Verified: `settings.toml` says `height = 24`, Default says 32, `omniwmctl query workspace-bar` reported 32 until the profile set 24. The docs promise only that `enabled`, `excludedBundleIDs` and `iconOverrides` stay global; in practice the keys `settings.toml` still owns here are `hideEmptyWorkspaces`, `revealModifier`, `revealHoldMilliseconds`, the autoHide delays, `hoverPreviewsEnabled`, `deduplicateAppIcons`, `showFloatingWindows`, `notificationBadges`, `hideInNativeFullscreen` and `notchActiveZoneWidth`. The profile holds these so the bar looks as it did under 0.7.6:
 
 ```toml
 [profiles.default]
@@ -74,4 +74,4 @@ Hotkeys stay on OmniWM's `⌥` defaults. They take `⌥←→↑↓` from fish (
 
 ### Manual setup
 
-Grant Accessibility and Input Monitoring on first launch, plus Screen Recording for the window switcher's thumbnails (Input Monitoring also covers its shortcuts). Keep **Displays have separate Spaces** on, and turn on **Start at Login** in OmniWM's menu — it is a macOS login item, not a key in `settings.toml`. Recreate the profile block above in Settings → Styles & Widgets → Bar, or copy it into `~/.config/omniwm/shell/shell.toml`, until that file is stowed.
+Grant Accessibility and Input Monitoring on first launch, plus Screen Recording for the window switcher's thumbnails (Input Monitoring also covers its shortcuts). Keep **Displays have separate Spaces** on, and turn on **Start at Login** in OmniWM's menu — it is a macOS login item, not a key in `settings.toml`.
