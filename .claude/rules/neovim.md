@@ -103,6 +103,7 @@ With `wrap` on, `j`/`k` still move by logical line, so one keypress can cross se
 Do not "helpfully" re-add these — each was removed after checking:
 
 - **`opt.hlsearch` / `opt.grepformat`** — identical to Neovim's defaults. Neovim also picks `grepprg` itself: `"rg --vimgrep -uu "` when rg is on PATH, `"grep -HIn $* /dev/null"` otherwise, so an `executable("rg")` guard duplicates it. Nothing here uses `:grep`; fzf-lua builds its own rg invocation and never reads `grepprg`.
+- **`snacks.scroll`** (smooth scrolling) — installed and left un-`setup()`; declined, not blocked.
 - **blink's `snippets` source** — it serves snippet *libraries* found on the runtimepath, and none are installed, so it returned nothing on every keystroke. LSP snippets arrive through the `lsp` source instead; `snippetSupport = true` is hardcoded in blink (`sources/lib/init.lua`), not an option. Snippet libraries are unwanted; LSP-driven completion is.
 - **`nvim-treesitter` (the `main` branch) supplies parsers and queries; highlighting stays native.** `treesitter.lua` calls `require("nvim-treesitter").install { … }` with the language list and then `vim.treesitter.start()` per buffer. Parsers are compiled locally (`tree-sitter-cli` from the brewfile, Apple clang) into `~/.local/share/nvim/site/parser/`. `install()` is async; with no UI (`#vim.api.nvim_list_uis() == 0`) the file waits on it, so `nvim --headless +qa` installs every parser — that is what `just plugins` relies on. `install()` skips parsers that already exist, so `just plugins` also runs `require("nvim-treesitter").update():wait()` after `vim.pack.update` — otherwise updated queries can outrun stale parsers, which is exactly how the old `diff` mismatch happened.
 
@@ -110,7 +111,7 @@ Do not "helpfully" re-add these — each was removed after checking:
 
 ### mini.nvim Modules
 
-Each module is an independent sub-plugin — there is no unified enable, and every one needs its own `setup()`. In use: `icons` `diff` `move` `pairs` `surround` `clue` `statusline`.
+Each module is an independent sub-plugin — there is no unified enable, and every one needs its own `setup()`.
 
 - **`mini.icons` must be `setup()`**, not merely required. `require("mini.icons").get(...)` works without it, but fzf-lua detects the provider through the `MiniIcons` global — without `setup()` it falls back to `nvim-web-devicons`, which is not installed, and shows *no* icons at all. dropbar never looks for mini.icons, only `nvim-web-devicons`, and degrades to one generic glyph for every filetype, hence `MiniIcons.mock_nvim_web_devicons()`. Two calls, and stylua splits a semicolon one-liner back apart.
 - **`mini.statusline` never calls `content.inactive` when `laststatus = 3`** — its own expression is `(… || &laststatus==3) ? active() : inactive()`. Its default inactive still uses `MiniStatuslineInactive`, so keep that highlight in `theme.lua` even with no custom inactive content.
@@ -134,12 +135,6 @@ Three things to check before adding another:
 - **`bold` does nothing to geometric shapes.** `●` has an identical glyph and advance width in the Regular and Bold faces, so `#[fg=…,bold]` on one is dead styling.
 - Every symbol in use is East Asian Width **Ambiguous**, i.e. one cell only because `LANG=en_US.UTF-8`. Switching to a CJK locale would make them two cells wide and break both the tmux status bar and the sign column. `◉` (U+25C9) is the one Neutral alternative.
 
-### LSP Status
-
-- `:checkhealth lsp` — check LSP status with native API (`:LspInfo` is nvim-lspconfig's command, not native)
-- `:lua vim.print(vim.lsp.get_clients({ bufnr = 0 }))` — list clients attached to current buffer
-- `:Inspect` — verify treesitter is active (look for `@`-prefixed highlight groups)
-
 ### Sign Column
 
 - snacks.statuscolumn enabled — layout is `[diagnostic] [line number] [git]` left to right
@@ -148,7 +143,7 @@ Three things to check before adding another:
 
 ### snacks.nvim
 
-Used for indent guides, word highlighting, big file handling, notification UI, input UI, and statuscolumn. Only modules explicitly set in `setup()` are enabled. onedarkpro `snacks = true` manages `SnacksIndent`/`SnacksIndentScope` highlight groups automatically.
+Only modules explicitly set in `setup()` are enabled. onedarkpro `snacks = true` manages `SnacksIndent`/`SnacksIndentScope` highlight groups automatically.
 
 snacks.indent config structure — `char` must be nested under `indent`, not at the top level:
 ```lua
@@ -186,16 +181,10 @@ mini.clue group labels are declared in `clues` to show prefix descriptions at th
 { mode = "n", keys = "<leader>c", desc = "+code" },
 ```
 
-Current groups: `<leader>c` (+code), `<leader>f` (+find), `gr` (+lsp). Window/buffer/split keymaps are intentionally absent — terminal (tmux) handles that workflow.
-
-`<leader>c` contains: `cd` (diagnostic float), `cf` (format). Conventional vim LSP keys (`gd`, `gD`, `K`) and bracket navigation (`[d`/`]d`) stay outside the group.
-
-Neovim 0.12 default LSP keys: `grr` (references), `gri` (implementation), `gra` (code action), `grn` (rename), `grt` (type definition), `gO` (symbols).
+Window/buffer/split keymaps are intentionally absent — tmux handles that workflow. Conventional LSP keys (`gd`, `gD`, `K`) and bracket navigation (`[d`/`]d`) stay outside the `<leader>c` group.
 
 `winborder` must stay `"rounded"` for hover to keep its border: passing `{ border = … }` to `vim.lsp.buf.hover` needs a function wrapper (a bare `vim.lsp.buf.hover` keymap value ignores opts), which is what the old override was.
 ### Formatters
-
-- Lua: `stylua` (config at `nvim/.stylua.toml`)
 
 conform is configured without `format_on_save` — format manually with `<leader>cf`.
 

@@ -23,3 +23,7 @@ Verify integration is actually loaded: `fish -c 'functions __ghostty_setup'` —
 Tmux handles all split and pane management. No custom Ghostty keybindings — tmux workflow makes them redundant. Tmux prefix is `Ctrl+B`.
 
 Ghostty requires `macos-option-as-alt = true` for `<A-*>` keybindings to work in Neovim on macOS — without it, Option sends special characters instead.
+
+## Waiting on Upstream
+
+**Ghostty 1.4 may make a status bar possible.** 1.3.1 has no such option among its 200 config keys, and the closest surfaces (`title`, `window-subtitle`) take a literal string or a fixed enum. The 1.4 roadmap promises scriptability and "a true Tmux control mode" but says nothing about a status bar; the open request is [Discussion #2421](https://github.com/ghostty-org/ghostty/discussions/2421). Control mode is the more interesting half — it would render tmux windows as native tabs rather than duplicating tmux's bar. Expect roughly September 2026 on the 6-month cycle from 1.3.0.

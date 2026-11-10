@@ -18,18 +18,7 @@ The file is lowercase `brewfile`. Homebrew only auto-discovers `Brewfile`, so ev
 
 ## Applying Changes
 
-Edits under `config/` are live immediately — `~` holds symlinks into the repo. Run a recipe only when the set of files or packages changes:
-
-| recipe | does |
-|---|---|
-| `just link` | `stow --no-folding` every package — after adding a file under `config/` |
-| `just relink` | removes dangling links at exactly the paths `config/` owns, then `link` — after moving the repo |
-| `just install` / `just update` | `brew bundle install` / with `--upgrade`, then `just plugins` |
-| `just plugins` | `vim.pack.update`, nvim-treesitter's `update()` for parsers already installed, then a headless nvim run that installs missing ones |
-| `just etc` | writes the three `/etc` files below and sets the login shell (sudo) |
-| `just check` | `brew bundle check`, a grep of `config/` for the repo's absolute path, `stow -n` dry run |
-| `just clean` | `brew bundle cleanup --force` — removes anything not in `brewfile` |
-| `just setup` | `install` + `etc` + `link` + `plugins` |
+Edits under `config/` are live immediately — `~` holds symlinks into the repo. Run a recipe only when the set of files or packages changes; `just --list` names them and the `justfile` is short.
 
 A new machine runs `./bootstrap.sh`: it installs Homebrew and `just` — exporting `XDG_CONFIG_HOME` first, so `~/.homebrew` is never created — and `exec`s `just setup`. Everything else lives in the `justfile`, which resolves paths from its own directory. Moving the repo was tested: 20 links dangled, `just relink` repointed them, nvim, fish and git kept working.
 
@@ -43,7 +32,7 @@ A new machine runs `./bootstrap.sh`: it installs Homebrew and `just` — exporti
 
 - `/etc/shells` gains `/opt/homebrew/bin/fish` — `chsh` refuses a shell not listed there
 - `/etc/pam.d/sudo_local` — `pam_reattach.so` from `/opt/homebrew/lib/pam/`, then `pam_tid.so`, so Touch ID works for sudo including inside tmux
-- `/etc/homebrew/brew.env` — `HOMEBREW_CACHE` and `HOMEBREW_XDG_CONFIG_HOME`, see `## Homebrew`
+- `/etc/homebrew/brew.env` — `HOMEBREW_CACHE` and `HOMEBREW_XDG_CONFIG_HOME`, see `.claude/rules/homebrew.md`
 
 ## PATH and System Binaries
 
@@ -69,19 +58,11 @@ Git's own diff is also the *better* choice under a switching theme: it emits not
 
 `core.pager = nvim` was tried and rejected. It needs five overrides — `nonumber norelativenumber signcolumn=no laststatus=0` plus clearing dropbar's winbar — before it stops looking like an editor that opened a diff by mistake, and at the time it got no syntax highlighting in exchange, because nixpkgs' `diff` parser was out of sync with its queries (`Invalid node type "change"`). That half no longer holds — nvim-treesitter's own parser highlights diffs — so the five overrides are now the whole cost.
 
-## Waiting on Upstream
-
-Better approaches that exist but are not usable yet. Each line gives the check that says whether it has landed, so none of this needs re-deriving.
-
-- **Ghostty 1.4 may make a status bar possible.** 1.3.1 has no such option among its 200 config keys, and the closest surfaces (`title`, `window-subtitle`) take a literal string or a fixed enum. The 1.4 roadmap promises scriptability and "a true Tmux control mode" but says nothing about a status bar; the open request is [Discussion #2421](https://github.com/ghostty-org/ghostty/discussions/2421). Control mode is the more interesting half — it would render tmux windows as native tabs rather than duplicating tmux's bar. Expect roughly September 2026 on the 6-month cycle from 1.3.0.
-- **fish theme files cannot hold the whole palette.** `~/.config/fish/themes/*.theme` takes `[light]`/`[dark]` sections and `fish_config theme choose` follows the terminal from them, which would be more idiomatic than a hand-written handler — but theme files only set `fish_color_*`/`fish_pager_color_*`, so the prompt's `__prompt_c_*`, `EZA_COLORS` and `LS_COLORS` would still need one. Worth revisiting only if a shipped theme is ever seen setting something outside those two prefixes.
-
-Deliberately declined rather than blocked, kept here so they are not re-proposed as if new: `snacks.scroll` (smooth scrolling, installed and un-`setup()`); `@variable`/`Identifier` → plain foreground, Zed's one portable idea, which would take light-mode variables from 3.51 to 10.86 but moves further from One Dark Pro's style; `column.ui = "auto"`, which fights `branch.sort = "-committerdate"`; and writing an own theme rather than hosting on onedarkpro, scoped at 327 highlight groups of which 69 are pure links.
-
 ## Git Conventions
 
 - Commit style: `type: description` (e.g. `feat:`, `chore:`, `fix:`)
 - Git signs commits via 1Password SSH agent (ED25519)
+- `column.ui = "auto"` was declined: it fights `branch.sort = "-committerdate"`.
 - Default branch is `main`, matching `init.defaultBranch` in git's config. Renamed from `master` on 2026-08-15 with GitHub's `branches/{branch}/rename` API, which moves the default and leaves redirects behind.
 
 ## Homebrew
@@ -90,33 +71,9 @@ Deliberately declined rather than blocked, kept here so they are not re-proposed
 
 Formula names that differ from their nixpkgs attribute: `clang-tools` → `llvm`, `gnumake` → `make`, `gnused` → `gnu-sed`, `jdk` → `openjdk`, `kubectl` → `kubernetes-cli`, `kubernetes-helm` → `helm`, `python3` → `python@3.15` (canonical name, so bundle cleanup matches the installed keg). `mandoc` is not installed: macOS's `/usr/bin/man` already drives mandoc.
 
-### `/etc/homebrew/brew.env`
-
-brew keeps user config in `$XDG_CONFIG_HOME/homebrew` when that variable is set and falls back to `~/.homebrew` otherwise. fish sets it, but brew also runs without fish's environment — `bootstrap.sh` under `/bin/bash`, `sudo brew`, anything launched by launchd. `/etc/homebrew/brew.env` with `HOMEBREW_XDG_CONFIG_HOME=$HOME/.config` covers all of those: brew loads it at `bin/brew:151`, before it decides the path at `:163`. Under nix-darwin this was what stopped every rebuild recreating `~/.homebrew`, since the activation script ran `sudo --preserve-env=PATH … brew bundle` and dropped everything but `PATH`.
-
-The `brew.env` hierarchy (`/etc/homebrew` → `$HOMEBREW_PREFIX/etc/homebrew` → user) is supported upstream and filters to `HOMEBREW_*` only. `HOMEBREW_XDG_CONFIG_HOME` itself is undocumented and unsettled — Homebrew/brew#20250 was closed unmerged with a maintainer preferring a new `HOMEBREW_CONFIG_HOME`. Check what brew resolves with:
-
-```sh
-brew ruby -e 'puts ENV["HOMEBREW_USER_CONFIG_HOME"]'
-```
-
 ## Manual Setup
 
-Steps `just setup` cannot perform — local UI state, app preferences and licences:
-
-- **macOS settings** — Dock, Finder, key repeat, screenshots, hostname and DNS are not managed. They persist on this machine; a new one sets them by hand, and the last declared values are `darwin/system.nix` in git history.
-- **OmniWM** — permissions (Accessibility, Input Monitoring, Screen Recording), Start at Login and the OmniShell bar profile, see `.claude/rules/omniwm.md`. Trackpad: turn off macOS's three- and four-finger swipes (System Settings → Trackpad → More Gestures), which OmniWM's gestures replace.
-- **pi** — `"shellPath": "/opt/homebrew/bin/bash"` in `~/.config/pi/settings.json` (see `.claude/rules/pi.md`); log in with `/login`.
-- **rtk** — `rtk init -g`, `rtk init -g --codex` and `rtk init -g --agent pi`. Each writes local files only (`~/.config/claude/RTK.md` and a `PreToolUse` Bash hook in `settings.json`; `~/.config/codex/{AGENTS.md,hooks.json,RTK.md}`; `~/.config/pi/extensions/rtk.ts`), except the `@RTK.md` line it appends to the stowed Claude `CLAUDE.md`, which is committed. `RTK.md` is what tells the agent its output is condensed and that `rtk bypass <cmd>` returns it raw, so `--hook-only` is not used. **Answer no to "Delegate oversize reads to a cheaper model"**: it writes a `pipeline.toml` extending `rtk:delegate-reads`, which routes any whole-file read over 350 lines to that model, sending the file out and keeping it from the agent, and it lies inert only until `GEMINI_API_KEY` happens to be set. It was accepted once on 2026-11-03 and removed; with no `pipeline.toml` rtk is on `rtk:default` (`rtk pipeline status`). The telemetry prompt is moot — the Homebrew build has no telemetry endpoint (`rtk telemetry status`).
-- **Claude Code** — `pluginConfigs["cc-plugin-agents-md@builtin"].options.instructionFiles = "claude-md-and-agents-md"` in `~/.config/claude/settings.json` (see `## AGENTS.md, Not CLAUDE.md`); `autoMemoryEnabled` and `autoDreamEnabled` set to `false`; the `remember` plugin uninstalled (see `## Stateless Model`); `syncClaudeAiSkills` set to `false` — the 14 skills claude.ai syncs into `~/.config/claude/skills/synced/` cost about 2,000 tokens of descriptions per session and only `docx` was ever used (3 times, all in work projects), so nothing replaces them: when a Word, Excel, PowerPoint or PDF job comes up, copy that one skill's directory from anthropics/skills into the project's `.claude/skills/` for the duration. The `document-skills` plugin was tried and rejected on 2026-11-10: its marketplace manifest names those four, but Claude Code loads all 19 skills in the repo regardless, and `skillOverrides` does not reach plugin skills under either `document-skills:<name>` or `<name>` (verified with headless `claude -p` runs listing the loaded skills). Also in that file, from a token audit on 2026-11-10 of 532 session transcripts: `enableArtifact: false` (the Artifact tool's definition is about 5,500 tokens a turn, the largest single one, and it was called once), `disableBundledSkills: true` (no built-in skill was ever invoked by hand; `code-review`, `init` and the rest were only ever picked by the model, and the superpowers plugin covers the same ground — `/init` and `/doctor` stay typable) and `disableWorkflows: true` (never used, about 1,100 tokens). `CLAUDE_CODE_SEND_FEEDBACK=0` is in `conf.d/env.fish` for the same reason (one call ever, about 1,100 tokens). `skillOverrides` was not used because `disableBundledSkills` already removes the lot.
-- **Codex** — `[features] memories = false` in `~/.config/codex/config.toml` (see `## Stateless Model`).
-- **Alfred** — enter the Powerpack licence; point the sync folder at iCloud, which restores workflows, themes and preferences; set the theme for *both* light and dark appearance (see below); set the hotkey to `⌘Space`; turn off System Settings → Keyboard → Keyboard Shortcuts → Spotlight → "Show Spotlight search", which otherwise owns that key.
-
-Alfred's config is **deliberately not in this repo**. Its sync folder moves the whole `Alfred.alfredpreferences` bundle — app-owned mutable state that Alfred writes to directly, which is a different model from the declarative source the rest of the repo holds. iCloud handles it instead. The licence, clipboard database and usage data sit *outside* that bundle, so nothing secret travels with it.
-
-**Do not try to disable the Spotlight hotkey declaratively.** It lives at `AppleSymbolicHotKeys` key `64` in `com.apple.symbolichotkeys`, and `system.defaults.CustomUserPreferences` emits `defaults write <domain> <key> <plist>` — a whole-dict *replacement*, which would wipe the other ~50 hotkey entries (Mission Control, screenshots, input sources…). `PlistBuddy -c "Set :AppleSymbolicHotKeys:64:enabled false"` edits in place and would work, but needs `killall cfprefsd` for the preference cache and would need its own recipe — not worth it for a one-time toggle.
-
-`⌘` combinations never reach programs inside the terminal (macOS handles them at the app layer), so they are the safe modifier for global hotkeys; `⌃` and `⌥` do reach tmux and Neovim — `⌃Space` is already blink.cmp's completion trigger and `⌥hjkl` is mini.move.
+Steps `just setup` cannot perform — macOS settings, OmniWM permissions, pi, rtk, Claude Code's and Codex's local settings, Alfred — live in the `manual-setup` skill (`.claude/skills/manual-setup/SKILL.md`). Load it when setting up a machine or before changing any of those tools' settings: it also records which Claude Code settings are deliberately off and why. Codex does not load skills — open the file.
 
 ## Container Stack
 
@@ -132,7 +89,7 @@ All colour and appearance work — the sourcing ladder, which contrast instrumen
 
 This file is `AGENTS.md` so that Claude Code and Codex both read it. Claude Code ships an `instructionFiles` setting whose default, `claude-md-or-agents-md`, loads a project's `AGENTS.md` exactly where `CLAUDE.md` would go — **but only when there is no `CLAUDE.md`**. Verified with a canary string in a scratch repo: `AGENTS.md` alone is read; add any `CLAUDE.md` beside it and the `AGENTS.md` is silently ignored.
 
-So **never let a `CLAUDE.md` appear at the repo root**. `/init`, `/revise-claude-md` from the `claude-md-management` plugin, and the `#` memory shortcut all write `CLAUDE.md` by name, and any one of them would shadow this whole file with no warning. That is guarded against: `~/.config/claude/settings.json` sets `pluginConfigs["cc-plugin-agents-md@builtin"].options.instructionFiles` to `claude-md-and-agents-md`, so a stray `CLAUDE.md` now loads *beside* this file instead of replacing it — verified with two canaries, one per file, both answered. `instructionFiles` is not a top-level settings key: it is the `USER_CONFIG` of a built-in plugin, `cc-plugin-agents-md`, gated by the `tengu_agents_md_mod` flag, and built-in plugin options live under `pluginConfigs.<id>@builtin.options`. That settings file is Claude Code's own and deliberately not in `config/` (see `## Claude Code and Codex`), so this value lives outside the repo and is listed under `## Manual Setup`.
+So **never let a `CLAUDE.md` appear at the repo root**. `/init`, `/revise-claude-md` from the `claude-md-management` plugin, and the `#` memory shortcut all write `CLAUDE.md` by name, and any one of them would shadow this whole file with no warning. That is guarded against: `~/.config/claude/settings.json` sets `pluginConfigs["cc-plugin-agents-md@builtin"].options.instructionFiles` to `claude-md-and-agents-md`, so a stray `CLAUDE.md` now loads *beside* this file instead of replacing it — verified with two canaries, one per file, both answered. `instructionFiles` is not a top-level settings key: it is the `USER_CONFIG` of a built-in plugin, `cc-plugin-agents-md`, gated by the `tengu_agents_md_mod` flag, and built-in plugin options live under `pluginConfigs.<id>@builtin.options`. That settings file is Claude Code's own and deliberately not in `config/` (see `## Claude Code and Codex`), so this value lives outside the repo and is listed in the `manual-setup` skill.
 
 Scope is project-only on purpose. At user scope Claude Code reads only `CLAUDE.md` — its built-in Codex importer copies Codex's `AGENTS.md` *into* Claude's user `CLAUDE.md`, which it would not need to do otherwise — so `config/claude/.config/claude/CLAUDE.md` keeps its name. It is also written in Claude's first person ("execution goes to Codex"), which would read backwards to Codex; sharing it would need a split into a neutral common part and a Claude-only part first.
 
@@ -140,17 +97,18 @@ The `.claude/rules/` and `.claude/skills/` material below is loaded automaticall
 
 ## Path-Scoped Rules
 
-Seven bodies of guidance were moved out of this file into `.claude/rules/`, where a `paths` frontmatter key loads each one only when a matching file is actually being edited. Nothing was dropped — every measured finding and negative result is still recorded, just not in every session's context.
+Eight bodies of guidance were moved out of this file into `.claude/rules/`, where a `paths` frontmatter key loads each one only when a matching file is actually being edited. Nothing was dropped — every measured finding and negative result is still recorded, just not in every session's context.
 
 | File | Loads when editing | Covers |
 |------|--------------------|--------|
 | `.claude/rules/neovim.md` | `config/nvim/**` | plugins via `vim.pack`, the 0.11+/0.12 LSP API, LspAttach patterns, mini.nvim's per-module `setup()` traps, nerd font icons and the `nr2char` requirement, keymap organisation, formatters, snacks, sign column, fzf-lua colours, startup timings, and what is deliberately absent |
 | `.claude/rules/tmux.md` | `config/tmux/**` | the style/format quirks, `message-style` needing `fill=`, extended-keys negotiation, duplicate options, and tmux 3.8's changed default styles |
-| `.claude/rules/fish.md` | `config/fish/**` | why `PATH` is written outright in `conf.d/env.fish`, the ordering table and collision check, the pending gnubin/keg-only decision, the conf.d layout and why the theme and the prompt's git handler live in `conf.d/`, the valid `fish_color_*`/`EZA_COLORS` names, and the hand-written prompt — its segments and their nvim groups, the git caching and timings, and why pure, Starship and Tide were not used |
-| `.claude/rules/ghostty.md` | `config/ghostty/**`, `config/tmux/**`, `config/fish/**` | why Ghostty's `command` starts tmux (absolute path, `env -u TMUX`) and fish has no tmux logic, shell integration being off, and `macos-option-as-alt` |
+| `.claude/rules/fish.md` | `config/fish/**` | why `PATH` is written outright in `conf.d/env.fish`, the ordering table and collision check, the pending gnubin/keg-only decision, the conf.d layout and why the theme and the prompt's git handler live in `conf.d/`, the valid `fish_color_*`/`EZA_COLORS` names, and the hand-written prompt — its segments and their nvim groups, the git caching and timings, why pure, Starship and Tide were not used, and why fish theme files cannot hold the palette |
+| `.claude/rules/ghostty.md` | `config/ghostty/**`, `config/tmux/**`, `config/fish/**` | why Ghostty's `command` starts tmux (absolute path, `env -u TMUX`) and fish has no tmux logic, shell integration being off, `macos-option-as-alt`, and the Ghostty 1.4 status-bar wait |
 | `.claude/rules/omniwm.md` | `config/omniwm/**` | the stowed `settings.toml` and its strict schema, the 0.8.0 upgrade, workspaces per display, app rules and the catch-all to workspace 3, no sticky windows, the workspace bar's three layers and the stowed OmniShell profile, the status menu, the window switcher, Quake and Hidden Bar being off, Overview colours, trackpad gestures and hotkeys |
 | `.claude/rules/pi.md` | `config/pi/**`, `config/fish/**` | pi's lack of XDG support and the two `PI_CODING_AGENT_*` variables, why sessions are DATA not STATE, why only `AGENTS.md` is stowed, and `shellPath` on brew's bash |
 | `.claude/rules/env.md` | `config/fish/**`, `config/tealdeer/**`, `config/ghostty/**` | `GOPATH`/`GOBIN` in the environment and why Go's own env file cannot hold variables; the `~/Library` leaks on macOS and the variable verified for each fix (`GOCACHE`, `GOMODCACHE`, `_ZO_DATA_DIR`, tealdeer, rtk, `HOMEBREW_CACHE`); `TERMINFO_DIRS` from keg-only ncurses; why no `MANPATH` is set and Homebrew's `mandoc` must not be installed; stale environments in a long-lived tmux server and in GUI apps launched from a terminal |
+| `.claude/rules/homebrew.md` | `justfile`, `bootstrap.sh`, `brewfile` | `/etc/homebrew/brew.env`: why `HOMEBREW_XDG_CONFIG_HOME` is set there, the `brew.env` hierarchy, and how to check what brew resolves |
 
 Same reasoning as the `theme` skill above: measured values that are expensive to re-derive but irrelevant most of the time. Prefer this mechanism over adding another always-loaded section when new guidance is tied to one file.
 
@@ -160,7 +118,7 @@ Decided 2026-11-09: the model carries nothing of its own between sessions. Every
 
 What this turned off, each a store the model wrote to and read back without the user in the loop:
 
-- **Claude Code auto-memory** — `autoMemoryEnabled: false` and `autoDreamEnabled: false` in `~/.config/claude/settings.json` (see `## Manual Setup`). `~/.config/claude/projects/<cwd>/memory/` is no longer read or written.
+- **Claude Code auto-memory** — `autoMemoryEnabled: false` and `autoDreamEnabled: false` in `~/.config/claude/settings.json` (see the `manual-setup` skill). `~/.config/claude/projects/<cwd>/memory/` is no longer read or written.
 - **The `remember` plugin** — uninstalled (`claude plugin uninstall remember@claude-plugins-official`). Disabling alone was not enough to stop a running session: hooks are loaded at session start, so the session that disabled it still fired its `SessionEnd` hook on exit and recreated `.remember/`. It kept a per-project `.remember/` store (self-ignoring via a `.gitignore` containing `*`) and injected it at `SessionStart`, plus spawn records under `REMEMBER_RUNTIME_DIR`; that variable left `conf.d/env.fish` with it. Its background summarizer also ran Claude in temp directories, leaving ~660 empty entries under `~/.config/claude/projects/`.
 - **Codex memories** — `codex features list` shows `memories` stable but off; `[features] memories = false` in `~/.config/codex/config.toml` pins it against a default flip.
 

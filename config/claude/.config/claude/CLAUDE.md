@@ -43,7 +43,7 @@ Delegate: bulk mechanical implementation once the spec is settled; root-cause wo
 
 Do not delegate: loops where each step depends on the previous measurement; work where the accumulated context *is* the value; edits smaller than their own description; exploration that needs a judgement call partway through.
 
-Claude subagents follow the same economy. An Agent sent on a search or lookup gets `model: "haiku"`; one that has to weigh what it finds gets `sonnet`. The default inherits my model, which is wasted on a file sweep.
+Claude subagents follow the same economy. An Agent sent on a search or lookup gets `model: "haiku"`; one that has to weigh what it finds gets `sonnet`. The default inherits my model, which is wasted on a file sweep. The `codex:codex-rescue` subagent gets `model: "sonnet"` too: it only runs Bash and relays Codex's answer, so inheriting my model pays for nothing — 84 of 175 Agent calls over three days did exactly that (measured 2026-11-10).
 
 ### Cross-checking what matters
 

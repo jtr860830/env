@@ -178,6 +178,10 @@ Enable in `setup()` to let theme manage highlight groups:
 plugins = { blink_cmp = true, mini_diff = true, mini_icons = true, snacks = true, nvim_lsp = true, treesitter = true }
 ```
 
+### Declined, Not Blocked
+
+Kept so they are not re-proposed as new: `@variable`/`Identifier` → plain foreground, Zed's one portable idea, which would take light-mode variables from 3.51 to 10.86 but moves further from One Dark Pro's style; and writing an own theme rather than hosting on onedarkpro, scoped at 327 highlight groups of which 69 are pure links.
+
 ## Alfred Theme Design
 
 Alfred does scan `themes/*/theme.json` regardless of the directory name, so a theme could be installed with `home.file` — but the *selection* lives in `preferences/local/<machine-hash>/appearance/prefs.plist`, and that hash differs per machine, so picking the theme stays manual either way. Setting `visualEffectMode` hands the material to macOS and Alfred zeroes `blur` in response; its own Modern themes ship the same pairing. `2` is dark vibrancy — the Preferences binary names the control `blurVisualEffectDarkButton`.
