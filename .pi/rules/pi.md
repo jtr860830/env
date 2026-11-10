@@ -1,5 +1,5 @@
 ---
-paths: ["config/pi/**", ".pi/**", "config/fish/**"]
+paths: ["config/pi/**", ".pi/**"]
 ---
 
 ## pi

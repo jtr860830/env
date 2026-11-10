@@ -1,5 +1,5 @@
 ---
-paths: ["config/ghostty/**", "config/tmux/**", "config/fish/**"]
+paths: ["config/ghostty/**"]
 ---
 
 ## Ghostty and tmux
@@ -14,9 +14,7 @@ Verified with two fresh instances (`open -na /Applications/Ghostty.app`): one un
 
 ## Ghostty Shell Integration
 
-`shell-integration = none` — disabled; tmux handles working directory and pane management, making all features redundant.
-Available features: `cursor`, `sudo`, `title`, `ssh-env`, `ssh-terminfo`, `path`. In tmux `TERM=tmux-256color` so `ssh-env` TERM conversion does not trigger.
-Verify integration is actually loaded: `fish -c 'functions __ghostty_setup'` — returns "not loaded" if disabled correctly. `$GHOSTTY_SHELL_FEATURES` is set by Ghostty process itself and is not a reliable indicator.
+`shell-integration = none` — disabled. Of its features (`cursor`, `sudo`, `title`, `ssh-env`, `ssh-terminfo`, `path`), working directory and title are tmux's job here, `ssh-env`'s TERM conversion never triggers because the shell sees `TERM=tmux-256color`, and the rest were not wanted. Verify it is really off with `fish -c 'functions __ghostty_setup'`: it prints nothing and exits 1 when the function was never defined. `$GHOSTTY_SHELL_FEATURES` is set by the Ghostty process itself and says nothing about whether the shell loaded the integration.
 
 ## Key Keybinding Patterns
 

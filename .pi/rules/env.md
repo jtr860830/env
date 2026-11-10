@@ -1,10 +1,10 @@
 ---
-paths: ["config/fish/**", "config/tealdeer/**", "config/ghostty/**"]
+paths: ["config/fish/**"]
 ---
 
 # Environment Variables
 
-Findings behind the variables `conf.d/env.fish` sets and the files that depend on them. Moved out of `AGENTS.md` on 2026-11-10 so they load only when those files are edited; Codex does not see this file unless it opens it.
+Findings behind the variables `conf.d/env.fish` sets and the files that depend on them. Moved out of `AGENTS.md` on 2026-11-10 so they load only when fish config is edited. The tealdeer entry below is the whole reason its config file looks the way it does; that file changes rarely enough that it does not get its own rule.
 
 ## Go
 
@@ -23,9 +23,17 @@ Outside the XDG directories (`.config`, `.cache`, `.local`), `$HOME` holds only 
 - `_ZO_DATA_DIR=$XDG_DATA_HOME/zoxide` — zoxide kept `db.zo` in `~/Library/Application Support/zoxide`; it was moved, not recreated
 - tealdeer's cache — `cache_dir = "~/.cache/tealdeer"` in the stowed `config/tealdeer/.config/tealdeer/config.toml`. `TEALDEER_CACHE_DIR` works but 1.9.1 prints a deprecation warning on every call; the config file expands `~` (tested) but not `$HOME`, and has no way to read `XDG_CACHE_HOME`, so the default value is written out
 - `RTK_DB_PATH=$XDG_STATE_HOME/rtk/history.db` and `RTK_TEE_DIR=$XDG_CACHE_HOME/rtk/tee` — rtk's 90-day savings history is action history, so STATE; the tee spool of failed commands' full output is disposable, so CACHE. Both read from `src/core/user_dirs.rs`; `RTK_CONFIG_DIR` looks like the config override but only redirects pipeline loading, verified — `rtk config` still names `~/Library/Application Support/rtk/config.toml`
-- `HOMEBREW_CACHE=$HOME/.cache/homebrew` — in `/etc/homebrew/brew.env` beside `HOMEBREW_XDG_CONFIG_HOME`, not in fish, for the same reason (see `## Homebrew` in AGENTS.md)
+- `HOMEBREW_CACHE=$HOME/.cache/homebrew` — in `/etc/homebrew/brew.env` beside `HOMEBREW_XDG_CONFIG_HOME`, not in fish, because brew also runs without fish's environment (`bootstrap.sh` under `/bin/bash`, `sudo brew`, launchd); see `.pi/rules/homebrew.md`
 
 Left as is: the rest of rtk's directory (`config.toml`, hook markers, trust store — `dirs::config_dir()`/`data_local_dir()`, which read no `XDG_*` on macOS and have no override), lima's download cache (`~/Library/Caches/lima` — the binary reads no cache variable), `~/Library/Caches/goimports` (no variable found), Go's own `env` file (see `## Go`), and Claude Code and Codex, which take one directory each and keep transcripts and caches inside it. Like `GOPATH`, the fish-set variables reach only processes started from fish.
+
+## pi
+
+`PI_CODING_AGENT_DIR=$XDG_CONFIG_HOME/pi` and `PI_CODING_AGENT_SESSION_DIR=$XDG_DATA_HOME/pi/sessions`: pi has no XDG handling and upstream closed the request as wontfix, so these two variables are the permanent answer. Why sessions go to DATA rather than STATE, and everything else about pi, is in `.pi/rules/pi.md`.
+
+## npm and Node
+
+npm reads `NPM_CONFIG_USERCONFIG=~/.config/npm/npmrc` (stowed), with `NODE_REPL_HISTORY` beside it in `env.fish`. `COREPACK_HOME` was dropped on 2026-10-28: Node 25 stopped bundling corepack, `corepack` is not on `PATH` under Node 26, and nothing reads the variable. `WGETRC` went the same day — it pointed at an empty, unmanaged `~/.config/wgetrc` from 2023; wget's one XDG need, the HSTS file, is the `--hsts-file` in `functions/wget.fish`.
 
 ## Terminfo
 
