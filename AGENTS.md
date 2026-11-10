@@ -93,7 +93,7 @@ So **never let a `CLAUDE.md` appear at the repo root**. `/init`, `/revise-claude
 
 Scope is project-only on purpose. At user scope Claude Code reads only `CLAUDE.md` — its built-in Codex importer copies Codex's `AGENTS.md` *into* Claude's user `CLAUDE.md`, which it would not need to do otherwise — so `config/claude/.config/claude/CLAUDE.md` keeps its name. It is also written in Claude's first person ("execution goes to Codex"), which would read backwards to Codex; sharing it would need a split into a neutral common part and a Claude-only part first.
 
-The `.claude/rules/` and `.claude/skills/` material below is loaded automatically by Claude Code only. Codex does not see it unless it opens those files, so read the relevant one before touching Neovim, tmux, fish, Ghostty, OmniWM, pi, environment variables or anything colour-related.
+The `.claude/rules/` and `.claude/skills/` material below is loaded automatically by Claude Code and, through `.pi/`, by pi. Codex does not see it unless it opens those files, so read the relevant one before touching Neovim, tmux, fish, Ghostty, OmniWM, pi, environment variables or anything colour-related.
 
 ## Path-Scoped Rules
 
@@ -106,11 +106,13 @@ Eight bodies of guidance were moved out of this file into `.claude/rules/`, wher
 | `.claude/rules/fish.md` | `config/fish/**` | why `PATH` is written outright in `conf.d/env.fish`, the ordering table and collision check, the pending gnubin/keg-only decision, the conf.d layout and why the theme and the prompt's git handler live in `conf.d/`, the valid `fish_color_*`/`EZA_COLORS` names, and the hand-written prompt — its segments and their nvim groups, the git caching and timings, why pure, Starship and Tide were not used, and why fish theme files cannot hold the palette |
 | `.claude/rules/ghostty.md` | `config/ghostty/**`, `config/tmux/**`, `config/fish/**` | why Ghostty's `command` starts tmux (absolute path, `env -u TMUX`) and fish has no tmux logic, shell integration being off, `macos-option-as-alt`, and the Ghostty 1.4 status-bar wait |
 | `.claude/rules/omniwm.md` | `config/omniwm/**` | the stowed `settings.toml` and its strict schema, the 0.8.0 upgrade, workspaces per display, app rules and the catch-all to workspace 3, no sticky windows, the workspace bar's three layers and the stowed OmniShell profile, the status menu, the window switcher, Quake and Hidden Bar being off, Overview colours, trackpad gestures and hotkeys |
-| `.claude/rules/pi.md` | `config/pi/**`, `config/fish/**` | pi's lack of XDG support and the two `PI_CODING_AGENT_*` variables, why sessions are DATA not STATE, why only `AGENTS.md` is stowed, and `shellPath` on brew's bash |
+| `.claude/rules/pi.md` | `config/pi/**`, `.pi/**`, `config/fish/**` | pi's lack of XDG support and the two `PI_CODING_AGENT_*` variables, why sessions are DATA not STATE, which `settings.json` values are hand-set; pi as the harness with Claude Code and Codex as backends — why `pi-claude-code` over `pi-claude-bridge` and what it measurably sends; the subagent extension (thinking, model override, fallback chains, background jobs, child identity), the five agents and the designs rejected; `rules.ts` and how pi reads `.claude/rules/` and `.claude/skills/` |
 | `.claude/rules/env.md` | `config/fish/**`, `config/tealdeer/**`, `config/ghostty/**` | `GOPATH`/`GOBIN` in the environment and why Go's own env file cannot hold variables; the `~/Library` leaks on macOS and the variable verified for each fix (`GOCACHE`, `GOMODCACHE`, `_ZO_DATA_DIR`, tealdeer, rtk, `HOMEBREW_CACHE`); `TERMINFO_DIRS` from keg-only ncurses; why no `MANPATH` is set and Homebrew's `mandoc` must not be installed; stale environments in a long-lived tmux server and in GUI apps launched from a terminal |
 | `.claude/rules/homebrew.md` | `justfile`, `bootstrap.sh`, `brewfile` | `/etc/homebrew/brew.env`: why `HOMEBREW_XDG_CONFIG_HOME` is set there, the `brew.env` hierarchy, and how to check what brew resolves |
 
 Same reasoning as the `theme` skill above: measured values that are expensive to re-derive but irrelevant most of the time. Prefer this mechanism over adding another always-loaded section when new guidance is tied to one file.
+
+pi reads the same files. `.pi/extensions/rules.ts` injects a rule when `read`/`edit`/`write` touches a path matching its `paths` frontmatter (blocking the first edit so the rule lands before the change), and `.pi/settings.json` points pi's skills at `.claude/skills/`. Both tools read one copy; nothing under `.claude/` is duplicated. Details in `.claude/rules/pi.md`.
 
 ## Stateless Model
 
