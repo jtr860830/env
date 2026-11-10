@@ -7,7 +7,7 @@ paths: ["config/ghostty/**", "config/tmux/**", "config/fish/**"]
 Ghostty starts tmux itself — `command = /usr/bin/env -u TMUX /opt/homebrew/bin/tmux new-session -A -s main` in its config — and fish's config has no tmux logic at all. So only Ghostty windows land in the `main` session; a shell started anywhere else (Zed's terminal, an SSH login, a subshell) is plain fish, with nothing to exclude. The previous `exec tmux` in `config.fish` needed a guard for every non-Ghostty host.
 
 - **Absolute path**: Ghostty launched from the Dock or Alfred has only launchd's `PATH` (`/usr/bin:/bin:/usr/sbin:/sbin`), and `command` runs before fish's `env.fish`.
-- **`env -u TMUX`**: an app launched with `open` from inside tmux inherits `TMUX` (see AGENTS.md, `### GUI Apps Launched From a Terminal`); tmux would refuse to start with *sessions should be nested with care*. Clearing it makes a polluted launch attach normally.
+- **`env -u TMUX`**: an app launched with `open` from inside tmux inherits `TMUX` (see `.pi/rules/env.md`, `### GUI Apps Launched From a Terminal`); tmux would refuse to start with *sessions should be nested with care*. Clearing it makes a polluted launch attach normally.
 - Detaching closes the window, as `exec` did; panes run the login shell (`/opt/homebrew/bin/fish`), where `env.fish` sets `PATH`.
 
 Verified with two fresh instances (`open -na /Applications/Ghostty.app`): one under the clean launchd environment, one inheriting this shell's `TMUX` — both attached to `main` as a new client.
@@ -26,4 +26,4 @@ Ghostty requires `macos-option-as-alt = true` for `<A-*>` keybindings to work in
 
 ## Waiting on Upstream
 
-**Ghostty 1.4 may make a status bar possible.** 1.3.1 has no such option among its 200 config keys, and the closest surfaces (`title`, `window-subtitle`) take a literal string or a fixed enum. The 1.4 roadmap promises scriptability and "a true Tmux control mode" but says nothing about a status bar; the open request is [Discussion #2421](https://github.com/ghostty-org/ghostty/discussions/2421). Control mode is the more interesting half — it would render tmux windows as native tabs rather than duplicating tmux's bar. Expect roughly September 2026 on the 6-month cycle from 1.3.0.
+**Ghostty has no status bar, and 1.4.0 did not add one.** 1.3.1 had no such option among its 200 config keys, and the closest surfaces (`title`, `window-subtitle`) take a literal string or a fixed enum; 1.4.0 (installed 2026-11) is the same on that point — `+show-config --default` lists nothing for status, tmux or control mode — so the 1.4 roadmap's "true Tmux control mode" (which would render tmux windows as native tabs) has not shipped either. The open request is [Discussion #2421](https://github.com/ghostty-org/ghostty/discussions/2421). tmux's own bar stays.

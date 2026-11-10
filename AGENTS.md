@@ -1,6 +1,6 @@
 # AGENTS.md
 
-This file provides guidance to coding agents — Claude Code and Codex — working in this repository.
+This file provides guidance to coding agents — pi, and Claude Code or Codex when they are run here — working in this repository.
 
 ## Repository Overview
 
@@ -112,7 +112,7 @@ Eight bodies of guidance were moved out of this file into `.pi/rules/`, where a 
 
 Same reasoning as the `theme` skill above: measured values that are expensive to re-derive but irrelevant most of the time. Prefer this mechanism over adding another always-loaded section when new guidance is tied to one file.
 
-The loading is done by `.pi/extensions/rules.ts`: it injects a rule when `read`/`edit`/`write` touches a matching path, blocking the first edit so the rule lands before the change. The format is Claude Code's path-scoped rules, which is where these files lived until 2026-11-11 (`.pi/rules/`, with the skills in `.pi/skills/`); they moved to `.pi/` when pi became the only harness used in this repo. Details in `.pi/rules/pi.md`.
+The loading is done by `.pi/extensions/rules.ts`: it injects a rule when `read`/`edit`/`write` touches a matching path, blocking the first edit so the rule lands before the change. The format is Claude Code's path-scoped rules, which is where these files lived until 2026-11-11 (`.claude/rules/`, with the skills in `.claude/skills/`); they moved to `.pi/` when pi became the only harness used in this repo. Details in `.pi/rules/pi.md`.
 
 ## Stateless Model
 

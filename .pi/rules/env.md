@@ -16,7 +16,7 @@ They used to live in the file `go env` reads (`~/Library/Application Support/go/
 
 ## XDG on macOS
 
-`$HOME` holds only `.ssh` (OpenSSH hardcodes it) and macOS's `.Trash`. The usual macOS leak is not a dotfile but `~/Library`: Go's `os.UserCacheDir`/`os.UserConfigDir` and Rust's `dirs` crate return `~/Library/Caches` and `~/Library/Application Support` on Darwin and ignore `XDG_*` entirely, so a tool that honours XDG on Linux can still write to `~/Library` here. Each fix below names a variable that was confirmed with `strings` on the installed binary before use:
+Outside the XDG directories (`.config`, `.cache`, `.local`), `$HOME` holds only `.ssh` (OpenSSH hardcodes it) and macOS's `.Trash`. The usual macOS leak is not a dotfile but `~/Library`: Go's `os.UserCacheDir`/`os.UserConfigDir` and Rust's `dirs` crate return `~/Library/Caches` and `~/Library/Application Support` on Darwin and ignore `XDG_*` entirely, so a tool that honours XDG on Linux can still write to `~/Library` here. Each fix below names a variable that was confirmed with `strings` on the installed binary before use:
 
 - `GOCACHE=$XDG_CACHE_HOME/go-build` and `GOPLSCACHE=$XDG_CACHE_HOME/gopls` — both had been under `~/Library/Caches`
 - `GOMODCACHE=$XDG_CACHE_HOME/go/mod` — the module cache defaults to `$GOPATH/pkg/mod`, i.e. DATA, but it is a re-downloadable cache
@@ -39,7 +39,7 @@ This repo sets no `MANPATH`, but one is present in every shell anyway. Ghostty e
 
 ## Stale Environments
 
-A long-lived tmux server keeps the environment it started with, so a variable added to `conf.d/env.fish` is missing from new panes until `tmux kill-server`. Under home-manager this was worse — `hm-session-vars.fish` returned early on an inherited `__HM_SESS_VARS_SOURCED` — and that guard is gone, since `env.fish` sets everything unconditionally.
+A long-lived tmux server keeps the environment it started with. New panes still get every variable `conf.d/env.fish` sets, because each pane starts a fresh fish that sources it (verified: `env -u GOCACHE fish -c` restores the value); what stays stale until `tmux kill-server` is only what the server itself inherited and passes to processes that are not fish, and anything removed from `env.fish` but still in the server's environment. Under home-manager this was worse — `hm-session-vars.fish` returned early on an inherited `__HM_SESS_VARS_SOURCED` — and that guard is gone, since `env.fish` sets everything unconditionally.
 
 ### GUI Apps Launched From a Terminal
 
