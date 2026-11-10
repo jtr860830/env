@@ -524,7 +524,7 @@ const SubagentParams = Type.Object({
 	background: Type.Optional(
 		Type.Boolean({
 			description:
-				"Return immediately with a job id instead of waiting. The result arrives later as a message; call subagent_wait to block for it. Use for long tasks or when you have other work to do meanwhile. Default: false.",
+				"Return immediately with a job id instead of waiting; the result arrives later as a message that wakes you. Use for long tasks when you have other work or something to tell the user meanwhile. Ignored without a UI. Default: false.",
 		}),
 	),
 });
@@ -539,7 +539,6 @@ interface BackgroundJob {
 	partial?: AgentToolResult<SubagentDetails>;
 	result?: AgentToolResult<SubagentDetails>;
 	promise: Promise<AgentToolResult<SubagentDetails>>;
-	delivered: boolean;
 }
 
 function resultText(result: AgentToolResult<SubagentDetails>): string {
@@ -819,46 +818,6 @@ export default function (pi: ExtensionAPI) {
 	});
 
 	pi.registerTool({
-		name: "subagent_wait",
-		label: "Subagent wait",
-		description:
-			"Wait for background subagents started with subagent background=true and return their results. Omit ids to wait for every running job.",
-		parameters: Type.Object({
-			ids: Type.Optional(Type.Array(Type.String({ description: "Job id returned by subagent" }))),
-		}),
-		async execute(_toolCallId, params, signal) {
-			const targets = params.ids?.length
-				? params.ids.map((id) => jobs.get(id)).filter((j): j is BackgroundJob => Boolean(j))
-				: [...jobs.values()].filter((j) => !j.result);
-			if (targets.length === 0) {
-				return {
-					content: [
-						{
-							type: "text",
-							text: params.ids?.length
-								? `Unknown job ids: ${params.ids.join(", ")}. Known: ${[...jobs.keys()].join(", ") || "none"}`
-								: "No background subagents are running.",
-						},
-					],
-					details: undefined,
-				};
-			}
-			const cancelled = new Promise<"cancelled">((resolve) => {
-				if (!signal) return;
-				if (signal.aborted) resolve("cancelled");
-				else signal.addEventListener("abort", () => resolve("cancelled"), { once: true });
-			});
-			const outcome = await Promise.race([Promise.all(targets.map((j) => j.promise)), cancelled]);
-			if (outcome === "cancelled") return { content: [{ type: "text", text: "Wait cancelled; jobs keep running." }], details: undefined };
-			for (const j of targets) j.delivered = true;
-			const text = targets
-				.map((j, i) => `## ${j.id} (${j.summary})${modelsLine(outcome[i])}\n\n${resultText(outcome[i])}`)
-				.join("\n\n---\n\n");
-			return { content: [{ type: "text", text }], details: undefined };
-		},
-	});
-
-	pi.registerTool({
 		name: "subagent",
 		label: "Subagent",
 		description: [
@@ -866,14 +825,14 @@ export default function (pi: ExtensionAPI) {
 			"The subagent sees nothing of this conversation. Its brief must be self-contained: goal, exact files or symbols, constraints, what done looks like, and the report format you want back. Only its final message comes back to you.",
 			"Agents are bundles of defaults (model, tools, report format), not roles: give the role in the brief. A merger is a worker told to merge; a critic is a reviewer told what to criticise.",
 			"Modes: single (agent + task), parallel (tasks, independent and touching disjoint files), chain (sequential, {previous} carries the prior output).",
-			"Each task takes an optional thinking level and model override. background=true returns a job id immediately; the result arrives as a message, or call subagent_wait.",
+			"Each task takes an optional thinking level and model override. background=true returns a job id immediately and the result arrives later as a message that wakes you; use it when you have something to say or do meanwhile, otherwise run in the foreground.",
 			"Available agents:",
 			agentCatalog(),
 		].join("\n"),
 		parameters: SubagentParams,
 
 		async execute(_toolCallId, params, signal, onUpdate, ctx) {
-			if (!params.background) return runCall(params, ctx, signal, onUpdate);
+			if (!params.background || !ctx.hasUI) return runCall(params, ctx, signal, onUpdate);
 
 			const kind = params.agent ? params.agent : params.tasks?.length ? "parallel" : "chain";
 			const id = `${kind}-${Date.now().toString(36).slice(-5)}`;
@@ -888,7 +847,6 @@ export default function (pi: ExtensionAPI) {
 				summary,
 				startedAt: Date.now(),
 				controller,
-				delivered: false,
 				promise: Promise.resolve(undefined as unknown as AgentToolResult<SubagentDetails>),
 			};
 			job.promise = runCall(params, ctx, controller.signal, (partial) => {
@@ -904,19 +862,15 @@ export default function (pi: ExtensionAPI) {
 			job.promise.then((result) => {
 				job.result = result;
 				updateWidget(ctx);
-				setTimeout(() => {
-					if (job.delivered) return;
-					job.delivered = true;
-					pi.sendMessage(
-						{
-							customType: "subagent-result",
-							content: `Background subagent ${id} (${summary}) ${result.isError ? "failed" : "finished"}${modelsLine(result)}:\n\n${resultText(result)}`,
-							display: true,
-							details: result.details,
-						},
-						{ deliverAs: "followUp", triggerTurn: true },
-					);
-				}, 0);
+				pi.sendMessage(
+					{
+						customType: "subagent-result",
+						content: `Background subagent ${id} (${summary}) ${result.isError ? "failed" : "finished"}${modelsLine(result)}:\n\n${resultText(result)}`,
+						display: true,
+						details: result.details,
+					},
+					{ deliverAs: "followUp", triggerTurn: true },
+				);
 			});
 			jobs.set(id, job);
 			updateWidget(ctx);
@@ -925,7 +879,7 @@ export default function (pi: ExtensionAPI) {
 				content: [
 					{
 						type: "text",
-						text: `Started background job ${id} (${summary}). Its result will arrive as a message when it finishes; call subagent_wait with this id if you need it before continuing.`,
+						text: `Started background job ${id} (${summary}). Its result will arrive as a message when it finishes; end your turn when you have nothing else to do.`,
 					},
 				],
 				details: { mode: "single", agentScope: params.agentScope ?? "user", projectAgentsDir: null, results: [] },
