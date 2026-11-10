@@ -221,7 +221,7 @@ weather = true
 showAppNames = false
 showIcon = false
 showWorkspaceName = true
-useWorkspaceId = true
+useWorkspaceId = false
 
 [statusMenu]
 hiddenControls = ["bordersEnabled", "focusCrossesMonitorAtEdge", "focusFollowsMouse", "focusFollowsWindowToMonitor", "hiddenBarEnabled", "mouseWarpEnabled", "moveCrossesMonitorAtEdge", "moveMouseToFocusedWindow", "preventSleepEnabled", "workspaceBarEnabled"]
