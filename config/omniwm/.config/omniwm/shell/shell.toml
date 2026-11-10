@@ -13,7 +13,4 @@ enabled = false
 autoHide = true
 fullWidth = false
 height = 24
-notchMode = "moveBelowMenuBar"
-position = "overlappingMenuBar"
 reserveLayoutSpace = false
-windowLevel = "popup"
