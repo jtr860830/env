@@ -99,11 +99,29 @@ export default function (pi: ExtensionAPI) {
 			if (entry.type !== "message") continue;
 			const message = entry.message;
 			if (message.role === "custom" && message.customType === CUSTOM_TYPE) {
-				const id = (message.details as { id?: string } | undefined)?.id;
-				if (id) injected.add(id);
+				const details = message.details as { id?: string; ids?: string[] } | undefined;
+				for (const id of details?.ids ?? (details?.id ? [details.id] : [])) injected.add(id);
 			}
 		}
 	});
+
+	let pending: { rule: Rule; rel: string }[] = [];
+	let flushTimer: ReturnType<typeof setTimeout> | undefined;
+
+	const flush = () => {
+		flushTimer = undefined;
+		if (pending.length === 0) return;
+		const batch = pending;
+		pending = [];
+		pi.sendMessage({
+			customType: CUSTOM_TYPE,
+			content: batch
+				.map(({ rule, rel }) => `Guidance from ${rule.id}, which applies to ${rel}:\n\n${rule.body}`)
+				.join("\n\n---\n\n"),
+			display: false,
+			details: { ids: batch.map((b) => b.rule.id) },
+		});
+	};
 
 	pi.on("tool_call", async (event, ctx) => {
 		if (!root || !PATH_TOOLS.has(event.toolName)) return;
@@ -117,13 +135,10 @@ export default function (pi: ExtensionAPI) {
 
 		for (const rule of hits) {
 			injected.add(rule.id);
-			pi.sendMessage({
-				customType: CUSTOM_TYPE,
-				content: `Guidance from ${rule.id}, which applies to ${rel}:\n\n${rule.body}`,
-				display: false,
-				details: { id: rule.id },
-			});
+			pending.push({ rule, rel });
 		}
+		if (!flushTimer) flushTimer = setTimeout(flush, 0);
+
 		const names = hits.map((r) => r.id).join(", ");
 		if (ctx.hasUI) ctx.ui.notify(`Loaded ${names}`, "info");
 		if (event.toolName === "read") return;
