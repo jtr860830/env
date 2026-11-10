@@ -32,11 +32,11 @@ A new machine runs `./bootstrap.sh`: it installs Homebrew and `just` — exporti
 
 - `/etc/shells` gains `/opt/homebrew/bin/fish` — `chsh` refuses a shell not listed there
 - `/etc/pam.d/sudo_local` — `pam_reattach.so` from `/opt/homebrew/lib/pam/`, then `pam_tid.so`, so Touch ID works for sudo including inside tmux
-- `/etc/homebrew/brew.env` — `HOMEBREW_CACHE` and `HOMEBREW_XDG_CONFIG_HOME`, see `.claude/rules/homebrew.md`
+- `/etc/homebrew/brew.env` — `HOMEBREW_CACHE` and `HOMEBREW_XDG_CONFIG_HOME`, see `.pi/rules/homebrew.md`
 
 ## PATH and System Binaries
 
-`config/fish/.config/fish/conf.d/env.fish` sets the whole `PATH`: `~/.local/bin`, `/opt/homebrew/bin` and `sbin`, then `/usr/local/bin /usr/local/sbin /usr/bin /usr/sbin /bin /sbin`. `path_helper` is deliberately not used. The reasoning, the collision check and the ordering argument are in `.claude/rules/fish.md`.
+`config/fish/.config/fish/conf.d/env.fish` sets the whole `PATH`: `~/.local/bin`, `/opt/homebrew/bin` and `sbin`, then `/usr/local/bin /usr/local/sbin /usr/bin /usr/sbin /bin /sbin`. `path_helper` is deliberately not used. The reasoning, the collision check and the ordering argument are in `.pi/rules/fish.md`.
 
 **`~/.local/bin` is the one directory for user-installed binaries** — it is `XDG_BIN_HOME`, uv puts its tools there, `GOBIN` points there, and `CARGO_INSTALL_ROOT=$HOME/.local` makes `cargo install` write `~/.local/bin`. The costs are accepted: cargo keeps its install records (`.crates.toml`, `.crates2.json`) in the root, i.e. `~/.local/`, and same-named binaries overwrite one another (`go install` silently; cargo and uv refuse without `--force`). Before this, `~/.local/share/cargo/bin` held old `fd` and `rg` that shadowed the brewfile's — they were removed, along with an unused `rustlings`. `CARGO_HOME` (registry, caches) stays at `~/.local/share/cargo`.
 
@@ -48,7 +48,7 @@ Linked (decided 2026-10-21 from fish history — 4,665 entries since 2022-02 —
 - **`llvm`** — puts brew's `clang`, `clang++`, `clangd` and `clang-format` ahead of Apple's. `clang-format` was the real gap: conform formats C with it and macOS ships none, so C formatting silently failed. Do not also install the standalone `clang-format` formula — it is the same 23.x binary and the two would fight over `/opt/homebrew/bin/clang-format`. Verified after linking: brew's `clang`/`clang++` find the SDK and build C and C++, and conform formats a C buffer. `brew link --dry-run llvm` reports a conflict with protobuf's `share/emacs/site-lisp`; it is spurious — the trees are disjoint and the real link succeeds.
 - **`rustup`** — see above.
 
-Deliberately not linked: `ncurses` (only its terminfo database is wanted; linking would shadow nine Apple binaries — see `.claude/rules/env.md`) and `openjdk` (`java`/`javac`/`mvn` last used 2022, so `java` stays Apple's stub). The gnubin formulae (`make`, `gnu-sed`, `inetutils`) are not keg-only: brew already ships them prefixed (`gmake`, `gsed`, `gping`) in `/opt/homebrew/bin`, and the unprefixed names stay Apple's. Scripts in this repo must therefore run under BSD tools — `sed -i ''`, not `sed -i`. Tools that are not keg-only (`ssh` from `openssh`, `git`, `python3`) already win from `/opt/homebrew/bin`.
+Deliberately not linked: `ncurses` (only its terminfo database is wanted; linking would shadow nine Apple binaries — see `.pi/rules/env.md`) and `openjdk` (`java`/`javac`/`mvn` last used 2022, so `java` stays Apple's stub). The gnubin formulae (`make`, `gnu-sed`, `inetutils`) are not keg-only: brew already ships them prefixed (`gmake`, `gsed`, `gping`) in `/opt/homebrew/bin`, and the unprefixed names stay Apple's. Scripts in this repo must therefore run under BSD tools — `sed -i ''`, not `sed -i`. Tools that are not keg-only (`ssh` from `openssh`, `git`, `python3`) already win from `/opt/homebrew/bin`.
 
 ## Tools Deliberately Absent
 
@@ -73,7 +73,7 @@ Formula names that differ from their nixpkgs attribute: `clang-tools` → `llvm`
 
 ## Manual Setup
 
-Steps `just setup` cannot perform — macOS settings, OmniWM permissions, pi, rtk, Claude Code's and Codex's local settings, Alfred — live in the `manual-setup` skill (`.claude/skills/manual-setup/SKILL.md`). Load it when setting up a machine or before changing any of those tools' settings: it also records which Claude Code settings are deliberately off and why. Codex does not load skills — open the file.
+Steps `just setup` cannot perform — macOS settings, OmniWM permissions, pi, rtk, Claude Code's and Codex's local settings, Alfred — live in the `manual-setup` skill (`.pi/skills/manual-setup/SKILL.md`). Load it when setting up a machine or before changing any of those tools' settings: it also records which Claude Code settings are deliberately off and why. Codex does not load skills — open the file.
 
 ## Container Stack
 
@@ -83,7 +83,7 @@ Fully migrated to podman. `podman machine` manages the Linux VM — no colima/Do
 
 ## Theme
 
-All colour and appearance work — the sourcing ladder, which contrast instrument applies to which comparison, the light/dark switching mechanism, onedarkpro's limits and traps, and Alfred's theme design — lives in the `theme` skill (`.claude/skills/theme/SKILL.md`). Load it before changing any colour; every value there was measured and should not be re-derived.
+All colour and appearance work — the sourcing ladder, which contrast instrument applies to which comparison, the light/dark switching mechanism, onedarkpro's limits and traps, and Alfred's theme design — lives in the `theme` skill (`.pi/skills/theme/SKILL.md`). Load it before changing any colour; every value there was measured and should not be re-derived.
 
 ## AGENTS.md, Not CLAUDE.md
 
@@ -93,30 +93,30 @@ So **never let a `CLAUDE.md` appear at the repo root**. `/init`, `/revise-claude
 
 Scope is project-only on purpose. At user scope Claude Code reads only `CLAUDE.md` — its built-in Codex importer copies Codex's `AGENTS.md` *into* Claude's user `CLAUDE.md`, which it would not need to do otherwise — so `config/claude/.config/claude/CLAUDE.md` keeps its name. It is also written in Claude's first person ("execution goes to Codex"), which would read backwards to Codex; sharing it would need a split into a neutral common part and a Claude-only part first.
 
-The `.claude/rules/` and `.claude/skills/` material below is loaded automatically by Claude Code and, through `.pi/`, by pi. Codex does not see it unless it opens those files, so read the relevant one before touching Neovim, tmux, fish, Ghostty, OmniWM, pi, environment variables or anything colour-related.
+The `.pi/rules/` and `.pi/skills/` material below is loaded automatically by pi only. Claude Code and Codex do not see it unless they open those files, so read the relevant one before touching Neovim, tmux, fish, Ghostty, OmniWM, pi, environment variables or anything colour-related.
 
 ## Path-Scoped Rules
 
-Eight bodies of guidance were moved out of this file into `.claude/rules/`, where a `paths` frontmatter key loads each one only when a matching file is actually being edited. Nothing was dropped — every measured finding and negative result is still recorded, just not in every session's context.
+Eight bodies of guidance were moved out of this file into `.pi/rules/`, where a `paths` frontmatter key loads each one only when a matching file is actually read or edited. Nothing was dropped — every measured finding and negative result is still recorded, just not in every session's context.
 
 | File | Loads when editing | Covers |
 |------|--------------------|--------|
-| `.claude/rules/neovim.md` | `config/nvim/**` | plugins via `vim.pack`, the 0.11+/0.12 LSP API, LspAttach patterns, mini.nvim's per-module `setup()` traps, nerd font icons and the `nr2char` requirement, keymap organisation, formatters, snacks, sign column, fzf-lua colours, startup timings, and what is deliberately absent |
-| `.claude/rules/tmux.md` | `config/tmux/**` | the style/format quirks, `message-style` needing `fill=`, extended-keys negotiation, duplicate options, and tmux 3.8's changed default styles |
-| `.claude/rules/fish.md` | `config/fish/**` | why `PATH` is written outright in `conf.d/env.fish`, the ordering table and collision check, the pending gnubin/keg-only decision, the conf.d layout and why the theme and the prompt's git handler live in `conf.d/`, the valid `fish_color_*`/`EZA_COLORS` names, and the hand-written prompt — its segments and their nvim groups, the git caching and timings, why pure, Starship and Tide were not used, and why fish theme files cannot hold the palette |
-| `.claude/rules/ghostty.md` | `config/ghostty/**`, `config/tmux/**`, `config/fish/**` | why Ghostty's `command` starts tmux (absolute path, `env -u TMUX`) and fish has no tmux logic, shell integration being off, `macos-option-as-alt`, and the Ghostty 1.4 status-bar wait |
-| `.claude/rules/omniwm.md` | `config/omniwm/**` | the stowed `settings.toml` and its strict schema, the 0.8.0 upgrade, workspaces per display, app rules and the catch-all to workspace 3, no sticky windows, the workspace bar's three layers and the stowed OmniShell profile, the status menu, the window switcher, Quake and Hidden Bar being off, Overview colours, trackpad gestures and hotkeys |
-| `.claude/rules/pi.md` | `config/pi/**`, `.pi/**`, `config/fish/**` | pi's lack of XDG support and the two `PI_CODING_AGENT_*` variables, why sessions are DATA not STATE, which `settings.json` values are hand-set; pi as the harness with Claude Code and Codex as backends — why `pi-claude-code` over `pi-claude-bridge` and what it measurably sends; the subagent extension (thinking, model override, fallback chains, background jobs, child identity), the five agents and the designs rejected; `rules.ts` and how pi reads `.claude/rules/` and `.claude/skills/` |
-| `.claude/rules/env.md` | `config/fish/**`, `config/tealdeer/**`, `config/ghostty/**` | `GOPATH`/`GOBIN` in the environment and why Go's own env file cannot hold variables; the `~/Library` leaks on macOS and the variable verified for each fix (`GOCACHE`, `GOMODCACHE`, `_ZO_DATA_DIR`, tealdeer, rtk, `HOMEBREW_CACHE`); `TERMINFO_DIRS` from keg-only ncurses; why no `MANPATH` is set and Homebrew's `mandoc` must not be installed; stale environments in a long-lived tmux server and in GUI apps launched from a terminal |
-| `.claude/rules/homebrew.md` | `justfile`, `bootstrap.sh`, `brewfile` | `/etc/homebrew/brew.env`: why `HOMEBREW_XDG_CONFIG_HOME` is set there, the `brew.env` hierarchy, and how to check what brew resolves |
+| `.pi/rules/neovim.md` | `config/nvim/**` | plugins via `vim.pack`, the 0.11+/0.12 LSP API, LspAttach patterns, mini.nvim's per-module `setup()` traps, nerd font icons and the `nr2char` requirement, keymap organisation, formatters, snacks, sign column, fzf-lua colours, startup timings, and what is deliberately absent |
+| `.pi/rules/tmux.md` | `config/tmux/**` | the style/format quirks, `message-style` needing `fill=`, extended-keys negotiation, duplicate options, and tmux 3.8's changed default styles |
+| `.pi/rules/fish.md` | `config/fish/**` | why `PATH` is written outright in `conf.d/env.fish`, the ordering table and collision check, the pending gnubin/keg-only decision, the conf.d layout and why the theme and the prompt's git handler live in `conf.d/`, the valid `fish_color_*`/`EZA_COLORS` names, and the hand-written prompt — its segments and their nvim groups, the git caching and timings, why pure, Starship and Tide were not used, and why fish theme files cannot hold the palette |
+| `.pi/rules/ghostty.md` | `config/ghostty/**`, `config/tmux/**`, `config/fish/**` | why Ghostty's `command` starts tmux (absolute path, `env -u TMUX`) and fish has no tmux logic, shell integration being off, `macos-option-as-alt`, and the Ghostty 1.4 status-bar wait |
+| `.pi/rules/omniwm.md` | `config/omniwm/**` | the stowed `settings.toml` and its strict schema, the 0.8.0 upgrade, workspaces per display, app rules and the catch-all to workspace 3, no sticky windows, the workspace bar's three layers and the stowed OmniShell profile, the status menu, the window switcher, Quake and Hidden Bar being off, Overview colours, trackpad gestures and hotkeys |
+| `.pi/rules/pi.md` | `config/pi/**`, `.pi/**`, `config/fish/**` | pi's lack of XDG support and the two `PI_CODING_AGENT_*` variables, why sessions are DATA not STATE, which `settings.json` values are hand-set; pi as the harness with Claude Code and Codex as backends — why `pi-claude-code` over `pi-claude-bridge` and what it measurably sends; the subagent extension (thinking, model override, fallback chains, background jobs, child identity), the five agents and the designs rejected; `rules.ts` and how pi reads `.pi/rules/` and `.pi/skills/` |
+| `.pi/rules/env.md` | `config/fish/**`, `config/tealdeer/**`, `config/ghostty/**` | `GOPATH`/`GOBIN` in the environment and why Go's own env file cannot hold variables; the `~/Library` leaks on macOS and the variable verified for each fix (`GOCACHE`, `GOMODCACHE`, `_ZO_DATA_DIR`, tealdeer, rtk, `HOMEBREW_CACHE`); `TERMINFO_DIRS` from keg-only ncurses; why no `MANPATH` is set and Homebrew's `mandoc` must not be installed; stale environments in a long-lived tmux server and in GUI apps launched from a terminal |
+| `.pi/rules/homebrew.md` | `justfile`, `bootstrap.sh`, `brewfile` | `/etc/homebrew/brew.env`: why `HOMEBREW_XDG_CONFIG_HOME` is set there, the `brew.env` hierarchy, and how to check what brew resolves |
 
 Same reasoning as the `theme` skill above: measured values that are expensive to re-derive but irrelevant most of the time. Prefer this mechanism over adding another always-loaded section when new guidance is tied to one file.
 
-pi reads the same files. `.pi/extensions/rules.ts` injects a rule when `read`/`edit`/`write` touches a path matching its `paths` frontmatter (blocking the first edit so the rule lands before the change), and `.pi/settings.json` points pi's skills at `.claude/skills/`. Both tools read one copy; nothing under `.claude/` is duplicated. Details in `.claude/rules/pi.md`.
+The loading is done by `.pi/extensions/rules.ts`: it injects a rule when `read`/`edit`/`write` touches a matching path, blocking the first edit so the rule lands before the change. The format is Claude Code's path-scoped rules, which is where these files lived until 2026-11-11 (`.pi/rules/`, with the skills in `.pi/skills/`); they moved to `.pi/` when pi became the only harness used in this repo. Details in `.pi/rules/pi.md`.
 
 ## Stateless Model
 
-Decided 2026-11-09: the model carries nothing of its own between sessions. Everything persistent lives in the two layers the user edits — `config/claude/.config/claude/CLAUDE.md` at user scope, and `AGENTS.md`, `.claude/rules/` and `.claude/skills/` per project — so what the model knows at session start is exactly what is in the repo. The same decision was taken for pi.
+Decided 2026-11-09: the model carries nothing of its own between sessions. Everything persistent lives in the two layers the user edits — `config/claude/.config/claude/CLAUDE.md` at user scope, and `AGENTS.md`, `.pi/rules/` and `.pi/skills/` per project — so what the model knows at session start is exactly what is in the repo. The same decision was taken for pi.
 
 What this turned off, each a store the model wrote to and read back without the user in the loop:
 

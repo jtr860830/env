@@ -2,7 +2,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { type ExtensionAPI, parseFrontmatter } from "@earendil-works/pi-coding-agent";
 
-const RULE_DIRS = [".pi/rules", ".claude/rules"];
+const RULE_DIRS = [".pi/rules"];
 const PATH_TOOLS = new Set(["read", "edit", "write"]);
 const CUSTOM_TYPE = "rule";
 
