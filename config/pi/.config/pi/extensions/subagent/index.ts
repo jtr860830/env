@@ -20,6 +20,7 @@ import type { Message } from "@earendil-works/pi-ai";
 import { StringEnum } from "@earendil-works/pi-ai";
 import {
 	type ExtensionAPI,
+	type ExtensionContext,
 	type ExtensionToolContext,
 	formatReadLineRange,
 	getMarkdownTheme,
@@ -506,14 +507,66 @@ const SubagentParams = Type.Object({
 
 type SubagentParamsType = Static<typeof SubagentParams>;
 
+const TaskControlParams = Type.Object({
+	action: StringEnum(["list", "stop"] as const, {
+		description: "list: the state of every running background task. stop: terminate one and get its output so far.",
+	}),
+	id: Type.Optional(Type.String({ description: "Background task id to stop, or `all`. Required for stop." })),
+});
+
+type StoppedBy = "user" | "model" | "shutdown";
+
 interface BackgroundTask {
 	id: string;
+	key: string;
 	summary: string;
 	startedAt: number;
 	controller: AbortController;
+	sessions: Set<string>;
+	stoppedBy?: StoppedBy;
 	partial?: AgentToolResult<SubagentDetails>;
 	result?: AgentToolResult<SubagentDetails>;
 	promise: Promise<AgentToolResult<SubagentDetails>>;
+}
+
+type TaskRecord =
+	| { event: "started"; key: string; id: string; summary: string }
+	| { event: "session"; key: string; sessionId: string }
+	| { event: "ended"; key: string; reason: "completed" | "failed" | "session-closed" | StoppedBy };
+
+const RESULT_MESSAGE = "subagent-result";
+const TASK_RECORD = "subagent-task";
+
+function outputSoFar(result: AgentToolResult<SubagentDetails> | undefined): string {
+	if (!result) return "(no output)";
+	const results = result.details?.results ?? [];
+	if (results.length === 0) return resultText(result);
+	return results
+		.map((r) => {
+			const stopped = r.exitCode === -1 || r.stopReason === "aborted";
+			const state = stopped ? "stopped" : isFailedResult(r) ? "failed" : "completed";
+			const output = stopped ? getFinalOutput(r.messages) || "(no output)" : getResultOutput(r);
+			const head = results.length > 1 ? `### [${r.agent}] ${state}\n\n` : "";
+			return `${head}${truncateParallelOutput(output)}${sessionLine(r)}`;
+		})
+		.join("\n\n---\n\n");
+}
+
+function lastAction(r: SingleResult): string {
+	const item = getDisplayItems(r.messages).at(-1);
+	if (!item) return "starting";
+	if (item.type === "toolCall") return formatToolCall(item.name, item.args, (_color, text) => text);
+	return shortTask(item.text, 60);
+}
+
+function describeTask(bg: BackgroundTask): string {
+	const elapsed = Math.round((Date.now() - bg.startedAt) / 1000);
+	const members = (bg.partial?.details?.results ?? []).map((r) => {
+		const fallback = r.fallbackFrom?.length ? ` (fallback #${r.fallbackFrom.length})` : "";
+		const session = r.sessionId ? `  session: ${r.sessionId}` : "";
+		return `  ${r.agent}  ${r.model ?? "?"}${fallback}  ${r.usage.turns} turns  last: ${lastAction(r)}${session}`;
+	});
+	return [`${bg.id}  ${bg.summary}  running ${elapsed}s`, ...members].join("\n");
 }
 
 function resultText(result: AgentToolResult<SubagentDetails>): string {
@@ -542,7 +595,10 @@ export default function (pi: ExtensionAPI) {
 	}
 
 	const backgroundTasks = new Map<string, BackgroundTask>();
+	const quiet: { customType: string; content: string; display: boolean; details?: SubagentDetails }[] = [];
 	let taskCount = 0;
+	let held = false;
+	let current: ExtensionContext | undefined;
 
 	const agentCatalog = () => {
 		const agents = discoverAgents();
@@ -550,14 +606,14 @@ export default function (pi: ExtensionAPI) {
 		return agents.map((a) => `- ${a.name}: ${a.description}`).join("\n");
 	};
 
-	const updateWidget = (ctx: ExtensionToolContext) => {
-		if (!ctx.hasUI) return;
-		const running = [...backgroundTasks.values()].filter((bg) => !bg.result);
+	const updateWidget = () => {
+		if (!current?.hasUI) return;
+		const running = [...backgroundTasks.values()];
 		if (running.length === 0) {
-			ctx.ui.setWidget("subagent", undefined);
+			current.ui.setWidget("subagent", undefined);
 			return;
 		}
-		ctx.ui.setWidget(
+		current.ui.setWidget(
 			"subagent",
 			running.map((bg) => {
 				const results = bg.partial?.details?.results ?? [];
@@ -692,28 +748,133 @@ export default function (pi: ExtensionAPI) {
 		};
 	}
 
+	const record = (data: TaskRecord) => pi.appendEntry(TASK_RECORD, data);
+
+	const sendQuiet = (content: string, details?: SubagentDetails) => {
+		const message = { customType: RESULT_MESSAGE, content, display: true, details };
+		if (!current || current.isIdle()) pi.sendMessage(message);
+		else quiet.push(message);
+	};
+
+	const stop = (bg: BackgroundTask, by: StoppedBy) => {
+		bg.stoppedBy ??= by;
+		bg.controller.abort();
+	};
+
+	const finish = (bg: BackgroundTask, result: AgentToolResult<SubagentDetails>) => {
+		bg.result = result;
+		backgroundTasks.delete(bg.id);
+		if (bg.stoppedBy === "shutdown") return;
+		updateWidget();
+		record({ event: "ended", key: bg.key, reason: bg.stoppedBy ?? (result.isError ? "failed" : "completed") });
+		if (bg.stoppedBy === "model") return;
+
+		const label = `Background task ${bg.id} (${bg.summary})`;
+		if (bg.stoppedBy === "user") {
+			sendQuiet(
+				`${label} was stopped by the user before it finished. Output so far:\n\n${outputSoFar(result)}`,
+				result.details,
+			);
+			return;
+		}
+		const content = `${label} ${result.isError ? "failed" : "finished"}${modelsLine(result)}:\n\n${resultText(result)}`;
+		if (held) {
+			sendQuiet(content, result.details);
+			return;
+		}
+		pi.sendMessage(
+			{ customType: RESULT_MESSAGE, content, display: true, details: result.details },
+			{ deliverAs: "followUp", triggerTurn: true },
+		);
+	};
+
+	pi.on("session_start", async (_event, ctx) => {
+		current = ctx;
+		const open = new Map<string, { id: string; summary: string; sessions: string[] }>();
+		for (const entry of ctx.sessionManager.getBranch()) {
+			if (entry.type !== "custom" || entry.customType !== TASK_RECORD) continue;
+			const data = entry.data as TaskRecord | undefined;
+			if (!data) continue;
+			if (data.event === "started") open.set(data.key, { id: data.id, summary: data.summary, sessions: [] });
+			else if (data.event === "session") open.get(data.key)?.sessions.push(data.sessionId);
+			else open.delete(data.key);
+		}
+		if (open.size === 0) return;
+
+		const lines: string[] = [];
+		for (const [key, task] of open) {
+			record({ event: "ended", key, reason: "session-closed" });
+			const sessions = task.sessions.length ? `, session: ${task.sessions.join(", ")}` : "";
+			lines.push(`- ${task.id} (${task.summary})${sessions}`);
+		}
+		pi.sendMessage({
+			customType: RESULT_MESSAGE,
+			content: `These background tasks were terminated when the session was closed or reloaded, before they finished:\n${lines.join("\n")}`,
+			display: true,
+		});
+	});
+
 	pi.on("session_shutdown", async () => {
-		for (const bgTask of backgroundTasks.values()) if (!bgTask.result) bgTask.controller.abort();
+		for (const bg of backgroundTasks.values()) stop(bg, "shutdown");
+	});
+
+	pi.on("agent_settled", async (event, ctx) => {
+		current = ctx;
+		if (event.aborted) held = true;
+		for (const message of quiet.splice(0)) pi.sendMessage(message);
+	});
+
+	pi.on("input", async () => {
+		held = false;
 	});
 
 	pi.registerCommand("task", {
 		description: "List background tasks, or `kill <id|all>`",
 		handler: async (args, ctx) => {
+			current = ctx;
 			const [verb, target] = (args ?? "").trim().split(/\s+/);
+			const running = [...backgroundTasks.values()];
 			if (verb === "kill") {
-				const victims = [...backgroundTasks.values()].filter((bg) => !bg.result && (target === "all" || bg.id === target));
-				for (const bg of victims) bg.controller.abort();
-				ctx.ui.notify(victims.length ? `Killed ${victims.map((bg) => bg.id).join(", ")}` : "Nothing to kill", "info");
+				const victims = running.filter((bg) => target === "all" || bg.id === target);
+				for (const bg of victims) stop(bg, "user");
+				ctx.ui.notify(victims.length ? `Stopped ${victims.map((bg) => bg.id).join(", ")}` : "Nothing to stop", "info");
 				return;
 			}
-			if (backgroundTasks.size === 0) {
-				ctx.ui.notify("No background tasks", "info");
-				return;
+			ctx.ui.notify(running.length ? running.map(describeTask).join("\n") : "No background tasks", "info");
+		},
+	});
+
+	pi.registerTool({
+		name: "subagent_task",
+		label: "Subagent task",
+		description: [
+			"Inspect or stop the background tasks started by the subagent tool.",
+			"list reports each running task's model, turns, elapsed time, last action and session id. Use it when the user asks how a task is going, not to poll for results: those arrive on their own.",
+			"stop terminates a task whose brief is obsolete and returns its output so far. Start a new task with a corrected brief if the work is still needed.",
+		].join("\n"),
+		parameters: TaskControlParams,
+
+		async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
+			current = ctx;
+			const running = [...backgroundTasks.values()];
+			const reply = (text: string) => ({ content: [{ type: "text" as const, text }], details: {} });
+
+			if (params.action === "list") {
+				return reply(running.length ? running.map(describeTask).join("\n\n") : "No background tasks are running.");
 			}
-			const lines = [...backgroundTasks.values()].map(
-				(bg) => `${bg.result ? (bg.result.isError ? "✗" : "✓") : "⏳"} ${bg.id}  ${bg.summary}`,
+
+			const victims = running.filter((bg) => params.id === "all" || bg.id === params.id);
+			if (victims.length === 0) {
+				const ids = running.map((bg) => bg.id).join(", ") || "none";
+				return reply(`No running background task matches "${params.id ?? ""}". Running: ${ids}.`);
+			}
+			for (const bg of victims) stop(bg, "model");
+			await Promise.all(victims.map((bg) => bg.promise));
+			return reply(
+				victims
+					.map((bg) => `Stopped ${bg.id} (${bg.summary}). Output so far:\n\n${outputSoFar(bg.result)}`)
+					.join("\n\n---\n\n"),
 			);
-			ctx.ui.notify(lines.join("\n"), "info");
 		},
 	});
 
@@ -724,9 +885,8 @@ export default function (pi: ExtensionAPI) {
 			"Delegate a task to a subagent: a separate pi process with its own context window, model and tools.",
 			"The subagent sees nothing of this conversation. Its brief must be self-contained: goal, exact files or symbols, constraints, what done looks like, and the report format you want back. Only its final message comes back to you. Each result ends with the subagent's session id; its full transcript is kept and opens with `pi --session <id>`.",
 			"Agents are bundles of defaults (model, tools, report format), not roles: give the role in the brief. A merger is a worker told to merge; a critic is a reviewer told what to criticise.",
-			"Modes: single (agent + task), parallel (tasks, independent and touching disjoint files).",
-			"Each task takes an optional thinking level and model override.",
-			"A call returns a background task id at once and the subagent keeps running; its result arrives later as a message that wakes you. Until then you know nothing of the result.",
+			"Modes: single (agent + task), parallel (tasks, independent and touching disjoint files). Each task takes an optional thinking level and model override.",
+			"In an interactive session a call returns a background task id at once and the subagent keeps running; its result arrives later as a message that wakes you. Until that message arrives you know nothing of the result: do not predict or describe it, do not poll for it, and do not redo the delegated work yourself. Do other work, answer the user, or end your turn. A parallel call is one task whose results arrive together, so use it for results you need side by side and separate calls for independent work. In print mode the call waits and returns the result directly.",
 			"Available agents:",
 			agentCatalog(),
 		].join("\n"),
@@ -734,45 +894,61 @@ export default function (pi: ExtensionAPI) {
 
 		async execute(_toolCallId, params, signal, onUpdate, ctx) {
 			if (!ctx.hasUI) return runCall(params, ctx, signal, onUpdate);
+			current = ctx;
 
-			const kind = params.agent ?? "parallel";
-			const id = `${kind}-${++taskCount}`;
-			const summary = params.agent
-				? `${params.agent}: ${shortTask(params.task)}`
-				: (params.tasks ?? []).map((t) => t.agent).join(", ");
-			const controller = new AbortController();
-			const bgTask: BackgroundTask = {
-				id,
-				summary,
-				startedAt: Date.now(),
-				controller,
-				promise: Promise.resolve(undefined as unknown as AgentToolResult<SubagentDetails>),
-			};
-			bgTask.promise = runCall(params, ctx, controller.signal, (partial) => {
-				bgTask.partial = partial;
-				updateWidget(ctx);
-			}).catch(
-				(error): AgentToolResult<SubagentDetails> => ({
-					content: [{ type: "text", text: `Background task ${id} failed: ${error instanceof Error ? error.message : String(error)}` }],
+			const tasks = params.tasks ?? [];
+			const single = Boolean(params.agent && params.task);
+			if (single === tasks.length > 0 || tasks.length > MAX_PARALLEL_TASKS) {
+				return runCall(params, ctx, signal, onUpdate);
+			}
+			const known = discoverAgents().map((a) => a.name);
+			const names = single ? [params.agent ?? ""] : tasks.map((t) => t.agent);
+			const unknown = names.filter((name) => !known.includes(name));
+			if (unknown.length > 0) {
+				return {
+					content: [
+						{
+							type: "text",
+							text: `Unknown agent: ${unknown.join(", ")}. Available agents: ${known.join(", ") || "none"}.`,
+						},
+					],
 					details: { mode: "single", results: [] },
 					isError: true,
-				}),
-			);
-			bgTask.promise.then((result) => {
-				bgTask.result = result;
-				updateWidget(ctx);
-				pi.sendMessage(
-					{
-						customType: "subagent-result",
-						content: `Background task ${id} (${summary}) ${result.isError ? "failed" : "finished"}${modelsLine(result)}:\n\n${resultText(result)}`,
-						display: true,
-						details: result.details,
-					},
-					{ deliverAs: "followUp", triggerTurn: true },
-				);
-			});
-			backgroundTasks.set(id, bgTask);
-			updateWidget(ctx);
+				};
+			}
+
+			const id = `${single ? params.agent : "parallel"}-${++taskCount}`;
+			const summary = single ? `${params.agent}: ${shortTask(params.task)}` : names.join(", ");
+			const startedAt = Date.now();
+			const key = `${id}@${startedAt}`;
+			const controller = new AbortController();
+			record({ event: "started", key, id, summary });
+			const bg: BackgroundTask = {
+				id,
+				key,
+				summary,
+				startedAt,
+				controller,
+				sessions: new Set(),
+				promise: runCall(params, ctx, controller.signal, (partial) => {
+					bg.partial = partial;
+					for (const r of partial.details?.results ?? []) {
+						if (!r.sessionId || bg.sessions.has(r.sessionId)) continue;
+						bg.sessions.add(r.sessionId);
+						record({ event: "session", key, sessionId: r.sessionId });
+					}
+					updateWidget();
+				}).catch(
+					(error): AgentToolResult<SubagentDetails> => ({
+						content: [{ type: "text", text: `Background task ${id} failed: ${error instanceof Error ? error.message : String(error)}` }],
+						details: { mode: "single", results: [] },
+						isError: true,
+					}),
+				),
+			};
+			backgroundTasks.set(id, bg);
+			bg.promise.then((result) => finish(bg, result));
+			updateWidget();
 
 			return {
 				content: [
