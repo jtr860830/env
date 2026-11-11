@@ -6,7 +6,7 @@ paths: ["config/fish/**"]
 
 `conf.d/env.fish` sets the whole `PATH` with `set -gx PATH` rather than prepending with `fish_add_path`, **deliberately**: macOS's `path_helper` reads `/etc/paths` and `/etc/paths.d/*` and *prepends* the system entries, which would push `/usr/bin` ahead of Homebrew. Writing the list outright keeps it out of the way — do not "simplify" this to an append-style call.
 
-It lives in `conf.d/` rather than `config.fish` so it is set for every fish — interactive or not — before anything else runs; a GUI-launched process inherits only launchd's `/usr/bin:/bin:/usr/sbin:/sbin`. nix-darwin used to hide this by setting `PATH` in `/etc/fish`. tmux is not started from fish at all: Ghostty's `command` does it (`docs/ghostty.md`), so fish has no tmux logic anywhere.
+It lives in `conf.d/` rather than `config.fish` so it is set for every fish — interactive or not — before anything else runs; a GUI-launched process inherits only launchd's `/usr/bin:/bin:/usr/sbin:/sbin`. tmux is not started from fish at all: Ghostty's `command` does it (`docs/ghostty.md`), so fish has no tmux logic anywhere.
 
 | Path | Holds |
 |------|-------|
@@ -31,7 +31,7 @@ print({k:v for k,v in d.items() if len(v)>1} or 'no collisions')"
 
 `config.fish` holds only behaviour — vi key bindings and zoxide. Everything else is in `conf.d/`, which fish sources first, in filename order: `env.fish`, `prompt.fish`, `theme.fish`. There are no fish plugins and no fisher: pure was the only one, and it was replaced by the hand-written prompt (`docs/fish-prompt.md`) on 2026-10-31.
 
-`vi` and `vim` are fish functions (`functions/vi.fish`, `vim.fish`, `--wraps nvim`), replacing home-manager's `viAlias`/`vimAlias`; without them `vim` opens Apple's unconfigured Vim. home-manager's versions were real binaries on `PATH`; functions only apply where fish runs the command, which is accepted — `EDITOR` and git's `core.editor` already name `nvim`, so only something invoking the literal name `vim` from outside fish misses them. Same mechanism as `ls`, `rm` and `wget` (whose one XDG need, the HSTS file, is the `--hsts-file=$XDG_CACHE_HOME/wget-hsts` in `functions/wget.fish`).
+`vi` and `vim` are fish functions (`functions/vi.fish`, `vim.fish`, `--wraps nvim`); without them `vim` opens Apple's unconfigured Vim. Functions only apply where fish runs the command, which is accepted — `EDITOR` and git's `core.editor` already name `nvim`, so only something invoking the literal name `vim` from outside fish misses them. Same mechanism as `ls`, `rm` and `wget` (whose one XDG need, the HSTS file, is the `--hsts-file=$XDG_CACHE_HOME/wget-hsts` in `functions/wget.fish`).
 
 **The theme is `conf.d/theme.fish`, not an autoloaded `functions/__apply_theme.fish`.** A function file is read only on first call, so its `--on-variable` handler would register only because something happens to call it at startup; a conf.d file is always sourced, so the handler always exists. It opens with `status is-interactive; or return`. The prompt's git handler lives in `conf.d/prompt.fish` for the same reason: inside `functions/fish_prompt.fish` it registered only when `fish_prompt` first ran, which is *after* the first `fish_prompt` event, so every new shell's first prompt had no git segment — caught in testing.
 

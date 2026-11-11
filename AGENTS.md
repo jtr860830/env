@@ -6,13 +6,13 @@ This file provides guidance to coding agents — pi, and Claude Code or Codex wh
 
 Personal configuration for one Mac (Apple Silicon). Dotfiles live under `config/` and are linked into `$HOME` with GNU stow; packages are declared in `brewfile` and installed with `brew bundle`; `justfile` holds every operation. The repo usually sits at `~/.config/env` but **can live in any directory** — nothing references its absolute path, and `just check` fails if a file under `config/` contains the repo's own path.
 
-**Why this and not nix (decided 2026-10-21).** The requirements are: configuration reproducible and at standard (XDG) paths; packages reinstallable from one declared list at their **latest** version, with no pinning; one Mac, no cross-OS need. nix-darwin + home-manager met the first and fought the second — a `flake.lock` commit almost every day (34 of 51 commits in the month before), and Darwin packaging breakage in nixpkgs (`bear` 4.2.3's install phase hardcoded `libexec.so`; `container` never worked). With cross-OS sharing dropped, nothing nix did was out of reach of plain files. The nix setup is in git history up to the merge of `stow-migration`. The stow-migration plan remains in git history at `1a90fa2` (removed from tracking in `0421bf3`); its identical ignored copy was deleted on 2026-11-11.
+**nix was tried and dropped (2026-10-21).** nix-darwin + home-manager managed this configuration before; it was unsuitable because packages here are wanted at their latest version with no pinning, and there is only one Mac. That setup and the stow-migration plan (`1a90fa2`) are in git history.
 
 ## House Style
 
 **No comments in config files.** Single-user repo — the reasoning lives in this file and in `docs/`, where it does not have to be maintained alongside the code. Do not add explanatory comments back when editing; put the finding in the file that loads for that area. Every measured value and every rejected alternative is kept, with its date: those are the expensive part.
 
-`brewfile` is one flat alphabetical list per kind (`brew`, then `cask`, then `mas`), no category headers. Categories were tried in the old `home/packages.nix` and dropped: they invited endless boundary arguments (is `atac` networking or API tooling? is `gnu-sed` a build tool?), and only 2 of 17 groups ever stayed sorted. Flat keeps lookup and insertion predictable. The file is lowercase `brewfile`; Homebrew only auto-discovers `Brewfile`, so every call passes `--file`, and `HOMEBREW_BUNDLE_FILE` is deliberately not set because it would hardcode the repo path.
+`brewfile` is one flat alphabetical list per kind (`brew`, then `cask`, then `mas`), no category headers. Categories were tried and dropped: they invited endless boundary arguments (is `atac` networking or API tooling? is `gnu-sed` a build tool?), and only 2 of 17 groups ever stayed sorted. Flat keeps lookup and insertion predictable. The file is lowercase `brewfile`; Homebrew only auto-discovers `Brewfile`, so every call passes `--file`, and `HOMEBREW_BUNDLE_FILE` is deliberately not set because it would hardcode the repo path.
 
 **Scripts in this repo run under BSD tools** — `sed -i ''`, not `sed -i`. The GNU versions are installed only under their `g`-prefixed names (`docs/homebrew.md`).
 
@@ -24,9 +24,9 @@ A new machine runs `./bootstrap.sh`: it installs Homebrew and `just` — exporti
 
 **`stow --no-folding` is required, not a style choice.** With folding, a target directory that does not exist yet becomes a single link into the repo, and fish (`fish_variables`) and vim.pack (`nvim-pack-lock.json`) then write their own files *into the repo*. Without it every directory under `~` is real and only leaf files are links.
 
-`just etc` owns three files under `/etc` that nix-darwin used to manage: `/etc/shells` gains `/opt/homebrew/bin/fish` (`chsh` refuses a shell not listed there); `/etc/pam.d/sudo_local` gets `pam_reattach.so` from `/opt/homebrew/lib/pam/`, then `pam_tid.so`, so Touch ID works for sudo including inside tmux; `/etc/homebrew/brew.env` sets `HOMEBREW_CACHE` and `HOMEBREW_XDG_CONFIG_HOME` (`docs/homebrew.md`).
+`just etc` owns three files under `/etc`: `/etc/shells` gains `/opt/homebrew/bin/fish` (`chsh` refuses a shell not listed there); `/etc/pam.d/sudo_local` gets `pam_reattach.so` from `/opt/homebrew/lib/pam/`, then `pam_tid.so`, so Touch ID works for sudo including inside tmux; `/etc/homebrew/brew.env` sets `HOMEBREW_CACHE` and `HOMEBREW_XDG_CONFIG_HOME` (`docs/homebrew.md`).
 
-`just clean` removes any package not in the brewfile, the role nix-darwin's `cleanup = "zap"` played; `mas` apps are the exception, see `docs/homebrew.md`.
+`just clean` removes any package not in the brewfile; `mas` apps are the exception, see `docs/homebrew.md`.
 
 ## PATH
 
@@ -46,7 +46,7 @@ Steps `just setup` cannot perform — macOS settings, OmniWM permissions, pi's a
 
 Fully migrated to podman. `podman machine` manages the Linux VM — no colima/Docker Desktop needed. lima is kept for general-purpose Linux VMs (not container-related). `podlet` converts existing container defs to Quadlet/k8s YAML format.
 
-`container` (Apple's) was non-functional from nixpkgs, which never symlinked its `libexec/` (`cannot find any plugins with type network`). It comes from Homebrew's formula now and has not been re-verified.
+Apple's `container` is installed alongside, from Homebrew's formula.
 
 ## Theme
 
@@ -75,6 +75,6 @@ Measured findings tied to one area live in the flat, harness-neutral `docs/` dir
 | `docs/git.md` | `config/git/**` | `bat` and `delta` removed and why git's own diff is the better choice under a switching theme, `core.pager = nvim` rejected, `column.ui` declined, the `master` → `main` rename |
 | `docs/omniwm.md` | `config/omniwm/**` | the stowed `settings.toml` and its strict schema, the 0.8.0 upgrade, workspaces per display, app rules and the catch-all to workspace 3, no sticky windows, the workspace bar's three layers and the stowed OmniShell profile, the status menu, the window switcher, Quake and Hidden Bar being off, Overview colours, trackpad gestures and hotkeys |
 | `docs/pi.md` | `config/pi/**`, `.pi/**`, `docs/**` | pi's lack of XDG support and the two `PI_CODING_AGENT_*` variables, why sessions are DATA not STATE, which `settings.json` values are hand-set; pi as the harness with Claude Code and Codex as backends — why `pi-claude-code` over `pi-claude-bridge` and what it measurably sends; the subagent extension (thinking, model override, fallback chains, background jobs, child identity), the six agents and the designs rejected; `rules.ts` |
-| `docs/homebrew.md` | `justfile`, `bootstrap.sh`, `brewfile` | `/etc/homebrew/brew.env` and the `brew.env` hierarchy; which keg-only formulae are linked and why (`curl`, `llvm`, `rustup`), which are deliberately not (`ncurses`, `openjdk`, the gnubin trio); formula names that differ from nixpkgs; bundle cleanup and the `mas` glitch |
+| `docs/homebrew.md` | `justfile`, `bootstrap.sh`, `brewfile` | `/etc/homebrew/brew.env` and the `brew.env` hierarchy; which keg-only formulae are linked and why (`curl`, `llvm`, `rustup`), which are deliberately not (`ncurses`, `openjdk`, the gnubin trio); Python's canonical formula name; bundle cleanup and the `mas` glitch |
 
 The loading is done by `.pi/extensions/rules.ts`: from cwd it finds the nearest ancestor (inclusive) containing `.git` (file or directory), then reads `docs/*.md` non-recursively; no `docs/` means no documents to load. It injects guidance when `read`/`edit`/`write` touches a matching path, blocking the first edit/write so the text lands before the change. The format is Claude Code's path-scoped frontmatter. These files lived in `.claude/rules/` until 2026-11-11 (with skills in `.claude/skills/`), then in `.pi/rules/` until 2026-11-11, when they moved to `docs/`; skills stayed in `.pi/skills/`. Claude Code and Codex see the documents only if they open them. The location decision and rejected alternatives are in `docs/pi.md`; loading behaviour is otherwise unchanged, with a redesign left for later.

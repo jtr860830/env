@@ -8,7 +8,7 @@ paths: ["config/tmux/**"]
 - Mode detection without plugins: `#{?client_prefix,...}` and `#{?pane_in_mode,...}` are built-in tmux format strings
 - `pane-border-style` and `pane-active-border-style` set to the same color — a shared border between an active and an inactive pane renders half in each style. Re-verified on tmux 3.7c, so do not try giving the active border its own color again
 - **`message-style` needs `fill=`, not just `bg=`.** tmux draws the message over the existing status line and only paints the cells the text occupies, so the rest of the row shows through — `display-message HELLO` over `jtr860830@…` rendered as `HELLO60830@…`. `fill` makes it clear to end of line
-- **An option set twice is set by whichever line comes last.** home-manager's module once emitted `escape-time`, `history-limit` and `focus-events` alongside hand-written copies; the file is plain now, but check before adding one:
+- **An option set twice is set by whichever line comes last.** Check for duplicates before adding one:
   ```sh
   grep -oE '^set(w)? +(-[a-z]+ +)*[a-z@_-]+' config/tmux/.config/tmux/tmux.conf | awk '{print $NF}' | sort | uniq -d
   ```

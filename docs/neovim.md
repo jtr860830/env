@@ -10,7 +10,7 @@ Custom minimal config in `config/nvim/.config/nvim/`, stowed to `~/.config/nvim`
 - **`nvim-pack-lock.json` is deliberately not in the repo** (gitignored at `config/nvim/.config/nvim/`): the requirement is latest plugins, not pinned ones, so the lockfile lives only as a real file in `~/.config/nvim`. A lockfile that appears inside `config/` came from a probe run with `XDG_CONFIG_HOME` pointed at the repo — delete it.
 - **blink.cmp is pinned to `vim.version.range "1.*"`** so vim.pack checks out a release tag, which is what makes blink download its prebuilt Rust fuzzy library; verify with `require("blink.cmp.fuzzy.rust")`.
 - **mini.nvim's URL is `nvim-mini/mini.nvim`** — the repo moved from `echasnovski`.
-- The four `vim.g.loaded_*_provider = 0` lines at the top used to be injected by home-manager; they stay so `:checkhealth` and startup behave as before.
+- The four `vim.g.loaded_*_provider = 0` lines at the top keep providers disabled for `:checkhealth` and startup.
 
 ### LSP (neovim 0.11+ API)
 
@@ -39,7 +39,7 @@ Shared per-buffer setup therefore lives in an `LspAttach` autocmd, which fires f
 
 **`vim.lsp.config[name]` is the reliable instrument, and it *does* include the wildcard.** `runtime/lua/vim/lsp.lua:355` resolves it as `tbl_deep_extend('force', _configs['*'], rtp_config, _configs[name])`. An earlier note here claimed the opposite; it was wrong, and it licensed reading a correct signal as noise.
 
-**Never test a change to this config with `set rtp+=`.** It *appends*, so `~/.config/nvim` still wins `require "lsp"`. Under nix that meant every such check silently measured the last deployed generation, which hid the `on_attach` regression through several rounds of "verification". With stow `~/.config/nvim` *is* the repo, so the stale-code half of the trap is gone — but a probe should still not touch the live data and cache. Use an isolated config and data dir:
+**Never test a change to this config with `set rtp+=`.** It *appends*, so `~/.config/nvim` still wins `require "lsp"`. With stow `~/.config/nvim` *is* the repo, but a probe should still not touch the live data and cache. Use an isolated config and data dir:
 
 ```sh
 I=$(mktemp -d); mkdir -p $I/config; ln -s "$(git rev-parse --show-toplevel)/config/nvim/.config/nvim" $I/config/nvim
@@ -107,7 +107,7 @@ Do not "helpfully" re-add these — each was removed after checking:
 - **blink's `snippets` source** — it serves snippet *libraries* found on the runtimepath, and none are installed, so it returned nothing on every keystroke. LSP snippets arrive through the `lsp` source instead; `snippetSupport = true` is hardcoded in blink (`sources/lib/init.lua`), not an option. Snippet libraries are unwanted; LSP-driven completion is.
 - **`nvim-treesitter` (the `main` branch) supplies parsers and queries; highlighting stays native.** `treesitter.lua` calls `require("nvim-treesitter").install { … }` with the language list and then `vim.treesitter.start()` per buffer. Parsers are compiled locally (`tree-sitter-cli` from the brewfile, Apple clang) into `~/.local/share/nvim/site/parser/`. `install()` is async; with no UI (`#vim.api.nvim_list_uis() == 0`) the file waits on it, so `nvim --headless +qa` installs every parser — that is what `just plugins` relies on. `install()` skips parsers that already exist, so `just plugins` also runs `require("nvim-treesitter").update():wait()` after `vim.pack.update` — otherwise updated queries can outrun stale parsers, which is exactly how the old `diff` mismatch happened.
 
-**`tmux` is registered by hand, in a `User TSUpdate` autocmd at the top of `treesitter.lua`.** nvim-treesitter dropped it on 2026-07-15 (`78bebef1`, with `muttrc`, `zathurarc`, `hlsplaylist`) because upstream [Freed-Wu/tree-sitter-tmux](https://github.com/Freed-Wu/tree-sitter-tmux) stopped committing the generated `src/`; an old parser left in `parser/` then made every `update()` print `Parser not available for language "tmux"`. Upstream is alive (releases 0.1.3/0.1.4 in July 2026), so the registration sets `generate = true` — `tree-sitter-cli` builds `parser.c` locally — and `queries = "queries"` to take upstream's own queries, which use standard capture names. Verified on the real `tmux.conf`: no parse errors despite the nested `#{?…}` formats, and keyword/string/variable captures in the hundreds. If nvim-treesitter ever restores `tmux`, delete the autocmd. Neovim bundles queries for only 7 languages (`c lua markdown markdown_inline query vim vimdoc`); the rest come from this plugin. The old `diff` parser/query mismatch (`Invalid node type "change"`) is gone since the switch from nixpkgs' grammars.
+**`tmux` is registered by hand, in a `User TSUpdate` autocmd at the top of `treesitter.lua`.** nvim-treesitter dropped it on 2026-07-15 (`78bebef1`, with `muttrc`, `zathurarc`, `hlsplaylist`) because upstream [Freed-Wu/tree-sitter-tmux](https://github.com/Freed-Wu/tree-sitter-tmux) stopped committing the generated `src/`; an old parser left in `parser/` then made every `update()` print `Parser not available for language "tmux"`. Upstream is alive (releases 0.1.3/0.1.4 in July 2026), so the registration sets `generate = true` — `tree-sitter-cli` builds `parser.c` locally — and `queries = "queries"` to take upstream's own queries, which use standard capture names. Verified on the real `tmux.conf`: no parse errors despite the nested `#{?…}` formats, and keyword/string/variable captures in the hundreds. If nvim-treesitter ever restores `tmux`, delete the autocmd. Neovim bundles queries for only 7 languages (`c lua markdown markdown_inline query vim vimdoc`); the rest come from this plugin.
 
 ### mini.nvim Modules
 
@@ -188,7 +188,7 @@ Window/buffer/split keymaps are intentionally absent — tmux handles that workf
 
 conform is configured without `format_on_save` — format manually with `<leader>cf`.
 
-`smartindent` is deliberately **not** set. `indentexpr` overrules it, so it was a no-op for python, yaml, lua, go and sh, while a filetype with no `indentexpr` (nix, when it was used here) had it treat a leading `#` as a preprocessor directive and stripped the indentation off every comment. `autoindent` is on by default and keeps ordinary lines indented.
+`smartindent` is deliberately **not** set. `indentexpr` overrules it, so it was a no-op for python, yaml, lua, go and sh, while a filetype with no `indentexpr` had it treat a leading `#` as a preprocessor directive and stripped the indentation off every comment. `autoindent` is on by default and keeps ordinary lines indented.
 
 ### Startup Performance
 
