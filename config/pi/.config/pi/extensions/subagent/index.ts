@@ -540,8 +540,8 @@ type TaskRecord =
 	| { event: "session"; key: string; sessionId: string }
 	| { event: "ended"; key: string; reason: "completed" | "failed" | "session-closed" | StoppedBy };
 
-const RESULT_MESSAGE = "subagent-result";
-const TASK_RECORD = "subagent-task";
+const RESULT_MESSAGE = "task-result";
+const TASK_RECORD = "task-record";
 
 function outputSoFar(result: AgentToolResult<SubagentDetails> | undefined): string {
 	if (!result) return "(no output)";
