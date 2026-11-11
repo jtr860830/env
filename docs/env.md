@@ -4,7 +4,7 @@ paths: ["config/fish/**"]
 
 # Environment Variables
 
-Findings behind the variables `conf.d/env.fish` sets and the files that depend on them. Moved out of `AGENTS.md` on 2026-11-10 so they load only when fish config is edited. The tealdeer entry below is the whole reason its config file looks the way it does; that file changes rarely enough that it does not get its own rule.
+Findings behind the variables `conf.d/env.fish` sets and the files that depend on them. Moved out of `AGENTS.md` on 2026-11-10 so they load only when fish config is edited. The tealdeer entry below is the whole reason its config file looks the way it does; that file changes rarely enough that it does not get its own document.
 
 ## Go
 

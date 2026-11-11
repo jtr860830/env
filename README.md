@@ -28,7 +28,7 @@ Files under `config/` are linked into `$HOME`, so editing them takes effect imme
 | `just link` | after adding a new file under `config/` |
 | `just install` | after adding a package to `brewfile` |
 | `just clean` | remove installed packages that are no longer in `brewfile` |
-| `just check` | verify packages are installed and up to date, and links are clean |
+| `just check` | verify docs references, packages are installed and up to date, and links are clean |
 | `just relink` | after moving the repo to another directory |
 
 Run `just` on its own to list every recipe.
