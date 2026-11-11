@@ -46,7 +46,7 @@ Steps `just setup` cannot perform — macOS settings, OmniWM permissions, pi's a
 
 Fully migrated to podman. `podman machine` manages the Linux VM — no colima/Docker Desktop needed. lima is kept for general-purpose Linux VMs (not container-related). `podlet` converts existing container defs to Quadlet/k8s YAML format.
 
-Apple's `container` is installed alongside, from Homebrew's formula.
+Apple's `container` is installed from Homebrew's formula only to try out now and then: as of 2026-11-11 it is not complete enough to replace podman, which stays the one in daily use.
 
 ## Theme
 
