@@ -440,6 +440,11 @@ async function runSingleAgent(
 		}
 	};
 
+	if (signal?.aborted) {
+		result.stopReason = "aborted";
+		return result;
+	}
+
 	let tmp: { dir: string; filePath: string } | null = null;
 	try {
 		tmp = await writePromptToTempFile(agent.name, `${agent.systemPrompt.trim()}${identitySuffix(agent.name)}`);
@@ -454,7 +459,7 @@ async function runSingleAgent(
 
 		const { exitCode, aborted } = await runPi(args, opts.cwd ?? defaultCwd, env, signal, result, emit);
 		result.exitCode = exitCode;
-		if (aborted) throw new Error("Subagent was aborted");
+		if (aborted) result.stopReason = "aborted";
 		return result;
 	} finally {
 		if (tmp) {
@@ -497,12 +502,6 @@ const SubagentParams = Type.Object({
 	cwd: Type.Optional(Type.String({ description: "Working directory for the agent process (single mode)" })),
 	thinking: Type.Optional(ThinkingSchema),
 	model: Type.Optional(ModelSchema),
-	background: Type.Optional(
-		Type.Boolean({
-			description:
-				"Return immediately with a background task id instead of waiting; the result arrives later as a message that wakes you. Use for long tasks when you have other work or something to tell the user meanwhile. Ignored without a UI. Default: false.",
-		}),
-	),
 });
 
 type SubagentParamsType = Static<typeof SubagentParams>;
@@ -543,6 +542,7 @@ export default function (pi: ExtensionAPI) {
 	}
 
 	const backgroundTasks = new Map<string, BackgroundTask>();
+	let taskCount = 0;
 
 	const agentCatalog = () => {
 		const agents = discoverAgents();
@@ -725,17 +725,18 @@ export default function (pi: ExtensionAPI) {
 			"The subagent sees nothing of this conversation. Its brief must be self-contained: goal, exact files or symbols, constraints, what done looks like, and the report format you want back. Only its final message comes back to you. Each result ends with the subagent's session id; its full transcript is kept and opens with `pi --session <id>`.",
 			"Agents are bundles of defaults (model, tools, report format), not roles: give the role in the brief. A merger is a worker told to merge; a critic is a reviewer told what to criticise.",
 			"Modes: single (agent + task), parallel (tasks, independent and touching disjoint files).",
-			"Each task takes an optional thinking level and model override. background=true returns a background task id immediately and the result arrives later as a message that wakes you; use it when you have something to say or do meanwhile, otherwise run in the foreground.",
+			"Each task takes an optional thinking level and model override.",
+			"A call returns a background task id at once and the subagent keeps running; its result arrives later as a message that wakes you. Until then you know nothing of the result.",
 			"Available agents:",
 			agentCatalog(),
 		].join("\n"),
 		parameters: SubagentParams,
 
 		async execute(_toolCallId, params, signal, onUpdate, ctx) {
-			if (!params.background || !ctx.hasUI) return runCall(params, ctx, signal, onUpdate);
+			if (!ctx.hasUI) return runCall(params, ctx, signal, onUpdate);
 
 			const kind = params.agent ?? "parallel";
-			const id = `${kind}-${Date.now().toString(36).slice(-5)}`;
+			const id = `${kind}-${++taskCount}`;
 			const summary = params.agent
 				? `${params.agent}: ${shortTask(params.task)}`
 				: (params.tasks ?? []).map((t) => t.agent).join(", ");
