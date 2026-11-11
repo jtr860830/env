@@ -28,6 +28,7 @@ import {
 import { Container, Markdown, Spacer, Text } from "@earendil-works/pi-tui";
 import { type Static, Type } from "typebox";
 import { type AgentConfig, discoverAgents, parseThinkingLevel, THINKING_LEVELS } from "./agents.ts";
+import { fallbackModel, registerFallback } from "./fallback.ts";
 
 const MAX_PARALLEL_TASKS = 8;
 const MAX_CONCURRENCY = 4;
@@ -289,13 +290,6 @@ interface RunOptions {
 	makeDetails: (results: SingleResult[]) => SubagentDetails;
 }
 
-const QUOTA_ERROR =
-	/usage limit|credit balance|billing|insufficient_quota|out of budget|quota exceeded|available balance|spend limit/i;
-
-function isQuotaError(result: SingleResult): boolean {
-	return isFailedResult(result) && QUOTA_ERROR.test(`${result.errorMessage ?? ""}\n${result.stderr}`);
-}
-
 function emptyUsage(): UsageStats {
 	return { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: 0, contextTokens: 0, turns: 0 };
 }
@@ -312,6 +306,7 @@ function identitySuffix(agentName: string): string {
 function runPi(
 	args: string[],
 	cwd: string,
+	env: Record<string, string>,
 	signal: AbortSignal | undefined,
 	result: SingleResult,
 	emit: () => void,
@@ -322,10 +317,11 @@ function runPi(
 			cwd,
 			shell: false,
 			stdio: ["ignore", "pipe", "pipe"],
-			env: { ...process.env, PI_SUBAGENT: result.agent },
+			env: { ...process.env, ...env },
 		});
 		let buffer = "";
 		let aborted = false;
+		let failedModel: string | undefined;
 
 		const processLine = (line: string) => {
 			if (!line.trim()) return;
@@ -350,9 +346,14 @@ function runPi(
 						result.usage.cost += usage.cost?.total || 0;
 						result.usage.contextTokens = usage.totalTokens || 0;
 					}
-					if (!result.model && msg.model) result.model = msg.model;
-					if (msg.stopReason) result.stopReason = msg.stopReason;
-					if (msg.errorMessage) result.errorMessage = msg.errorMessage;
+					const ran = `${msg.provider}/${msg.model}`;
+					if (failedModel && failedModel !== ran) {
+						result.fallbackFrom = [...(result.fallbackFrom ?? []), failedModel];
+					}
+					failedModel = msg.stopReason === "error" ? ran : undefined;
+					result.model = ran;
+					result.stopReason = msg.stopReason;
+					result.errorMessage = msg.errorMessage;
 				}
 				emit();
 			}
@@ -414,9 +415,8 @@ async function runSingleAgent(
 	}
 
 	const inheritsDispatchConfig = !agent.model && !opts.model;
-	const candidates: (string | undefined)[] = opts.model
-		? [opts.model]
-		: [agent.model ?? dispatchDefaults.model, ...(agent.fallback ?? [])];
+	const firstModel = opts.model ?? agent.model ?? dispatchDefaults.model;
+	const model = opts.model ?? fallbackModel(agent) ?? firstModel;
 	const thinkingLevel =
 		opts.thinking ?? agent.thinking ?? (inheritsDispatchConfig ? dispatchDefaults.thinkingLevel : undefined);
 
@@ -428,7 +428,7 @@ async function runSingleAgent(
 		messages: [],
 		stderr: "",
 		usage: emptyUsage(),
-		model: candidates[0],
+		model: firstModel,
 	};
 
 	const emit = () => {
@@ -443,29 +443,18 @@ async function runSingleAgent(
 	let tmp: { dir: string; filePath: string } | null = null;
 	try {
 		tmp = await writePromptToTempFile(agent.name, `${agent.systemPrompt.trim()}${identitySuffix(agent.name)}`);
-		const tried: string[] = [];
-		for (let i = 0; i < candidates.length; i++) {
-			const model = candidates[i];
-			result.messages = [];
-			result.stderr = "";
-			result.stopReason = undefined;
-			result.errorMessage = undefined;
-			result.model = model;
-			result.sessionId = undefined;
-			if (tried.length > 0) result.fallbackFrom = [...tried];
+		const args = ["--mode", "json", "-p"];
+		if (model) args.push("--model", model);
+		if (thinkingLevel) args.push("--thinking", thinkingLevel);
+		if (agent.tools && agent.tools.length > 0) args.push("--tools", agent.tools.join(","));
+		args.push("--append-system-prompt", tmp.filePath, `Task: ${task}`);
 
-			const args = ["--mode", "json", "-p"];
-			if (model) args.push("--model", model);
-			if (thinkingLevel) args.push("--thinking", thinkingLevel);
-			if (agent.tools && agent.tools.length > 0) args.push("--tools", agent.tools.join(","));
-			args.push("--append-system-prompt", tmp.filePath, `Task: ${task}`);
+		const env: Record<string, string> = { PI_SUBAGENT: agent.name };
+		if (thinkingLevel) env.PI_SUBAGENT_THINKING = thinkingLevel;
 
-			const { exitCode, aborted } = await runPi(args, opts.cwd ?? defaultCwd, signal, result, emit);
-			result.exitCode = exitCode;
-			if (aborted) throw new Error("Subagent was aborted");
-			if (i === candidates.length - 1 || !isQuotaError(result)) break;
-			tried.push(model ?? "(inherited)");
-		}
+		const { exitCode, aborted } = await runPi(args, opts.cwd ?? defaultCwd, env, signal, result, emit);
+		result.exitCode = exitCode;
+		if (aborted) throw new Error("Subagent was aborted");
 		return result;
 	} finally {
 		if (tmp) {
@@ -548,7 +537,10 @@ function shortTask(task: string | undefined, max = 50): string {
 }
 
 export default function (pi: ExtensionAPI) {
-	if (process.env.PI_SUBAGENT) return;
+	if (process.env.PI_SUBAGENT) {
+		registerFallback(pi, process.env.PI_SUBAGENT);
+		return;
+	}
 
 	const backgroundTasks = new Map<string, BackgroundTask>();
 
