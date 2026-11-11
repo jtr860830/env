@@ -156,6 +156,7 @@ interface SingleResult {
 	model?: string;
 	sessionId?: string;
 	fallbackFrom?: string[];
+	done?: boolean;
 	stopReason?: string;
 	errorMessage?: string;
 }
@@ -412,6 +413,7 @@ async function runSingleAgent(
 			exitCode: 1,
 			messages: [],
 			stderr: `Unknown agent: "${agentName}". Available agents: ${available}.`,
+			done: true,
 			usage: emptyUsage(),
 		};
 	}
@@ -430,7 +432,7 @@ async function runSingleAgent(
 		messages: [],
 		stderr: "",
 		usage: emptyUsage(),
-		model: firstModel,
+		model: model === firstModel ? firstModel : undefined,
 	};
 
 	const emit = () => {
@@ -444,6 +446,7 @@ async function runSingleAgent(
 
 	if (signal?.aborted) {
 		result.stopReason = "aborted";
+		result.done = true;
 		return result;
 	}
 
@@ -462,6 +465,7 @@ async function runSingleAgent(
 		const { exitCode, aborted } = await runPi(args, opts.cwd ?? defaultCwd, env, signal, result, emit);
 		result.exitCode = exitCode;
 		if (aborted) result.stopReason = "aborted";
+		result.done = true;
 		return result;
 	} finally {
 		if (tmp) {
@@ -525,8 +529,6 @@ interface BackgroundTask {
 	startedAt: number;
 	controller: AbortController;
 	sessions: Set<string>;
-	seen: number[];
-	latest: number;
 	stoppedBy?: StoppedBy;
 	partial?: AgentToolResult<SubagentDetails>;
 	result?: AgentToolResult<SubagentDetails>;
@@ -563,30 +565,33 @@ function lastAction(r: SingleResult): string {
 	return shortTask(item.text, 60);
 }
 
-function widgetLine(bg: BackgroundTask): string {
+function memberState(r: SingleResult): "running" | "done" | "failed" {
+	return !r.done ? "running" : isFailedResult(r) ? "failed" : "done";
+}
+
+function modelMark(r: SingleResult): string {
+	return r.model ? `${r.model}${r.fallbackFrom?.length ? ` (fallback #${r.fallbackFrom.length})` : ""}` : "";
+}
+
+function widgetLines(bg: BackgroundTask): string[] {
 	const results = bg.partial?.details?.results ?? [];
-	const elapsed = Math.round((Date.now() - bg.startedAt) / 1000);
-	const turns = results.reduce((n, r) => n + r.usage.turns, 0);
-	const models = [...new Set(results.map((r) => r.model).filter(Boolean))].join(", ") || "?";
-	const fallbacks = Math.max(0, ...results.map((r) => r.fallbackFrom?.length ?? 0));
-	const active = results[bg.latest];
-	const parts = [
-		`⏳ ${bg.id}`,
-		bg.group,
-		`${models}${fallbacks ? ` (fallback #${fallbacks})` : ""}`,
-		`${turns} turns`,
-		`${elapsed}s`,
-		active ? shortTask(lastAction(active), 60) : "starting",
-	];
-	return parts.filter(Boolean).join("  ");
+	const elapsed = `${Math.round((Date.now() - bg.startedAt) / 1000)}s`;
+	if (results.length === 0) return [[`⏳ ${bg.id}`, bg.group, elapsed, "starting"].filter(Boolean).join("  ")];
+	return results.map((r) => {
+		const state = memberState(r);
+		const icon = state === "running" ? "⏳" : state === "failed" ? "✗" : "✓";
+		const tail = state === "running" ? [elapsed, shortTask(lastAction(r), 60)] : [state];
+		return [`${icon} ${bg.id}`, bg.group ? r.agent : "", modelMark(r), `${r.usage.turns} turns`, ...tail]
+			.filter(Boolean)
+			.join("  ");
+	});
 }
 
 function describeTask(bg: BackgroundTask): string {
 	const elapsed = Math.round((Date.now() - bg.startedAt) / 1000);
 	const members = (bg.partial?.details?.results ?? []).map((r) => {
-		const fallback = r.fallbackFrom?.length ? ` (fallback #${r.fallbackFrom.length})` : "";
 		const session = r.sessionId ? `  session: ${r.sessionId}` : "";
-		return `  ${r.agent}  ${r.model ?? "?"}${fallback}  ${r.usage.turns} turns  last: ${lastAction(r)}${session}`;
+		return `  ${r.agent}  ${memberState(r)}  ${modelMark(r) || "?"}  ${r.usage.turns} turns  last: ${lastAction(r)}${session}`;
 	});
 	return [`${bg.id}  ${bg.summary}  running ${elapsed}s`, ...members].join("\n");
 }
@@ -821,7 +826,7 @@ export default function (pi: ExtensionAPI) {
 			return;
 		}
 		ticker ??= setInterval(updateWidget, 1000);
-		current.ui.setWidget("subagent", running.map(widgetLine));
+		current.ui.setWidget("subagent", running.flatMap(widgetLines));
 	};
 
 	async function runCall(
@@ -1144,15 +1149,9 @@ export default function (pi: ExtensionAPI) {
 				controller,
 				group: single ? "" : names.join(", "),
 				sessions: new Set(),
-				seen: [],
-				latest: 0,
 				promise: runCall(params, ctx, controller.signal, (partial) => {
 					bg.partial = partial;
-					(partial.details?.results ?? []).forEach((r, index) => {
-						if (r.messages.length !== (bg.seen[index] ?? 0)) {
-							bg.seen[index] = r.messages.length;
-							bg.latest = index;
-						}
+					(partial.details?.results ?? []).forEach((r) => {
 						if (!r.sessionId || bg.sessions.has(r.sessionId)) return;
 						bg.sessions.add(r.sessionId);
 						record({ event: "session", key, sessionId: r.sessionId });
