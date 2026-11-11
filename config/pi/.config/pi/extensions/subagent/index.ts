@@ -5,8 +5,8 @@
  * giving it an isolated context window.
  *
  * Supports two modes:
- *   - Single: { agent: "name", task: "..." }
- *   - Parallel: { tasks: [{ agent: "name", task: "..." }, ...] }
+ *   - Single: { agent: "name", brief: "..." }
+ *   - Parallel: { tasks: [{ agent: "name", brief: "..." }, ...] }
  *
  * Uses JSON mode to capture structured output from subagents.
  */
@@ -302,7 +302,7 @@ function identitySuffix(agentName: string): string {
 		"",
 		"---",
 		`You are running as the "${agentName}" subagent of another pi session. That session delegated this task to you and will read only your final message, so put everything it needs there.`,
-		"You cannot delegate further: there is no subagent tool here. Do the task yourself.",
+		"You cannot delegate further: the task tool is not available here. Do the task yourself.",
 	].join("\n");
 }
 
@@ -495,7 +495,7 @@ const ModelSchema = Type.String({
 
 const TaskItem = Type.Object({
 	agent: Type.String({ description: "Name of the agent to invoke" }),
-	task: Type.String({ description: "Task to delegate to the agent" }),
+	brief: Type.String({ description: "The brief for this agent" }),
 	cwd: Type.Optional(Type.String({ description: "Working directory for the agent process" })),
 	thinking: Type.Optional(ThinkingSchema),
 	model: Type.Optional(ModelSchema),
@@ -503,8 +503,8 @@ const TaskItem = Type.Object({
 
 const SubagentParams = Type.Object({
 	agent: Type.Optional(Type.String({ description: "Name of the agent to invoke (for single mode)" })),
-	task: Type.Optional(Type.String({ description: "Task to delegate (for single mode)" })),
-	tasks: Type.Optional(Type.Array(TaskItem, { description: "Array of {agent, task} for parallel execution" })),
+	brief: Type.Optional(Type.String({ description: "The brief for the agent (single mode)" })),
+	tasks: Type.Optional(Type.Array(TaskItem, { description: "Array of {agent, brief} for parallel execution" })),
 	cwd: Type.Optional(Type.String({ description: "Working directory for the agent process (single mode)" })),
 	thinking: Type.Optional(ThinkingSchema),
 	model: Type.Optional(ModelSchema),
@@ -513,10 +513,10 @@ const SubagentParams = Type.Object({
 type SubagentParamsType = Static<typeof SubagentParams>;
 
 const TaskControlParams = Type.Object({
-	action: StringEnum(["list", "stop"] as const, {
-		description: "list: the state of every running background task. stop: terminate one and get its output so far.",
+	action: StringEnum(["list", "kill"] as const, {
+		description: "list: the state of every running background task. kill: terminate one and get its output so far.",
 	}),
-	id: Type.Optional(Type.String({ description: "Background task id to stop, or `all`. Required for stop." })),
+	id: Type.Optional(Type.String({ description: "Background task id to kill, or `all`. Required for kill." })),
 });
 
 type StoppedBy = "user" | "model" | "shutdown";
@@ -841,7 +841,7 @@ export default function (pi: ExtensionAPI) {
 		};
 		const agents = discoverAgents();
 		const hasTasks = (params.tasks?.length ?? 0) > 0;
-		const hasSingle = Boolean(params.agent && params.task);
+		const hasSingle = Boolean(params.agent && params.brief);
 		const modeCount = Number(hasTasks) + Number(hasSingle);
 
 		const makeDetails =
@@ -854,7 +854,7 @@ export default function (pi: ExtensionAPI) {
 		if (modeCount !== 1) {
 			const available = agents.map((a) => `${a.name} (${a.source})`).join(", ") || "none";
 			return {
-				content: [{ type: "text", text: `Invalid parameters. Provide exactly one mode: agent + task, or tasks.\nAvailable agents: ${available}` }],
+				content: [{ type: "text", text: `Invalid parameters. Provide exactly one mode: agent + brief, or tasks.\nAvailable agents: ${available}` }],
 				details: makeDetails("single")([]),
 			};
 		}
@@ -869,7 +869,7 @@ export default function (pi: ExtensionAPI) {
 			const allResults: SingleResult[] = params.tasks.map((t) => ({
 				agent: t.agent,
 				agentSource: "unknown",
-				task: t.task,
+				task: t.brief,
 				exitCode: -1,
 				messages: [],
 				stderr: "",
@@ -890,7 +890,7 @@ export default function (pi: ExtensionAPI) {
 			const results = await mapWithConcurrencyLimit(params.tasks, MAX_CONCURRENCY, async (t, index) => {
 				const result = await runSingleAgent(ctx.cwd, dispatchDefaults, agents, {
 					agentName: t.agent,
-					task: t.task,
+					task: t.brief,
 					cwd: t.cwd,
 					thinking: parseThinkingLevel(t.thinking),
 					model: t.model,
@@ -922,10 +922,10 @@ export default function (pi: ExtensionAPI) {
 			};
 		}
 
-		if (params.agent && params.task) {
+		if (params.agent && params.brief) {
 			const result = await runSingleAgent(ctx.cwd, dispatchDefaults, agents, {
 				agentName: params.agent,
-				task: params.task,
+				task: params.brief,
 				cwd: params.cwd,
 				thinking: parseThinkingLevel(params.thinking),
 				model: params.model,
@@ -1055,7 +1055,7 @@ export default function (pi: ExtensionAPI) {
 			if (verb === "kill") {
 				const victims = running.filter((bg) => target === "all" || bg.id === target);
 				for (const bg of victims) stop(bg, "user");
-				ctx.ui.notify(victims.length ? `Stopped ${victims.map((bg) => bg.id).join(", ")}` : "Nothing to stop", "info");
+				ctx.ui.notify(victims.length ? `Killed ${victims.map((bg) => bg.id).join(", ")}` : "Nothing to kill", "info");
 				return;
 			}
 			ctx.ui.notify(running.length ? running.map(describeTask).join("\n") : "No background tasks", "info");
@@ -1063,12 +1063,12 @@ export default function (pi: ExtensionAPI) {
 	});
 
 	pi.registerTool({
-		name: "subagent_task",
-		label: "Subagent task",
+		name: "task_control",
+		label: "Task control",
 		description: [
-			"Inspect or stop the background tasks started by the subagent tool.",
+			"Inspect or kill the background tasks started by the task tool.",
 			"list reports each running task's model, turns, elapsed time, last action and session id. Use it when the user asks how a task is going, not to poll for results: those arrive on their own.",
-			"stop terminates a task whose brief is obsolete and returns its output so far. Start a new task with a corrected brief if the work is still needed.",
+			"kill terminates a task whose brief is obsolete and returns its output so far. Start a new task with a corrected brief if the work is still needed.",
 		].join("\n"),
 		parameters: TaskControlParams,
 
@@ -1090,20 +1090,20 @@ export default function (pi: ExtensionAPI) {
 			await Promise.all(victims.map((bg) => bg.promise));
 			return reply(
 				victims
-					.map((bg) => `Stopped ${bg.id} (${bg.summary}). Output so far:\n\n${outputSoFar(bg.result)}`)
+					.map((bg) => `Killed ${bg.id} (${bg.summary}). Output so far:\n\n${outputSoFar(bg.result)}`)
 					.join("\n\n---\n\n"),
 			);
 		},
 	});
 
 	pi.registerTool({
-		name: "subagent",
-		label: "Subagent",
+		name: "task",
+		label: "Task",
 		description: [
 			"Delegate a task to a subagent: a separate pi process with its own context window, model and tools.",
 			"The subagent sees nothing of this conversation. Its brief must be self-contained: goal, exact files or symbols, constraints, what done looks like, and the report format you want back. Only its final message comes back to you. Each result ends with the subagent's session id; its full transcript is kept and opens with `pi --session <id>`.",
 			"Agents are bundles of defaults (model, tools, report format), not roles: give the role in the brief. A merger is a worker told to merge; a critic is a reviewer told what to criticise.",
-			"Modes: single (agent + task), parallel (tasks, independent and touching disjoint files). Each task takes an optional thinking level and model override.",
+			"Modes: single (agent + brief), parallel (tasks, independent and touching disjoint files). Each task takes an optional thinking level and model override.",
 			"In an interactive session a call returns a background task id at once and the subagent keeps running; its result arrives later as a message that wakes you. Until that message arrives you know nothing of the result: do not predict or describe it, do not poll for it, and do not redo the delegated work yourself. Do other work, answer the user, or end your turn. A parallel call is one task whose results arrive together, so use it for results you need side by side and separate calls for independent work. In print mode the call waits and returns the result directly.",
 			"Available agents:",
 			agentCatalog(),
@@ -1115,7 +1115,7 @@ export default function (pi: ExtensionAPI) {
 			current = ctx;
 
 			const tasks = params.tasks ?? [];
-			const single = Boolean(params.agent && params.task);
+			const single = Boolean(params.agent && params.brief);
 			if (single === tasks.length > 0 || tasks.length > MAX_PARALLEL_TASKS) {
 				return runCall(params, ctx, signal, onUpdate);
 			}
@@ -1136,7 +1136,7 @@ export default function (pi: ExtensionAPI) {
 			}
 
 			const id = `${single ? params.agent : "parallel"}-${++taskCount}`;
-			const summary = single ? `${params.agent}: ${shortTask(params.task)}` : names.join(", ");
+			const summary = single ? `${params.agent}: ${shortTask(params.brief)}` : names.join(", ");
 			const startedAt = Date.now();
 			const key = `${id}@${startedAt}`;
 			const controller = new AbortController();
@@ -1183,20 +1183,20 @@ export default function (pi: ExtensionAPI) {
 		renderCall(args, theme, _context) {
 			if (args.tasks && args.tasks.length > 0) {
 				let text =
-					theme.fg("toolTitle", theme.bold("subagent ")) +
+					theme.fg("toolTitle", theme.bold("task ")) +
 					theme.fg("accent", `parallel (${args.tasks.length} tasks)`) +
 					theme.fg("muted", " [user]");
 				for (const t of args.tasks.slice(0, 3)) {
-					const preview = t.task.length > 40 ? `${t.task.slice(0, 40)}...` : t.task;
+					const preview = t.brief.length > 40 ? `${t.brief.slice(0, 40)}...` : t.brief;
 					text += `\n  ${theme.fg("accent", t.agent)}${theme.fg("dim", ` ${preview}`)}`;
 				}
 				if (args.tasks.length > 3) text += `\n  ${theme.fg("muted", `... +${args.tasks.length - 3} more`)}`;
 				return new Text(text, 0, 0);
 			}
 			const agentName = args.agent || "...";
-			const preview = args.task ? (args.task.length > 60 ? `${args.task.slice(0, 60)}...` : args.task) : "...";
+			const preview = args.brief ? (args.brief.length > 60 ? `${args.brief.slice(0, 60)}...` : args.brief) : "...";
 			let text =
-				theme.fg("toolTitle", theme.bold("subagent ")) +
+				theme.fg("toolTitle", theme.bold("task ")) +
 				theme.fg("accent", agentName) +
 				theme.fg("muted", " [user]");
 			text += `\n  ${theme.fg("dim", preview)}`;
