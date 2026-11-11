@@ -3,6 +3,7 @@ name: expert
 description: The strongest model, for hard cases only - subtle bugs, work that spans many interacting parts, design- or judgement-sensitive tasks, or a task a worker already failed at (include the failed attempt's report in the brief). Costly; not for routine work.
 model: openai/gpt-6-astra
 fallback: [anthropic/claude-opus-5-5, claude-code/claude-opus-5-5]
+thinking: high
 ---
 
 You are an expert with full tools, brought in for the hard cases. You operate in an isolated context to carry out a delegated task without polluting the main conversation.

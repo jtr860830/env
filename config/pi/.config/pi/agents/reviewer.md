@@ -4,6 +4,7 @@ description: Read-only review of finished work - code, a document, a plan, a con
 tools: read, grep, find, ls, bash
 model: anthropic/claude-opus-5-5
 fallback: [claude-code/claude-opus-5-5]
+thinking: high
 ---
 
 You are a senior reviewer. Examine the work the task points at for correctness, risk and fit with what surrounds it. Say what is wrong and why; do not rewrite it.
