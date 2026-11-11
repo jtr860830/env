@@ -27,7 +27,7 @@ import {
 } from "@earendil-works/pi-coding-agent";
 import { Container, Markdown, Spacer, Text } from "@earendil-works/pi-tui";
 import { type Static, Type } from "typebox";
-import { type AgentConfig, discoverAgents, THINKING_LEVELS } from "./agents.ts";
+import { type AgentConfig, discoverAgents, parseThinkingLevel, THINKING_LEVELS } from "./agents.ts";
 
 const MAX_PARALLEL_TASKS = 8;
 const MAX_CONCURRENCY = 4;
@@ -511,14 +511,14 @@ const SubagentParams = Type.Object({
 	background: Type.Optional(
 		Type.Boolean({
 			description:
-				"Return immediately with a job id instead of waiting; the result arrives later as a message that wakes you. Use for long tasks when you have other work or something to tell the user meanwhile. Ignored without a UI. Default: false.",
+				"Return immediately with a background task id instead of waiting; the result arrives later as a message that wakes you. Use for long tasks when you have other work or something to tell the user meanwhile. Ignored without a UI. Default: false.",
 		}),
 	),
 });
 
 type SubagentParamsType = Static<typeof SubagentParams>;
 
-interface BackgroundJob {
+interface BackgroundTask {
 	id: string;
 	summary: string;
 	startedAt: number;
@@ -550,7 +550,7 @@ function shortTask(task: string | undefined, max = 50): string {
 export default function (pi: ExtensionAPI) {
 	if (process.env.PI_SUBAGENT) return;
 
-	const jobs = new Map<string, BackgroundJob>();
+	const backgroundTasks = new Map<string, BackgroundTask>();
 
 	const agentCatalog = () => {
 		const agents = discoverAgents();
@@ -560,18 +560,18 @@ export default function (pi: ExtensionAPI) {
 
 	const updateWidget = (ctx: ExtensionToolContext) => {
 		if (!ctx.hasUI) return;
-		const running = [...jobs.values()].filter((j) => !j.result);
+		const running = [...backgroundTasks.values()].filter((bg) => !bg.result);
 		if (running.length === 0) {
 			ctx.ui.setWidget("subagent", undefined);
 			return;
 		}
 		ctx.ui.setWidget(
 			"subagent",
-			running.map((j) => {
-				const results = j.partial?.details?.results ?? [];
+			running.map((bg) => {
+				const results = bg.partial?.details?.results ?? [];
 				const turns = results.reduce((n, r) => n + r.usage.turns, 0);
-				const elapsed = Math.round((Date.now() - j.startedAt) / 1000);
-				return `⏳ ${j.id}  ${j.summary}  ${turns} turns  ${elapsed}s`;
+				const elapsed = Math.round((Date.now() - bg.startedAt) / 1000);
+				return `⏳ ${bg.id}  ${bg.summary}  ${turns} turns  ${elapsed}s`;
 			}),
 		);
 	};
@@ -639,7 +639,7 @@ export default function (pi: ExtensionAPI) {
 					agentName: t.agent,
 					task: t.task,
 					cwd: t.cwd,
-					thinking: t.thinking,
+					thinking: parseThinkingLevel(t.thinking),
 					model: t.model,
 					signal,
 					onUpdate: (partial) => {
@@ -674,7 +674,7 @@ export default function (pi: ExtensionAPI) {
 				agentName: params.agent,
 				task: params.task,
 				cwd: params.cwd,
-				thinking: params.thinking,
+				thinking: parseThinkingLevel(params.thinking),
 				model: params.model,
 				signal,
 				onUpdate,
@@ -701,25 +701,25 @@ export default function (pi: ExtensionAPI) {
 	}
 
 	pi.on("session_shutdown", async () => {
-		for (const job of jobs.values()) if (!job.result) job.controller.abort();
+		for (const bgTask of backgroundTasks.values()) if (!bgTask.result) bgTask.controller.abort();
 	});
 
-	pi.registerCommand("subagents", {
-		description: "List background subagent jobs, or `kill <id|all>`",
+	pi.registerCommand("task", {
+		description: "List background tasks, or `kill <id|all>`",
 		handler: async (args, ctx) => {
 			const [verb, target] = (args ?? "").trim().split(/\s+/);
 			if (verb === "kill") {
-				const victims = [...jobs.values()].filter((j) => !j.result && (target === "all" || j.id === target));
-				for (const j of victims) j.controller.abort();
-				ctx.ui.notify(victims.length ? `Killed ${victims.map((j) => j.id).join(", ")}` : "Nothing to kill", "info");
+				const victims = [...backgroundTasks.values()].filter((bg) => !bg.result && (target === "all" || bg.id === target));
+				for (const bg of victims) bg.controller.abort();
+				ctx.ui.notify(victims.length ? `Killed ${victims.map((bg) => bg.id).join(", ")}` : "Nothing to kill", "info");
 				return;
 			}
-			if (jobs.size === 0) {
-				ctx.ui.notify("No background subagent jobs", "info");
+			if (backgroundTasks.size === 0) {
+				ctx.ui.notify("No background tasks", "info");
 				return;
 			}
-			const lines = [...jobs.values()].map(
-				(j) => `${j.result ? (j.result.isError ? "✗" : "✓") : "⏳"} ${j.id}  ${j.summary}`,
+			const lines = [...backgroundTasks.values()].map(
+				(bg) => `${bg.result ? (bg.result.isError ? "✗" : "✓") : "⏳"} ${bg.id}  ${bg.summary}`,
 			);
 			ctx.ui.notify(lines.join("\n"), "info");
 		},
@@ -733,7 +733,7 @@ export default function (pi: ExtensionAPI) {
 			"The subagent sees nothing of this conversation. Its brief must be self-contained: goal, exact files or symbols, constraints, what done looks like, and the report format you want back. Only its final message comes back to you. Each result ends with the subagent's session id; its full transcript is kept and opens with `pi --session <id>`.",
 			"Agents are bundles of defaults (model, tools, report format), not roles: give the role in the brief. A merger is a worker told to merge; a critic is a reviewer told what to criticise.",
 			"Modes: single (agent + task), parallel (tasks, independent and touching disjoint files).",
-			"Each task takes an optional thinking level and model override. background=true returns a job id immediately and the result arrives later as a message that wakes you; use it when you have something to say or do meanwhile, otherwise run in the foreground.",
+			"Each task takes an optional thinking level and model override. background=true returns a background task id immediately and the result arrives later as a message that wakes you; use it when you have something to say or do meanwhile, otherwise run in the foreground.",
 			"Available agents:",
 			agentCatalog(),
 		].join("\n"),
@@ -746,46 +746,46 @@ export default function (pi: ExtensionAPI) {
 			const id = `${kind}-${Date.now().toString(36).slice(-5)}`;
 			const summary = params.agent
 				? `${params.agent}: ${shortTask(params.task)}`
-				: `${params.tasks?.length ?? 0} tasks: ${(params.tasks ?? []).map((t) => t.agent).join(", ")}`;
+				: (params.tasks ?? []).map((t) => t.agent).join(", ");
 			const controller = new AbortController();
-			const job: BackgroundJob = {
+			const bgTask: BackgroundTask = {
 				id,
 				summary,
 				startedAt: Date.now(),
 				controller,
 				promise: Promise.resolve(undefined as unknown as AgentToolResult<SubagentDetails>),
 			};
-			job.promise = runCall(params, ctx, controller.signal, (partial) => {
-				job.partial = partial;
+			bgTask.promise = runCall(params, ctx, controller.signal, (partial) => {
+				bgTask.partial = partial;
 				updateWidget(ctx);
 			}).catch(
 				(error): AgentToolResult<SubagentDetails> => ({
-					content: [{ type: "text", text: `Background subagent ${id} failed: ${error instanceof Error ? error.message : String(error)}` }],
+					content: [{ type: "text", text: `Background task ${id} failed: ${error instanceof Error ? error.message : String(error)}` }],
 					details: { mode: "single", results: [] },
 					isError: true,
 				}),
 			);
-			job.promise.then((result) => {
-				job.result = result;
+			bgTask.promise.then((result) => {
+				bgTask.result = result;
 				updateWidget(ctx);
 				pi.sendMessage(
 					{
 						customType: "subagent-result",
-						content: `Background subagent ${id} (${summary}) ${result.isError ? "failed" : "finished"}${modelsLine(result)}:\n\n${resultText(result)}`,
+						content: `Background task ${id} (${summary}) ${result.isError ? "failed" : "finished"}${modelsLine(result)}:\n\n${resultText(result)}`,
 						display: true,
 						details: result.details,
 					},
 					{ deliverAs: "followUp", triggerTurn: true },
 				);
 			});
-			jobs.set(id, job);
+			backgroundTasks.set(id, bgTask);
 			updateWidget(ctx);
 
 			return {
 				content: [
 					{
 						type: "text",
-						text: `Started background job ${id} (${summary}). Its result will arrive as a message when it finishes; end your turn when you have nothing else to do.`,
+						text: `Started background task ${id} (${summary}). Its result will arrive as a message when it finishes; end your turn when you have nothing else to do.`,
 					},
 				],
 				details: { mode: "single", results: [] },

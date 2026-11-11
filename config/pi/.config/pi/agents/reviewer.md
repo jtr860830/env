@@ -16,7 +16,7 @@ Strategy:
 2. Read the surrounding context the change depends on
 3. Look for defects, security or safety problems, contradictions, and things that do not fit the conventions already in place
 
-Output format:
+Output format (use the one the brief asks for, if it gives one):
 
 ## Reviewed
 - `path/to/file` (lines X-Y)

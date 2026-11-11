@@ -15,7 +15,7 @@ Strategy:
 3. Where sources disagree, say so and say which you trust and why
 4. If the answer cannot be found, say that plainly; do not fill the gap
 
-Output format:
+Output format (use the one the brief asks for, if it gives one):
 
 ## Answer
 The finding, in a few sentences.
