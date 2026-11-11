@@ -24,9 +24,10 @@ import {
 	type ExtensionToolContext,
 	formatReadLineRange,
 	getMarkdownTheme,
+	type Theme,
 	withFileMutationQueue,
 } from "@earendil-works/pi-coding-agent";
-import { Container, Markdown, Spacer, Text } from "@earendil-works/pi-tui";
+import { Box, type Component, Container, Markdown, Spacer, Text } from "@earendil-works/pi-tui";
 import { type Static, Type } from "typebox";
 import { type AgentConfig, discoverAgents, parseThinkingLevel, THINKING_LEVELS } from "./agents.ts";
 import { fallbackModel, registerFallback } from "./fallback.ts";
@@ -520,9 +521,12 @@ interface BackgroundTask {
 	id: string;
 	key: string;
 	summary: string;
+	group: string;
 	startedAt: number;
 	controller: AbortController;
 	sessions: Set<string>;
+	seen: number[];
+	latest: number;
 	stoppedBy?: StoppedBy;
 	partial?: AgentToolResult<SubagentDetails>;
 	result?: AgentToolResult<SubagentDetails>;
@@ -559,6 +563,24 @@ function lastAction(r: SingleResult): string {
 	return shortTask(item.text, 60);
 }
 
+function widgetLine(bg: BackgroundTask): string {
+	const results = bg.partial?.details?.results ?? [];
+	const elapsed = Math.round((Date.now() - bg.startedAt) / 1000);
+	const turns = results.reduce((n, r) => n + r.usage.turns, 0);
+	const models = [...new Set(results.map((r) => r.model).filter(Boolean))].join(", ") || "?";
+	const fallbacks = Math.max(0, ...results.map((r) => r.fallbackFrom?.length ?? 0));
+	const active = results[bg.latest];
+	const parts = [
+		`⏳ ${bg.id}`,
+		bg.group,
+		`${models}${fallbacks ? ` (fallback #${fallbacks})` : ""}`,
+		`${turns} turns`,
+		`${elapsed}s`,
+		active ? shortTask(lastAction(active), 60) : "starting",
+	];
+	return parts.filter(Boolean).join("  ");
+}
+
 function describeTask(bg: BackgroundTask): string {
 	const elapsed = Math.round((Date.now() - bg.startedAt) / 1000);
 	const members = (bg.partial?.details?.results ?? []).map((r) => {
@@ -588,6 +610,188 @@ function shortTask(task: string | undefined, max = 50): string {
 	return t.length > max ? `${t.slice(0, max)}...` : t;
 }
 
+function renderDetails(details: SubagentDetails, expanded: boolean, theme: Theme): Component {
+	const mdTheme = getMarkdownTheme();
+
+	const renderDisplayItems = (items: DisplayItem[], limit?: number) => {
+		const toShow = limit ? items.slice(-limit) : items;
+		const skipped = limit && items.length > limit ? items.length - limit : 0;
+		let text = "";
+		if (skipped > 0) text += theme.fg("muted", `... ${skipped} earlier items\n`);
+		for (const item of toShow) {
+			if (item.type === "text") {
+				const preview = expanded ? item.text : item.text.split("\n").slice(0, 3).join("\n");
+				text += `${theme.fg("toolOutput", preview)}\n`;
+			} else {
+				text += `${theme.fg("muted", "→ ") + formatToolCall(item.name, item.args, theme.fg.bind(theme))}\n`;
+			}
+		}
+		return text.trimEnd();
+	};
+
+	if (details.mode === "single" && details.results.length === 1) {
+		const r = details.results[0];
+		const isError = isFailedResult(r);
+		const icon = isError ? theme.fg("error", "✗") : theme.fg("success", "✓");
+		const displayItems = getDisplayItems(r.messages);
+		const finalOutput = getFinalOutput(r.messages);
+
+		if (expanded) {
+			const container = new Container();
+			let header = `${icon} ${theme.fg("toolTitle", theme.bold(r.agent))}${theme.fg("muted", ` (${r.agentSource})`)}`;
+			if (isError && r.stopReason) header += ` ${theme.fg("error", `[${r.stopReason}]`)}`;
+			container.addChild(new Text(header, 0, 0));
+			if (isError && r.errorMessage)
+				container.addChild(new Text(theme.fg("error", `Error: ${r.errorMessage}`), 0, 0));
+			container.addChild(new Spacer(1));
+			container.addChild(new Text(theme.fg("muted", "─── Task ───"), 0, 0));
+			container.addChild(new Text(theme.fg("dim", r.task), 0, 0));
+			container.addChild(new Spacer(1));
+			container.addChild(new Text(theme.fg("muted", "─── Output ───"), 0, 0));
+			if (displayItems.length === 0 && !finalOutput) {
+				container.addChild(new Text(theme.fg("muted", "(no output)"), 0, 0));
+			} else {
+				for (const item of displayItems) {
+					if (item.type === "toolCall")
+						container.addChild(
+							new Text(
+								theme.fg("muted", "→ ") + formatToolCall(item.name, item.args, theme.fg.bind(theme)),
+								0,
+								0,
+							),
+						);
+				}
+				if (finalOutput) {
+					container.addChild(new Spacer(1));
+					container.addChild(new Markdown(finalOutput.trim(), 0, 0, mdTheme));
+				}
+			}
+			const usageStr = formatUsageStats(r.usage, modelLabel(r));
+			if (usageStr) {
+				container.addChild(new Spacer(1));
+				container.addChild(new Text(theme.fg("dim", usageStr), 0, 0));
+			}
+			return container;
+		}
+
+		let text = `${icon} ${theme.fg("toolTitle", theme.bold(r.agent))}${theme.fg("muted", ` (${r.agentSource})`)}`;
+		if (isError && r.stopReason) text += ` ${theme.fg("error", `[${r.stopReason}]`)}`;
+		if (isError && r.errorMessage) text += `\n${theme.fg("error", `Error: ${r.errorMessage}`)}`;
+		else if (displayItems.length === 0) text += `\n${theme.fg("muted", "(no output)")}`;
+		else {
+			text += `\n${renderDisplayItems(displayItems, COLLAPSED_ITEM_COUNT)}`;
+			if (displayItems.length > COLLAPSED_ITEM_COUNT) text += `\n${theme.fg("muted", "(Ctrl+O to expand)")}`;
+		}
+		const usageStr = formatUsageStats(r.usage, modelLabel(r));
+		if (usageStr) text += `\n${theme.fg("dim", usageStr)}`;
+		return new Text(text, 0, 0);
+	}
+
+	const aggregateUsage = (results: SingleResult[]) => {
+		const total = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: 0, turns: 0 };
+		for (const r of results) {
+			total.input += r.usage.input;
+			total.output += r.usage.output;
+			total.cacheRead += r.usage.cacheRead;
+			total.cacheWrite += r.usage.cacheWrite;
+			total.cost += r.usage.cost;
+			total.turns += r.usage.turns;
+		}
+		return total;
+	};
+
+	if (details.mode === "parallel") {
+		const running = details.results.filter((r) => r.exitCode === -1).length;
+		const successCount = details.results.filter((r) => r.exitCode !== -1 && !isFailedResult(r)).length;
+		const failCount = details.results.filter((r) => r.exitCode !== -1 && isFailedResult(r)).length;
+		const isRunning = running > 0;
+		const icon = isRunning
+			? theme.fg("warning", "⏳")
+			: failCount > 0
+				? theme.fg("warning", "◐")
+				: theme.fg("success", "✓");
+		const status = isRunning
+			? `${successCount + failCount}/${details.results.length} done, ${running} running`
+			: `${successCount}/${details.results.length} tasks`;
+
+		if (expanded && !isRunning) {
+			const container = new Container();
+			container.addChild(
+				new Text(
+					`${icon} ${theme.fg("toolTitle", theme.bold("parallel "))}${theme.fg("accent", status)}`,
+					0,
+					0,
+				),
+			);
+
+			for (const r of details.results) {
+				const rIcon = isFailedResult(r) ? theme.fg("error", "✗") : theme.fg("success", "✓");
+				const displayItems = getDisplayItems(r.messages);
+				const finalOutput = getFinalOutput(r.messages);
+
+				container.addChild(new Spacer(1));
+				container.addChild(
+					new Text(`${theme.fg("muted", "─── ") + theme.fg("accent", r.agent)} ${rIcon}`, 0, 0),
+				);
+				container.addChild(new Text(theme.fg("muted", "Task: ") + theme.fg("dim", r.task), 0, 0));
+
+				// Show tool calls
+				for (const item of displayItems) {
+					if (item.type === "toolCall") {
+						container.addChild(
+							new Text(
+								theme.fg("muted", "→ ") + formatToolCall(item.name, item.args, theme.fg.bind(theme)),
+								0,
+								0,
+							),
+						);
+					}
+				}
+
+				// Show final output as markdown
+				if (finalOutput) {
+					container.addChild(new Spacer(1));
+					container.addChild(new Markdown(finalOutput.trim(), 0, 0, mdTheme));
+				}
+
+				const taskUsage = formatUsageStats(r.usage, modelLabel(r));
+				if (taskUsage) container.addChild(new Text(theme.fg("dim", taskUsage), 0, 0));
+			}
+
+			const usageStr = formatUsageStats(aggregateUsage(details.results));
+			if (usageStr) {
+				container.addChild(new Spacer(1));
+				container.addChild(new Text(theme.fg("dim", `Total: ${usageStr}`), 0, 0));
+			}
+			return container;
+		}
+
+		// Collapsed view (or still running)
+		let text = `${icon} ${theme.fg("toolTitle", theme.bold("parallel "))}${theme.fg("accent", status)}`;
+		for (const r of details.results) {
+			const rIcon =
+				r.exitCode === -1
+					? theme.fg("warning", "⏳")
+					: isFailedResult(r)
+						? theme.fg("error", "✗")
+						: theme.fg("success", "✓");
+			const displayItems = getDisplayItems(r.messages);
+			text += `\n\n${theme.fg("muted", "─── ")}${theme.fg("accent", r.agent)} ${rIcon}`;
+			if (displayItems.length === 0)
+				text += `\n${theme.fg("muted", r.exitCode === -1 ? "(running...)" : "(no output)")}`;
+			else text += `\n${renderDisplayItems(displayItems, 5)}`;
+		}
+		if (!isRunning) {
+			const usageStr = formatUsageStats(aggregateUsage(details.results));
+			if (usageStr) text += `\n\n${theme.fg("dim", `Total: ${usageStr}`)}`;
+		}
+		if (!expanded) text += `\n${theme.fg("muted", "(Ctrl+O to expand)")}`;
+		return new Text(text, 0, 0);
+	}
+
+	return new Text("(no output)", 0, 0);
+}
+
 export default function (pi: ExtensionAPI) {
 	if (process.env.PI_SUBAGENT) {
 		registerFallback(pi, process.env.PI_SUBAGENT);
@@ -599,6 +803,7 @@ export default function (pi: ExtensionAPI) {
 	let taskCount = 0;
 	let held = false;
 	let current: ExtensionContext | undefined;
+	let ticker: NodeJS.Timeout | undefined;
 
 	const agentCatalog = () => {
 		const agents = discoverAgents();
@@ -610,18 +815,13 @@ export default function (pi: ExtensionAPI) {
 		if (!current?.hasUI) return;
 		const running = [...backgroundTasks.values()];
 		if (running.length === 0) {
+			clearInterval(ticker);
+			ticker = undefined;
 			current.ui.setWidget("subagent", undefined);
 			return;
 		}
-		current.ui.setWidget(
-			"subagent",
-			running.map((bg) => {
-				const results = bg.partial?.details?.results ?? [];
-				const turns = results.reduce((n, r) => n + r.usage.turns, 0);
-				const elapsed = Math.round((Date.now() - bg.startedAt) / 1000);
-				return `⏳ ${bg.id}  ${bg.summary}  ${turns} turns  ${elapsed}s`;
-			}),
-		);
+		ticker ??= setInterval(updateWidget, 1000);
+		current.ui.setWidget("subagent", running.map(widgetLine));
 	};
 
 	async function runCall(
@@ -816,6 +1016,19 @@ export default function (pi: ExtensionAPI) {
 
 	pi.on("session_shutdown", async () => {
 		for (const bg of backgroundTasks.values()) stop(bg, "shutdown");
+		clearInterval(ticker);
+		ticker = undefined;
+		if (current?.hasUI) current.ui.setWidget("subagent", undefined);
+	});
+
+	pi.registerMessageRenderer<SubagentDetails>(RESULT_MESSAGE, (message, { expanded, outputPad }, theme) => {
+		const details = message.details;
+		if (!details || details.results.length === 0) return undefined;
+		const head = typeof message.content === "string" ? message.content.split("\n", 1)[0] : "";
+		const box = new Box(outputPad, 0);
+		if (head) box.addChild(new Text(theme.fg("muted", head), 0, 0));
+		box.addChild(renderDetails(details, expanded, theme));
+		return box;
 	});
 
 	pi.on("agent_settled", async (event, ctx) => {
@@ -929,14 +1142,21 @@ export default function (pi: ExtensionAPI) {
 				summary,
 				startedAt,
 				controller,
+				group: single ? "" : names.join(", "),
 				sessions: new Set(),
+				seen: [],
+				latest: 0,
 				promise: runCall(params, ctx, controller.signal, (partial) => {
 					bg.partial = partial;
-					for (const r of partial.details?.results ?? []) {
-						if (!r.sessionId || bg.sessions.has(r.sessionId)) continue;
+					(partial.details?.results ?? []).forEach((r, index) => {
+						if (r.messages.length !== (bg.seen[index] ?? 0)) {
+							bg.seen[index] = r.messages.length;
+							bg.latest = index;
+						}
+						if (!r.sessionId || bg.sessions.has(r.sessionId)) return;
 						bg.sessions.add(r.sessionId);
 						record({ event: "session", key, sessionId: r.sessionId });
-					}
+					});
 					updateWidget();
 				}).catch(
 					(error): AgentToolResult<SubagentDetails> => ({
@@ -991,186 +1211,7 @@ export default function (pi: ExtensionAPI) {
 				return new Text(text?.type === "text" ? text.text : "(no output)", 0, 0);
 			}
 
-			const mdTheme = getMarkdownTheme();
-
-			const renderDisplayItems = (items: DisplayItem[], limit?: number) => {
-				const toShow = limit ? items.slice(-limit) : items;
-				const skipped = limit && items.length > limit ? items.length - limit : 0;
-				let text = "";
-				if (skipped > 0) text += theme.fg("muted", `... ${skipped} earlier items\n`);
-				for (const item of toShow) {
-					if (item.type === "text") {
-						const preview = expanded ? item.text : item.text.split("\n").slice(0, 3).join("\n");
-						text += `${theme.fg("toolOutput", preview)}\n`;
-					} else {
-						text += `${theme.fg("muted", "→ ") + formatToolCall(item.name, item.args, theme.fg.bind(theme))}\n`;
-					}
-				}
-				return text.trimEnd();
-			};
-
-			if (details.mode === "single" && details.results.length === 1) {
-				const r = details.results[0];
-				const isError = isFailedResult(r);
-				const icon = isError ? theme.fg("error", "✗") : theme.fg("success", "✓");
-				const displayItems = getDisplayItems(r.messages);
-				const finalOutput = getFinalOutput(r.messages);
-
-				if (expanded) {
-					const container = new Container();
-					let header = `${icon} ${theme.fg("toolTitle", theme.bold(r.agent))}${theme.fg("muted", ` (${r.agentSource})`)}`;
-					if (isError && r.stopReason) header += ` ${theme.fg("error", `[${r.stopReason}]`)}`;
-					container.addChild(new Text(header, 0, 0));
-					if (isError && r.errorMessage)
-						container.addChild(new Text(theme.fg("error", `Error: ${r.errorMessage}`), 0, 0));
-					container.addChild(new Spacer(1));
-					container.addChild(new Text(theme.fg("muted", "─── Task ───"), 0, 0));
-					container.addChild(new Text(theme.fg("dim", r.task), 0, 0));
-					container.addChild(new Spacer(1));
-					container.addChild(new Text(theme.fg("muted", "─── Output ───"), 0, 0));
-					if (displayItems.length === 0 && !finalOutput) {
-						container.addChild(new Text(theme.fg("muted", "(no output)"), 0, 0));
-					} else {
-						for (const item of displayItems) {
-							if (item.type === "toolCall")
-								container.addChild(
-									new Text(
-										theme.fg("muted", "→ ") + formatToolCall(item.name, item.args, theme.fg.bind(theme)),
-										0,
-										0,
-									),
-								);
-						}
-						if (finalOutput) {
-							container.addChild(new Spacer(1));
-							container.addChild(new Markdown(finalOutput.trim(), 0, 0, mdTheme));
-						}
-					}
-					const usageStr = formatUsageStats(r.usage, modelLabel(r));
-					if (usageStr) {
-						container.addChild(new Spacer(1));
-						container.addChild(new Text(theme.fg("dim", usageStr), 0, 0));
-					}
-					return container;
-				}
-
-				let text = `${icon} ${theme.fg("toolTitle", theme.bold(r.agent))}${theme.fg("muted", ` (${r.agentSource})`)}`;
-				if (isError && r.stopReason) text += ` ${theme.fg("error", `[${r.stopReason}]`)}`;
-				if (isError && r.errorMessage) text += `\n${theme.fg("error", `Error: ${r.errorMessage}`)}`;
-				else if (displayItems.length === 0) text += `\n${theme.fg("muted", "(no output)")}`;
-				else {
-					text += `\n${renderDisplayItems(displayItems, COLLAPSED_ITEM_COUNT)}`;
-					if (displayItems.length > COLLAPSED_ITEM_COUNT) text += `\n${theme.fg("muted", "(Ctrl+O to expand)")}`;
-				}
-				const usageStr = formatUsageStats(r.usage, modelLabel(r));
-				if (usageStr) text += `\n${theme.fg("dim", usageStr)}`;
-				return new Text(text, 0, 0);
-			}
-
-			const aggregateUsage = (results: SingleResult[]) => {
-				const total = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: 0, turns: 0 };
-				for (const r of results) {
-					total.input += r.usage.input;
-					total.output += r.usage.output;
-					total.cacheRead += r.usage.cacheRead;
-					total.cacheWrite += r.usage.cacheWrite;
-					total.cost += r.usage.cost;
-					total.turns += r.usage.turns;
-				}
-				return total;
-			};
-
-			if (details.mode === "parallel") {
-				const running = details.results.filter((r) => r.exitCode === -1).length;
-				const successCount = details.results.filter((r) => r.exitCode !== -1 && !isFailedResult(r)).length;
-				const failCount = details.results.filter((r) => r.exitCode !== -1 && isFailedResult(r)).length;
-				const isRunning = running > 0;
-				const icon = isRunning
-					? theme.fg("warning", "⏳")
-					: failCount > 0
-						? theme.fg("warning", "◐")
-						: theme.fg("success", "✓");
-				const status = isRunning
-					? `${successCount + failCount}/${details.results.length} done, ${running} running`
-					: `${successCount}/${details.results.length} tasks`;
-
-				if (expanded && !isRunning) {
-					const container = new Container();
-					container.addChild(
-						new Text(
-							`${icon} ${theme.fg("toolTitle", theme.bold("parallel "))}${theme.fg("accent", status)}`,
-							0,
-							0,
-						),
-					);
-
-					for (const r of details.results) {
-						const rIcon = isFailedResult(r) ? theme.fg("error", "✗") : theme.fg("success", "✓");
-						const displayItems = getDisplayItems(r.messages);
-						const finalOutput = getFinalOutput(r.messages);
-
-						container.addChild(new Spacer(1));
-						container.addChild(
-							new Text(`${theme.fg("muted", "─── ") + theme.fg("accent", r.agent)} ${rIcon}`, 0, 0),
-						);
-						container.addChild(new Text(theme.fg("muted", "Task: ") + theme.fg("dim", r.task), 0, 0));
-
-						// Show tool calls
-						for (const item of displayItems) {
-							if (item.type === "toolCall") {
-								container.addChild(
-									new Text(
-										theme.fg("muted", "→ ") + formatToolCall(item.name, item.args, theme.fg.bind(theme)),
-										0,
-										0,
-									),
-								);
-							}
-						}
-
-						// Show final output as markdown
-						if (finalOutput) {
-							container.addChild(new Spacer(1));
-							container.addChild(new Markdown(finalOutput.trim(), 0, 0, mdTheme));
-						}
-
-						const taskUsage = formatUsageStats(r.usage, modelLabel(r));
-						if (taskUsage) container.addChild(new Text(theme.fg("dim", taskUsage), 0, 0));
-					}
-
-					const usageStr = formatUsageStats(aggregateUsage(details.results));
-					if (usageStr) {
-						container.addChild(new Spacer(1));
-						container.addChild(new Text(theme.fg("dim", `Total: ${usageStr}`), 0, 0));
-					}
-					return container;
-				}
-
-				// Collapsed view (or still running)
-				let text = `${icon} ${theme.fg("toolTitle", theme.bold("parallel "))}${theme.fg("accent", status)}`;
-				for (const r of details.results) {
-					const rIcon =
-						r.exitCode === -1
-							? theme.fg("warning", "⏳")
-							: isFailedResult(r)
-								? theme.fg("error", "✗")
-								: theme.fg("success", "✓");
-					const displayItems = getDisplayItems(r.messages);
-					text += `\n\n${theme.fg("muted", "─── ")}${theme.fg("accent", r.agent)} ${rIcon}`;
-					if (displayItems.length === 0)
-						text += `\n${theme.fg("muted", r.exitCode === -1 ? "(running...)" : "(no output)")}`;
-					else text += `\n${renderDisplayItems(displayItems, 5)}`;
-				}
-				if (!isRunning) {
-					const usageStr = formatUsageStats(aggregateUsage(details.results));
-					if (usageStr) text += `\n\n${theme.fg("dim", `Total: ${usageStr}`)}`;
-				}
-				if (!expanded) text += `\n${theme.fg("muted", "(Ctrl+O to expand)")}`;
-				return new Text(text, 0, 0);
-			}
-
-			const text = result.content[0];
-			return new Text(text?.type === "text" ? text.text : "(no output)", 0, 0);
+			return renderDetails(details, expanded, theme);
 		},
 	});
 }
