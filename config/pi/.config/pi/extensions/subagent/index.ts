@@ -4,10 +4,9 @@
  * Spawns a separate `pi` process for each subagent invocation,
  * giving it an isolated context window.
  *
- * Supports three modes:
+ * Supports two modes:
  *   - Single: { agent: "name", task: "..." }
  *   - Parallel: { tasks: [{ agent: "name", task: "..." }, ...] }
- *   - Chain: { chain: [{ agent: "name", task: "... {previous} ..." }, ...] }
  *
  * Uses JSON mode to capture structured output from subagents.
  */
@@ -28,7 +27,7 @@ import {
 } from "@earendil-works/pi-coding-agent";
 import { Container, Markdown, Spacer, Text } from "@earendil-works/pi-tui";
 import { type Static, Type } from "typebox";
-import { type AgentConfig, type AgentScope, discoverAgents, THINKING_LEVELS } from "./agents.ts";
+import { type AgentConfig, discoverAgents, THINKING_LEVELS } from "./agents.ts";
 
 const MAX_PARALLEL_TASKS = 8;
 const MAX_CONCURRENCY = 4;
@@ -145,23 +144,21 @@ interface UsageStats {
 
 interface SingleResult {
 	agent: string;
-	agentSource: "user" | "project" | "unknown";
+	agentSource: "user" | "unknown";
 	task: string;
 	exitCode: number;
 	messages: Message[];
 	stderr: string;
 	usage: UsageStats;
 	model?: string;
+	sessionId?: string;
 	fallbackFrom?: string[];
 	stopReason?: string;
 	errorMessage?: string;
-	step?: number;
 }
 
 interface SubagentDetails {
-	mode: "single" | "parallel" | "chain";
-	agentScope: AgentScope;
-	projectAgentsDir: string | null;
+	mode: "single" | "parallel";
 	results: SingleResult[];
 }
 
@@ -191,6 +188,15 @@ function getResultOutput(result: SingleResult): string {
 function modelNote(result: SingleResult): string {
 	if (!result.fallbackFrom?.length) return "";
 	return ` (ran on ${result.model} after quota errors on ${result.fallbackFrom.join(", ")})`;
+}
+
+function sessionLine(result: SingleResult): string {
+	return result.sessionId ? `\n\nsession: ${result.sessionId}` : "";
+}
+
+function modelLabel(r: SingleResult): string | undefined {
+	const model = r.fallbackFrom?.length ? `${r.model} (fallback #${r.fallbackFrom.length})` : r.model;
+	return r.sessionId ? `${model ?? "?"} session:${r.sessionId}` : model;
 }
 
 function truncateParallelOutput(output: string): string {
@@ -278,7 +284,6 @@ interface RunOptions {
 	cwd?: string;
 	thinking?: ThinkingLevel;
 	model?: string;
-	step?: number;
 	signal?: AbortSignal;
 	onUpdate?: OnUpdateCallback;
 	makeDetails: (results: SingleResult[]) => SubagentDetails;
@@ -300,7 +305,7 @@ function identitySuffix(agentName: string): string {
 		"",
 		"---",
 		`You are running as the "${agentName}" subagent of another pi session. That session delegated this task to you and will read only your final message, so put everything it needs there.`,
-		"You cannot delegate further: there is no subagent tool here, and any orchestrator instructions in your context do not apply to you. Do the task yourself.",
+		"You cannot delegate further: there is no subagent tool here. Do the task yourself.",
 	].join("\n");
 }
 
@@ -330,6 +335,7 @@ function runPi(
 			} catch {
 				return;
 			}
+			if (event.type === "session" && typeof event.id === "string") result.sessionId = event.id;
 			if (event.type === "message_end" && event.message) {
 				const msg = event.message as Message;
 				result.messages.push(msg);
@@ -391,7 +397,7 @@ async function runSingleAgent(
 	agents: AgentConfig[],
 	opts: RunOptions,
 ): Promise<SingleResult> {
-	const { agentName, task, step, signal, onUpdate, makeDetails } = opts;
+	const { agentName, task, signal, onUpdate, makeDetails } = opts;
 	const agent = agents.find((a) => a.name === agentName);
 
 	if (!agent) {
@@ -404,7 +410,6 @@ async function runSingleAgent(
 			messages: [],
 			stderr: `Unknown agent: "${agentName}". Available agents: ${available}.`,
 			usage: emptyUsage(),
-			step,
 		};
 	}
 
@@ -424,7 +429,6 @@ async function runSingleAgent(
 		stderr: "",
 		usage: emptyUsage(),
 		model: candidates[0],
-		step,
 	};
 
 	const emit = () => {
@@ -447,6 +451,7 @@ async function runSingleAgent(
 			result.stopReason = undefined;
 			result.errorMessage = undefined;
 			result.model = model;
+			result.sessionId = undefined;
 			if (tried.length > 0) result.fallbackFrom = [...tried];
 
 			const args = ["--mode", "json", "-p"];
@@ -496,28 +501,10 @@ const TaskItem = Type.Object({
 	model: Type.Optional(ModelSchema),
 });
 
-const ChainItem = Type.Object({
-	agent: Type.String({ description: "Name of the agent to invoke" }),
-	task: Type.String({ description: "Task with optional {previous} placeholder for prior output" }),
-	cwd: Type.Optional(Type.String({ description: "Working directory for the agent process" })),
-	thinking: Type.Optional(ThinkingSchema),
-	model: Type.Optional(ModelSchema),
-});
-
-const AgentScopeSchema = StringEnum(["user", "project", "both"] as const, {
-	description: 'Which agent directories to use. Default: "user". Use "both" to include project-local agents.',
-	default: "user",
-});
-
 const SubagentParams = Type.Object({
 	agent: Type.Optional(Type.String({ description: "Name of the agent to invoke (for single mode)" })),
 	task: Type.Optional(Type.String({ description: "Task to delegate (for single mode)" })),
 	tasks: Type.Optional(Type.Array(TaskItem, { description: "Array of {agent, task} for parallel execution" })),
-	chain: Type.Optional(Type.Array(ChainItem, { description: "Array of {agent, task} for sequential execution" })),
-	agentScope: Type.Optional(AgentScopeSchema),
-	confirmProjectAgents: Type.Optional(
-		Type.Boolean({ description: "Prompt before running project-local agents. Default: true.", default: true }),
-	),
 	cwd: Type.Optional(Type.String({ description: "Working directory for the agent process (single mode)" })),
 	thinking: Type.Optional(ThinkingSchema),
 	model: Type.Optional(ModelSchema),
@@ -566,7 +553,7 @@ export default function (pi: ExtensionAPI) {
 	const jobs = new Map<string, BackgroundJob>();
 
 	const agentCatalog = () => {
-		const { agents } = discoverAgents(process.cwd(), "user");
+		const agents = discoverAgents();
 		if (agents.length === 0) return "(no agents defined)";
 		return agents.map((a) => `- ${a.name}: ${a.description}`).join("\n");
 	};
@@ -595,106 +582,27 @@ export default function (pi: ExtensionAPI) {
 		signal: AbortSignal | undefined,
 		onUpdate: OnUpdateCallback | undefined,
 	): Promise<AgentToolResult<SubagentDetails>> {
-		const agentScope: AgentScope = params.agentScope ?? "user";
 		const dispatchDefaults: DispatchDefaults = {
 			model: ctx.model ? `${ctx.model.provider}/${ctx.model.id}` : undefined,
 			thinkingLevel: ctx.thinkingLevel,
 		};
-		const discovery = discoverAgents(ctx.cwd, agentScope);
-		const agents = discovery.agents;
-		const confirmProjectAgents = params.confirmProjectAgents ?? true;
-
-		const hasChain = (params.chain?.length ?? 0) > 0;
+		const agents = discoverAgents();
 		const hasTasks = (params.tasks?.length ?? 0) > 0;
 		const hasSingle = Boolean(params.agent && params.task);
-		const modeCount = Number(hasChain) + Number(hasTasks) + Number(hasSingle);
+		const modeCount = Number(hasTasks) + Number(hasSingle);
 
 		const makeDetails =
-			(mode: "single" | "parallel" | "chain") =>
+			(mode: "single" | "parallel") =>
 			(results: SingleResult[]): SubagentDetails => ({
 				mode,
-				agentScope,
-				projectAgentsDir: discovery.projectAgentsDir,
 				results,
 			});
 
 		if (modeCount !== 1) {
 			const available = agents.map((a) => `${a.name} (${a.source})`).join(", ") || "none";
 			return {
-				content: [{ type: "text", text: `Invalid parameters. Provide exactly one mode.\nAvailable agents: ${available}` }],
+				content: [{ type: "text", text: `Invalid parameters. Provide exactly one mode: agent + task, or tasks.\nAvailable agents: ${available}` }],
 				details: makeDetails("single")([]),
-			};
-		}
-
-		if ((agentScope === "project" || agentScope === "both") && confirmProjectAgents && ctx.hasUI && !ctx.isProjectTrusted()) {
-			const requestedAgentNames = new Set<string>();
-			if (params.chain) for (const step of params.chain) requestedAgentNames.add(step.agent);
-			if (params.tasks) for (const t of params.tasks) requestedAgentNames.add(t.agent);
-			if (params.agent) requestedAgentNames.add(params.agent);
-
-			const projectAgentsRequested = Array.from(requestedAgentNames)
-				.map((name) => agents.find((a) => a.name === name))
-				.filter((a): a is AgentConfig => a?.source === "project");
-
-			if (projectAgentsRequested.length > 0) {
-				const names = projectAgentsRequested.map((a) => a.name).join(", ");
-				const dir = discovery.projectAgentsDir ?? "(unknown)";
-				const ok = await ctx.ui.confirm(
-					"Run project-local agents?",
-					`Agents: ${names}\nSource: ${dir}\n\nProject agents are repo-controlled. Only continue for trusted repositories.`,
-				);
-				if (!ok)
-					return {
-						content: [{ type: "text", text: "Canceled: project-local agents not approved." }],
-						details: makeDetails(hasChain ? "chain" : hasTasks ? "parallel" : "single")([]),
-					};
-			}
-		}
-
-		if (params.chain && params.chain.length > 0) {
-			const results: SingleResult[] = [];
-			let previousOutput = "";
-
-			for (let i = 0; i < params.chain.length; i++) {
-				const step = params.chain[i];
-				const taskWithContext = step.task.replace(/\{previous\}/g, previousOutput);
-
-				const chainUpdate: OnUpdateCallback | undefined = onUpdate
-					? (partial) => {
-							const currentResult = partial.details?.results[0];
-							if (currentResult) {
-								onUpdate({ content: partial.content, details: makeDetails("chain")([...results, currentResult]) });
-							}
-						}
-					: undefined;
-
-				const result = await runSingleAgent(ctx.cwd, dispatchDefaults, agents, {
-					agentName: step.agent,
-					task: taskWithContext,
-					cwd: step.cwd,
-					thinking: step.thinking,
-					model: step.model,
-					step: i + 1,
-					signal,
-					onUpdate: chainUpdate,
-					makeDetails: makeDetails("chain"),
-				});
-				results.push(result);
-
-				if (isFailedResult(result)) {
-					return {
-						content: [
-							{ type: "text", text: `Chain stopped at step ${i + 1} (${step.agent}): ${getResultOutput(result)}` },
-						],
-						details: makeDetails("chain")(results),
-						isError: true,
-					};
-				}
-				previousOutput = getFinalOutput(result.messages);
-			}
-			return {
-				content: [{ type: "text", text: getFinalOutput(results[results.length - 1].messages) || "(no output)" }],
-				details: makeDetails("chain")(results),
 			};
 		}
 
@@ -753,7 +661,7 @@ export default function (pi: ExtensionAPI) {
 				const status = isFailedResult(r)
 					? `failed${r.stopReason && r.stopReason !== "end" ? ` (${r.stopReason})` : ""}`
 					: "completed";
-				return `### [${r.agent}] ${status}${modelNote(r)}\n\n${output}`;
+				return `### [${r.agent}] ${status}${modelNote(r)}\n\n${output}${sessionLine(r)}`;
 			});
 			return {
 				content: [{ type: "text", text: `Parallel: ${successCount}/${results.length} succeeded\n\n${summaries.join("\n\n---\n\n")}` }],
@@ -774,13 +682,13 @@ export default function (pi: ExtensionAPI) {
 			});
 			if (isFailedResult(result)) {
 				return {
-					content: [{ type: "text", text: `Agent ${result.stopReason || "failed"}${modelNote(result)}: ${getResultOutput(result)}` }],
+					content: [{ type: "text", text: `Agent ${result.stopReason || "failed"}${modelNote(result)}: ${getResultOutput(result)}${sessionLine(result)}` }],
 					details: makeDetails("single")([result]),
 					isError: true,
 				};
 			}
 			return {
-				content: [{ type: "text", text: `${getFinalOutput(result.messages) || "(no output)"}${modelNote(result) ? `\n\n_${modelNote(result).trim()}_` : ""}` }],
+				content: [{ type: "text", text: `${getFinalOutput(result.messages) || "(no output)"}${modelNote(result) ? `\n\n_${modelNote(result).trim()}_` : ""}${sessionLine(result)}` }],
 				details: makeDetails("single")([result]),
 			};
 		}
@@ -822,9 +730,9 @@ export default function (pi: ExtensionAPI) {
 		label: "Subagent",
 		description: [
 			"Delegate a task to a subagent: a separate pi process with its own context window, model and tools.",
-			"The subagent sees nothing of this conversation. Its brief must be self-contained: goal, exact files or symbols, constraints, what done looks like, and the report format you want back. Only its final message comes back to you.",
+			"The subagent sees nothing of this conversation. Its brief must be self-contained: goal, exact files or symbols, constraints, what done looks like, and the report format you want back. Only its final message comes back to you. Each result ends with the subagent's session id; its full transcript is kept and opens with `pi --session <id>`.",
 			"Agents are bundles of defaults (model, tools, report format), not roles: give the role in the brief. A merger is a worker told to merge; a critic is a reviewer told what to criticise.",
-			"Modes: single (agent + task), parallel (tasks, independent and touching disjoint files), chain (sequential, {previous} carries the prior output).",
+			"Modes: single (agent + task), parallel (tasks, independent and touching disjoint files).",
 			"Each task takes an optional thinking level and model override. background=true returns a job id immediately and the result arrives later as a message that wakes you; use it when you have something to say or do meanwhile, otherwise run in the foreground.",
 			"Available agents:",
 			agentCatalog(),
@@ -834,13 +742,11 @@ export default function (pi: ExtensionAPI) {
 		async execute(_toolCallId, params, signal, onUpdate, ctx) {
 			if (!params.background || !ctx.hasUI) return runCall(params, ctx, signal, onUpdate);
 
-			const kind = params.agent ? params.agent : params.tasks?.length ? "parallel" : "chain";
+			const kind = params.agent ?? "parallel";
 			const id = `${kind}-${Date.now().toString(36).slice(-5)}`;
 			const summary = params.agent
 				? `${params.agent}: ${shortTask(params.task)}`
-				: params.tasks?.length
-					? `${params.tasks.length} tasks: ${params.tasks.map((t) => t.agent).join(", ")}`
-					: `${params.chain?.length ?? 0} steps: ${(params.chain ?? []).map((s) => s.agent).join(" → ")}`;
+				: `${params.tasks?.length ?? 0} tasks: ${(params.tasks ?? []).map((t) => t.agent).join(", ")}`;
 			const controller = new AbortController();
 			const job: BackgroundJob = {
 				id,
@@ -855,7 +761,7 @@ export default function (pi: ExtensionAPI) {
 			}).catch(
 				(error): AgentToolResult<SubagentDetails> => ({
 					content: [{ type: "text", text: `Background subagent ${id} failed: ${error instanceof Error ? error.message : String(error)}` }],
-					details: { mode: "single", agentScope: params.agentScope ?? "user", projectAgentsDir: null, results: [] },
+					details: { mode: "single", results: [] },
 					isError: true,
 				}),
 			);
@@ -882,37 +788,16 @@ export default function (pi: ExtensionAPI) {
 						text: `Started background job ${id} (${summary}). Its result will arrive as a message when it finishes; end your turn when you have nothing else to do.`,
 					},
 				],
-				details: { mode: "single", agentScope: params.agentScope ?? "user", projectAgentsDir: null, results: [] },
+				details: { mode: "single", results: [] },
 			};
 		},
 
 		renderCall(args, theme, _context) {
-			const scope: AgentScope = args.agentScope ?? "user";
-			if (args.chain && args.chain.length > 0) {
-				let text =
-					theme.fg("toolTitle", theme.bold("subagent ")) +
-					theme.fg("accent", `chain (${args.chain.length} steps)`) +
-					theme.fg("muted", ` [${scope}]`);
-				for (let i = 0; i < Math.min(args.chain.length, 3); i++) {
-					const step = args.chain[i];
-					// Clean up {previous} placeholder for display
-					const cleanTask = step.task.replace(/\{previous\}/g, "").trim();
-					const preview = cleanTask.length > 40 ? `${cleanTask.slice(0, 40)}...` : cleanTask;
-					text +=
-						"\n  " +
-						theme.fg("muted", `${i + 1}.`) +
-						" " +
-						theme.fg("accent", step.agent) +
-						theme.fg("dim", ` ${preview}`);
-				}
-				if (args.chain.length > 3) text += `\n  ${theme.fg("muted", `... +${args.chain.length - 3} more`)}`;
-				return new Text(text, 0, 0);
-			}
 			if (args.tasks && args.tasks.length > 0) {
 				let text =
 					theme.fg("toolTitle", theme.bold("subagent ")) +
 					theme.fg("accent", `parallel (${args.tasks.length} tasks)`) +
-					theme.fg("muted", ` [${scope}]`);
+					theme.fg("muted", " [user]");
 				for (const t of args.tasks.slice(0, 3)) {
 					const preview = t.task.length > 40 ? `${t.task.slice(0, 40)}...` : t.task;
 					text += `\n  ${theme.fg("accent", t.agent)}${theme.fg("dim", ` ${preview}`)}`;
@@ -925,7 +810,7 @@ export default function (pi: ExtensionAPI) {
 			let text =
 				theme.fg("toolTitle", theme.bold("subagent ")) +
 				theme.fg("accent", agentName) +
-				theme.fg("muted", ` [${scope}]`);
+				theme.fg("muted", " [user]");
 			text += `\n  ${theme.fg("dim", preview)}`;
 			return new Text(text, 0, 0);
 		},
@@ -992,7 +877,7 @@ export default function (pi: ExtensionAPI) {
 							container.addChild(new Markdown(finalOutput.trim(), 0, 0, mdTheme));
 						}
 					}
-					const usageStr = formatUsageStats(r.usage, r.fallbackFrom?.length ? `${r.model} (fallback #${r.fallbackFrom.length})` : r.model);
+					const usageStr = formatUsageStats(r.usage, modelLabel(r));
 					if (usageStr) {
 						container.addChild(new Spacer(1));
 						container.addChild(new Text(theme.fg("dim", usageStr), 0, 0));
@@ -1008,7 +893,7 @@ export default function (pi: ExtensionAPI) {
 					text += `\n${renderDisplayItems(displayItems, COLLAPSED_ITEM_COUNT)}`;
 					if (displayItems.length > COLLAPSED_ITEM_COUNT) text += `\n${theme.fg("muted", "(Ctrl+O to expand)")}`;
 				}
-				const usageStr = formatUsageStats(r.usage, r.fallbackFrom?.length ? `${r.model} (fallback #${r.fallbackFrom.length})` : r.model);
+				const usageStr = formatUsageStats(r.usage, modelLabel(r));
 				if (usageStr) text += `\n${theme.fg("dim", usageStr)}`;
 				return new Text(text, 0, 0);
 			}
@@ -1025,88 +910,6 @@ export default function (pi: ExtensionAPI) {
 				}
 				return total;
 			};
-
-			if (details.mode === "chain") {
-				const successCount = details.results.filter((r) => r.exitCode === 0).length;
-				const icon = successCount === details.results.length ? theme.fg("success", "✓") : theme.fg("error", "✗");
-
-				if (expanded) {
-					const container = new Container();
-					container.addChild(
-						new Text(
-							icon +
-								" " +
-								theme.fg("toolTitle", theme.bold("chain ")) +
-								theme.fg("accent", `${successCount}/${details.results.length} steps`),
-							0,
-							0,
-						),
-					);
-
-					for (const r of details.results) {
-						const rIcon = r.exitCode === 0 ? theme.fg("success", "✓") : theme.fg("error", "✗");
-						const displayItems = getDisplayItems(r.messages);
-						const finalOutput = getFinalOutput(r.messages);
-
-						container.addChild(new Spacer(1));
-						container.addChild(
-							new Text(
-								`${theme.fg("muted", `─── Step ${r.step}: `) + theme.fg("accent", r.agent)} ${rIcon}`,
-								0,
-								0,
-							),
-						);
-						container.addChild(new Text(theme.fg("muted", "Task: ") + theme.fg("dim", r.task), 0, 0));
-
-						// Show tool calls
-						for (const item of displayItems) {
-							if (item.type === "toolCall") {
-								container.addChild(
-									new Text(
-										theme.fg("muted", "→ ") + formatToolCall(item.name, item.args, theme.fg.bind(theme)),
-										0,
-										0,
-									),
-								);
-							}
-						}
-
-						// Show final output as markdown
-						if (finalOutput) {
-							container.addChild(new Spacer(1));
-							container.addChild(new Markdown(finalOutput.trim(), 0, 0, mdTheme));
-						}
-
-						const stepUsage = formatUsageStats(r.usage, r.fallbackFrom?.length ? `${r.model} (fallback #${r.fallbackFrom.length})` : r.model);
-						if (stepUsage) container.addChild(new Text(theme.fg("dim", stepUsage), 0, 0));
-					}
-
-					const usageStr = formatUsageStats(aggregateUsage(details.results));
-					if (usageStr) {
-						container.addChild(new Spacer(1));
-						container.addChild(new Text(theme.fg("dim", `Total: ${usageStr}`), 0, 0));
-					}
-					return container;
-				}
-
-				// Collapsed view
-				let text =
-					icon +
-					" " +
-					theme.fg("toolTitle", theme.bold("chain ")) +
-					theme.fg("accent", `${successCount}/${details.results.length} steps`);
-				for (const r of details.results) {
-					const rIcon = r.exitCode === 0 ? theme.fg("success", "✓") : theme.fg("error", "✗");
-					const displayItems = getDisplayItems(r.messages);
-					text += `\n\n${theme.fg("muted", `─── Step ${r.step}: `)}${theme.fg("accent", r.agent)} ${rIcon}`;
-					if (displayItems.length === 0) text += `\n${theme.fg("muted", "(no output)")}`;
-					else text += `\n${renderDisplayItems(displayItems, 5)}`;
-				}
-				const usageStr = formatUsageStats(aggregateUsage(details.results));
-				if (usageStr) text += `\n\n${theme.fg("dim", `Total: ${usageStr}`)}`;
-				text += `\n${theme.fg("muted", "(Ctrl+O to expand)")}`;
-				return new Text(text, 0, 0);
-			}
 
 			if (details.mode === "parallel") {
 				const running = details.results.filter((r) => r.exitCode === -1).length;
@@ -1162,7 +965,7 @@ export default function (pi: ExtensionAPI) {
 							container.addChild(new Markdown(finalOutput.trim(), 0, 0, mdTheme));
 						}
 
-						const taskUsage = formatUsageStats(r.usage, r.fallbackFrom?.length ? `${r.model} (fallback #${r.fallbackFrom.length})` : r.model);
+						const taskUsage = formatUsageStats(r.usage, modelLabel(r));
 						if (taskUsage) container.addChild(new Text(theme.fg("dim", taskUsage), 0, 0));
 					}
 
