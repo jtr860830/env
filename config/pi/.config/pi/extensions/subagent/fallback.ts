@@ -12,7 +12,7 @@ const PROVIDER = "subagent";
 
 function exhaustedFile(): string {
 	const stateHome = process.env.XDG_STATE_HOME || path.join(os.homedir(), ".local", "state");
-	return path.join(stateHome, "pi", "subagent-exhausted.json");
+	return path.join(stateHome, "pi", "extensions", "subagent", "exhausted-providers.json");
 }
 
 function readExhausted(): Record<string, number> {
@@ -28,16 +28,20 @@ function readExhausted(): Record<string, number> {
 	}
 }
 
-function markExhausted(model: string): void {
+function markExhausted(provider: string): void {
 	const file = exhaustedFile();
 	const tmp = `${file}.${process.pid}.tmp`;
 	try {
 		fs.mkdirSync(path.dirname(file), { recursive: true });
-		fs.writeFileSync(tmp, JSON.stringify({ ...readExhausted(), [model]: Date.now() + EXHAUSTED_TTL_MS }));
+		fs.writeFileSync(tmp, JSON.stringify({ ...readExhausted(), [provider]: Date.now() + EXHAUSTED_TTL_MS }));
 		fs.renameSync(tmp, file);
 	} catch {
 		fs.rmSync(tmp, { force: true });
 	}
+}
+
+function providerOf(model: string): string {
+	return model.slice(0, model.indexOf("/"));
 }
 
 function chainOf(agent: AgentConfig | undefined): string[] | undefined {
@@ -52,14 +56,15 @@ export function registerFallback(pi: ExtensionAPI, agentName: string): void {
 	const chain = chainOf(discoverAgents().find((agent) => agent.name === agentName));
 	if (!chain) return;
 
-	const spent = new Set<string>();
+	const unavailable = new Set<string>();
+	const spentProviders = new Set<string>();
 	const pinnedThinking = parseThinkingLevel(process.env.PI_SUBAGENT_THINKING);
 	let current: string | undefined;
 
 	const pick = (): string | undefined => {
-		const usable = chain.filter((model) => !spent.has(model));
+		const usable = chain.filter((model) => !unavailable.has(model) && !spentProviders.has(providerOf(model)));
 		const exhausted = readExhausted();
-		return usable.find((model) => !(model in exhausted)) ?? usable[0];
+		return usable.find((model) => !(providerOf(model) in exhausted)) ?? usable[0];
 	};
 
 	pi.registerVirtualModel({
@@ -69,16 +74,16 @@ export function registerFallback(pi: ExtensionAPI, agentName: string): void {
 		thinkingLevels: THINKING_LEVELS,
 		route(request, ctx) {
 			while (true) {
-				if (!current || spent.has(current)) current = pick();
+				if (!current || unavailable.has(current) || spentProviders.has(providerOf(current))) current = pick();
 				if (!current) throw new Error(`No model of the fallback chain is available: ${chain.join(", ")}`);
-				const slash = current.indexOf("/");
-				const model = ctx.modelRegistry.find(current.slice(0, slash), current.slice(slash + 1));
+				const provider = providerOf(current);
+				const model = ctx.modelRegistry.find(provider, current.slice(provider.length + 1));
 				if (model && ctx.modelRegistry.hasConfiguredAuth(model)) {
 					const thinkingLevel =
 						pinnedThinking ?? pi.getSettings().modelThinkingLevels?.[current] ?? request.thinkingLevel;
 					return { model, thinkingLevel };
 				}
-				spent.add(current);
+				unavailable.add(current);
 			}
 		},
 	});
@@ -97,10 +102,9 @@ export function registerFallback(pi: ExtensionAPI, agentName: string): void {
 		}
 		if (failed?.stopReason !== "error" || !QUOTA_ERROR.test(failed.errorMessage ?? "")) return;
 
-		const model = `${failed.provider}/${failed.model}`;
-		if (spent.has(model)) return;
-		spent.add(model);
-		markExhausted(model);
+		if (spentProviders.has(failed.provider)) return;
+		spentProviders.add(failed.provider);
+		markExhausted(failed.provider);
 		if (!pick()) return;
 
 		return {
@@ -109,7 +113,7 @@ export function registerFallback(pi: ExtensionAPI, agentName: string): void {
 				{
 					type: "custom_message",
 					customType: "subagent-fallback",
-					content: `The previous model (${model}) ran out of quota in the middle of this task. Continue the same task from where it stopped; do not repeat steps whose results are already above.`,
+					content: `The previous model (${failed.provider}/${failed.model}) ran out of quota in the middle of this task. Continue the same task from where it stopped; do not repeat steps whose results are already above.`,
 					display: false,
 				},
 			],
