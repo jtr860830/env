@@ -1,5 +1,5 @@
 ---
-paths: ["config/fish/**", "config/tealdeer/**", "config/npm/**"]
+paths: ["config/fish/**/conf.d/env.fish", "config/fish/**/functions/wget.fish", "config/tealdeer/**", "config/npm/**"]
 ---
 
 # Environment Variables
@@ -33,7 +33,7 @@ Left as is: the rest of rtk's directory (`config.toml`, hook markers, trust stor
 
 ## npm and Node
 
-npm reads `NPM_CONFIG_USERCONFIG=~/.config/npm/npmrc` (stowed), with `NODE_REPL_HISTORY` beside it in `env.fish`. `COREPACK_HOME` was dropped on 2026-10-28: Node 25 stopped bundling corepack, `corepack` is not on `PATH` under Node 26, and nothing reads the variable. `WGETRC` went the same day — it pointed at an empty, unmanaged `~/.config/wgetrc` from 2023; wget's one XDG need, the HSTS file, is the `--hsts-file` in `functions/wget.fish`.
+npm reads `NPM_CONFIG_USERCONFIG=~/.config/npm/npmrc` (stowed), with `NODE_REPL_HISTORY` beside it in `env.fish`. `COREPACK_HOME` was dropped on 2026-10-28: Node 25 stopped bundling corepack, `corepack` is not on `PATH` under Node 26, and nothing reads the variable. `WGETRC` went the same day — it pointed at an empty, unmanaged `~/.config/wgetrc` from 2023; wget's one XDG need, the HSTS file, is the `--hsts-file=$XDG_CACHE_HOME/wget-hsts` in `functions/wget.fish`.
 
 ## Terminfo
 
@@ -53,9 +53,7 @@ A long-lived tmux server keeps the environment it started with. New panes still 
 
 A tmux server is not the only thing that pins a stale environment. macOS `open` **passes the caller's environment to the GUI app**, and everything that app later launches inherits it — so `open -a Alfred` from inside tmux gives Alfred `TMUX`, and `TERM=tmux-256color`, and a Ghostty launched from that Alfred hands the same set to every shell in it. Quitting and reopening the *terminal* does not help; the pollution lives upstream in the launcher.
 
-The failure does not name its cause:
-
-- stale `TMUX` — when fish started tmux behind an `if not set -q TMUX` guard, an inherited value made a new window land in a bare fish with no tmux. Ghostty's `command` now clears it with `env -u TMUX`, so this one no longer bites
+The failure does not name its cause. The one met here was a stale `TMUX`: when fish started tmux behind an `if not set -q TMUX` guard, an inherited value made a new window land in a bare fish with no tmux. Ghostty's `command` now clears it with `env -u TMUX`, so this one no longer bites.
 
 Read what an app is actually holding with `ps -Eww -o command= -p <pid>`; `launchctl getenv` shows only the launchd session and stays empty in this case. A Finder- or Dock-launched app gets launchd's environment (about a dozen variables — `HOME` `PATH` `USER` `SHELL` `TMPDIR` `SSH_AUTH_SOCK` `XPC_*` …), which is the baseline to compare against. To relaunch one cleanly from a shell, give it that set explicitly rather than subtracting offenders one at a time:
 

@@ -50,7 +50,7 @@ The first run installs every plugin and parser into `$I/data`. It also writes `n
 
 Confirm which file won with `vim.api.nvim_get_runtime_file("lua/lsp.lua", true)` before trusting any result.
 
-**`K` is Neovim's own buffer-local `vim.lsp.buf.hover()` mapping; this config no longer overrides it.** It used to, only to pass `border = "rounded"`; `opt.winborder = "rounded"` (Nvim 0.11+) now gives every float without an explicit border — hover, diagnostic float, signature — the same rounded border, verified on both windows' `nvim_win_get_config().border`. So `K`'s `desc` can no longer tell you whether the `LspAttach` body ran; check `vim.lsp.inlay_hint.is_enabled` against `client:supports_method "textDocument/inlayHint"` instead. blink, fzf-lua and mini.clue pass explicit borders and are unaffected.
+**`K` is Neovim's own buffer-local `vim.lsp.buf.hover()` mapping; this config no longer overrides it.** It used to, only to pass `border = "rounded"`; `opt.winborder = "rounded"` (Nvim 0.11+) now gives every float without an explicit border — hover, diagnostic float, signature — the same rounded border, verified on both windows' `nvim_win_get_config().border`. So `K`'s `desc` can no longer tell you whether the `LspAttach` body ran; check `vim.lsp.inlay_hint.is_enabled` against `client:supports_method "textDocument/inlayHint"` instead. `winborder` must therefore stay `"rounded"`: passing `{ border = … }` to `vim.lsp.buf.hover` needs a function wrapper (a bare `vim.lsp.buf.hover` keymap value ignores opts), which is what the old override was. blink, fzf-lua and mini.clue pass explicit borders and are unaffected.
 
 ### lua_ls Library
 
@@ -86,7 +86,7 @@ vim.api.nvim_create_autocmd("InsertEnter", { group = hint_group, buffer = bufnr,
 
 ### Diagnostics Are Not LSP
 
-`vim.diagnostic` display config lives in `nvim/lua/diagnostics.lua`, not in `lsp.lua`. LSP is one producer of diagnostics, not the owner of how they are drawn — it only looked that way because no linter is installed here. The other `vim.diagnostic` uses are correctly placed: `[d` / `]d` / `<leader>cd` in `keymaps.lua`, severity counts in the statusline in `plugins.lua`.
+`vim.diagnostic` display config lives in `nvim/lua/diagnostics.lua`, not in `lsp.lua`. LSP is one producer of diagnostics, not the owner of how they are drawn — it only looked that way because no linter is installed here. The other `vim.diagnostic` uses are correctly placed: `<leader>cd` in `keymaps.lua`, severity counts in the statusline in `plugins.lua`.
 
 ### Per-Filetype Options
 
@@ -105,7 +105,10 @@ Do not "helpfully" re-add these — each was removed after checking:
 - **`opt.hlsearch` / `opt.grepformat`** — identical to Neovim's defaults. Neovim also picks `grepprg` itself: `"rg --vimgrep -uu "` when rg is on PATH, `"grep -HIn $* /dev/null"` otherwise, so an `executable("rg")` guard duplicates it. Nothing here uses `:grep`; fzf-lua builds its own rg invocation and never reads `grepprg`.
 - **`snacks.scroll`** (smooth scrolling) — installed and left un-`setup()`; declined, not blocked.
 - **blink's `snippets` source** — it serves snippet *libraries* found on the runtimepath, and none are installed, so it returned nothing on every keystroke. LSP snippets arrive through the `lsp` source instead; `snippetSupport = true` is hardcoded in blink (`sources/lib/init.lua`), not an option. Snippet libraries are unwanted; LSP-driven completion is.
-- **`nvim-treesitter` (the `main` branch) supplies parsers and queries; highlighting stays native.** `treesitter.lua` calls `require("nvim-treesitter").install { … }` with the language list and then `vim.treesitter.start()` per buffer. Parsers are compiled locally (`tree-sitter-cli` from the brewfile, Apple clang) into `~/.local/share/nvim/site/parser/`. `install()` is async; with no UI (`#vim.api.nvim_list_uis() == 0`) the file waits on it, so `nvim --headless +qa` installs every parser — that is what `just plugins` relies on. `install()` skips parsers that already exist, so `just plugins` also runs `require("nvim-treesitter").update():wait()` after `vim.pack.update` — otherwise updated queries can outrun stale parsers, which is exactly how the old `diff` mismatch happened.
+
+### Treesitter
+
+**`nvim-treesitter` (the `main` branch) supplies parsers and queries; highlighting stays native.** `treesitter.lua` calls `require("nvim-treesitter").install { … }` with the language list and then `vim.treesitter.start()` per buffer. Parsers are compiled locally (`tree-sitter-cli` from the brewfile, Apple clang) into `~/.local/share/nvim/site/parser/`. `install()` is async; with no UI (`#vim.api.nvim_list_uis() == 0`) the file waits on it, so `nvim --headless +qa` installs every parser — that is what `just plugins` relies on. `install()` skips parsers that already exist, so `just plugins` also runs `require("nvim-treesitter").update():wait()` after `vim.pack.update` — otherwise updated queries can outrun stale parsers, which is exactly how the old `diff` mismatch happened.
 
 **`tmux` is registered by hand, in a `User TSUpdate` autocmd at the top of `treesitter.lua`.** nvim-treesitter dropped it on 2026-07-15 (`78bebef1`, with `muttrc`, `zathurarc`, `hlsplaylist`) because upstream [Freed-Wu/tree-sitter-tmux](https://github.com/Freed-Wu/tree-sitter-tmux) stopped committing the generated `src/`; an old parser left in `parser/` then made every `update()` print `Parser not available for language "tmux"`. Upstream is alive (releases 0.1.3/0.1.4 in July 2026), so the registration sets `generate = true` — `tree-sitter-cli` builds `parser.c` locally — and `queries = "queries"` to take upstream's own queries, which use standard capture names. Verified on the real `tmux.conf`: no parse errors despite the nested `#{?…}` formats, and keyword/string/variable captures in the hundreds. If nvim-treesitter ever restores `tmux`, delete the autocmd. Neovim bundles queries for only 7 languages (`c lua markdown markdown_inline query vim vimdoc`); the rest come from this plugin.
 
@@ -121,7 +124,7 @@ Each module is an independent sub-plugin — there is no unified enable, and eve
 
 Write non-ASCII glyphs as Lua `\u{…}` escapes — `"\u{25cf}"`, `"\u{e0b6}"` — which LuaJIT supports and which keep the source pure ASCII. The Edit tool cannot reliably embed nerd font characters (they silently become spaces), which is why this config once used `vim.fn.nr2char(codepoint)`; the escape solves the same problem without a function call, and was verified equal to `nr2char` for every glyph in use. `string.char()` is not a replacement — it only handles 0–255.
 
-Six symbols are used in the whole repo: `▎` (U+258E, mini.diff signs), `▏` (U+258F, snacks indent), `○`/`●` (U+25CB/25CF, tmux windows), `■` (U+25A0, tmux zoom), and U+E0B6/U+E0B4 (the solid half-circles that cap tmux's bubble segments).
+Seven symbols are used in nvim and tmux (the fish prompt's own are in `docs/fish-prompt.md`): `▎` (U+258E, mini.diff signs), `▏` (U+258F, snacks indent), `○`/`●` (U+25CB/25CF, tmux windows), `■` (U+25A0, tmux zoom), and U+E0B6/U+E0B4 (the solid half-circles that cap tmux's bubble segments).
 
 In a script, write them as escapes (`\ue0b6`) rather than pasting the character — pasting silently produced `○` where `●` was meant. Beware substring collisions when scripting an edit over such bindings: a replacement targeting `active` also matches inside `inactive`, which is how both dots ended up identical; the bindings are now `dotDim`/`dotOn`.
 
@@ -133,7 +136,7 @@ Three things to check before adding another:
     "from fontTools.ttLib import TTFont; print(0x25A0 in TTFont('<font>.ttf', fontNumber=0).getBestCmap())"
   ```
 - **`bold` does nothing to geometric shapes.** `●` has an identical glyph and advance width in the Regular and Bold faces, so `#[fg=…,bold]` on one is dead styling.
-- Every symbol in use is East Asian Width **Ambiguous**, i.e. one cell only because `LANG=en_US.UTF-8`. Switching to a CJK locale would make them two cells wide and break both the tmux status bar and the sign column. `◉` (U+25C9) is the one Neutral alternative.
+- All seven are East Asian Width **Ambiguous**, i.e. one cell only because `LANG=en_US.UTF-8`. Switching to a CJK locale would make them two cells wide and break both the tmux status bar and the sign column. `◉` (U+25C9) is the one Neutral alternative.
 
 ### Sign Column
 
@@ -166,7 +169,7 @@ Keymaps are split across files by dependency:
   map("n", "<leader>cf", function() require("conform").format { lsp_format = "fallback" } end, ...)
   ```
 - `fzf.lua` — fzf keymaps (uses top-level `local fzf = require "fzf-lua"`, so must stay with setup)
-- `lsp.lua` `LspAttach` — registers no keymaps; `K` and every other LSP key are Neovim 0.12 defaults, with the border from `winborder`
+- `lsp.lua` `LspAttach` — registers no keymaps; `K` and every other LSP key are Neovim 0.12 defaults
 
 mini.clue group labels are declared in `clues` to show prefix descriptions at the first level:
 - Each mode needs a separate trigger entry — `{ mode, keys }` cannot combine modes in one object
@@ -183,7 +186,6 @@ mini.clue group labels are declared in `clues` to show prefix descriptions at th
 
 Window/buffer/split keymaps are intentionally absent — tmux handles that workflow. Conventional LSP keys (`gd`, `gD`, `K`) and bracket navigation (`[d`/`]d`) stay outside the `<leader>c` group.
 
-`winborder` must stay `"rounded"` for hover to keep its border: passing `{ border = … }` to `vim.lsp.buf.hover` needs a function wrapper (a bare `vim.lsp.buf.hover` keymap value ignores opts), which is what the old override was.
 ### Formatters
 
 conform is configured without `format_on_save` — format manually with `<leader>cf`.
