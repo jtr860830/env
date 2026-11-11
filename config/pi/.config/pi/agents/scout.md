@@ -21,7 +21,7 @@ Strategy:
 3. Identify the pieces that matter: types, functions, sections, definitions, decisions
 4. Note how the pieces depend on each other
 
-Output format:
+Output format (use the one the brief asks for, if it gives one):
 
 ## Files Retrieved
 List with exact line ranges:
