@@ -24,6 +24,16 @@ Linked (decided 2026-10-21 from fish history — 4,665 entries since 2022-02 —
 
 Deliberately not linked: `ncurses` (only its terminfo database is wanted; linking would shadow nine Apple binaries — see `docs/env.md`) and `openjdk` (`java`/`javac`/`mvn` last used 2022, so `java` stays Apple's stub). The gnubin formulae (`make`, `gnu-sed`, `inetutils`) are not keg-only: brew already ships them prefixed (`gmake`, `gsed`, `gping`) in `/opt/homebrew/bin`, and the unprefixed names stay Apple's — which is why scripts in this repo must run under BSD tools (`sed -i ''`). Tools that are not keg-only (`ssh` from `openssh`, `git`, `python3`) already win from `/opt/homebrew/bin`.
 
+## Brewfile Shape
+
+`brewfile` is one flat alphabetical list per kind (`brew`, then `cask`, then `mas`), no category headers. Categories were tried and dropped: they invited endless boundary arguments (is `atac` networking or API tooling? is `gnu-sed` a build tool?), and only 2 of 17 groups ever stayed sorted. Flat keeps lookup and insertion predictable. The file is lowercase `brewfile`; Homebrew only auto-discovers `Brewfile`, so every call passes `--file`, and `HOMEBREW_BUNDLE_FILE` is deliberately not set because it would hardcode the repo path.
+
+## Container Formulae
+
+Containers run on podman; `podman machine` manages the Linux VM, with no colima or Docker Desktop. lima is kept for general-purpose Linux VMs (not container-related). `podlet` converts existing container defs to Quadlet/k8s YAML format.
+
+Apple's `container` is installed from Homebrew's formula only to try out now and then: as of 2026-11-11 it is not complete enough to replace podman, which stays the one in daily use.
+
 ## Bundle
 
 `just clean` runs `brew bundle cleanup --force` and removes anything not listed. `mas` apps cannot be uninstalled by bundle cleanup, and an App Store update glitch (`Failed to update app for ADAM ID …`) does not fail `brew bundle` — check with `just check`.

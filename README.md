@@ -14,7 +14,7 @@ git clone https://github.com/jtr860830/env.git ~/.config/env
 1. installs everything in `brewfile`
 2. writes `/etc/shells`, `/etc/pam.d/sudo_local` (Touch ID for sudo) and `/etc/homebrew/brew.env`, and makes Homebrew's fish the login shell — asks for sudo
 3. links every package under `config/` into `$HOME`
-4. installs fish and Neovim plugins and treesitter parsers
+4. installs Neovim plugins and treesitter parsers
 
 Open a new terminal afterwards. The repo can live in any directory; `~/.config/env` is only a convention.
 
@@ -46,4 +46,4 @@ To add a tool's configuration, create `config/<tool>/` with the file at its path
 
 ## Not automated
 
-App licences and preferences — Alfred, macOS system settings — are set by hand; see `AGENTS.md`.
+App licences and preferences — Alfred, macOS system settings — are set by hand; see `.pi/skills/manual-setup/SKILL.md`.

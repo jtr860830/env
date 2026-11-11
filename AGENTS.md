@@ -10,9 +10,7 @@ Personal configuration for one Mac (Apple Silicon). Dotfiles live under `config/
 
 ## House Style
 
-**No comments in config files.** Single-user repo — the reasoning lives in this file and in `docs/`, where it does not have to be maintained alongside the code. Do not add explanatory comments back when editing; put the finding in the file that loads for that area. Every measured value and every rejected alternative is kept, with its date: those are the expensive part.
-
-`brewfile` is one flat alphabetical list per kind (`brew`, then `cask`, then `mas`), no category headers. Categories were tried and dropped: they invited endless boundary arguments (is `atac` networking or API tooling? is `gnu-sed` a build tool?), and only 2 of 17 groups ever stayed sorted. Flat keeps lookup and insertion predictable. The file is lowercase `brewfile`; Homebrew only auto-discovers `Brewfile`, so every call passes `--file`, and `HOMEBREW_BUNDLE_FILE` is deliberately not set because it would hardcode the repo path.
+**No comments in config files.** Single-user repo — the reasoning lives in `docs/`, and in this file only for what applies everywhere, rather than alongside the code. Do not add explanatory comments back when editing; put the finding in the file that loads for that area. Every measured value and every rejected alternative is kept, with its date: those are the expensive part.
 
 **Scripts in this repo run under BSD tools** — `sed -i ''`, not `sed -i`. The GNU versions are installed only under their `g`-prefixed names (`docs/homebrew.md`).
 
@@ -20,63 +18,53 @@ Personal configuration for one Mac (Apple Silicon). Dotfiles live under `config/
 
 Edits under `config/` are live immediately — `~` holds symlinks into the repo. Run a recipe only when the set of files or packages changes; `just --list` names them and the `justfile` is short.
 
-A new machine runs `./bootstrap.sh`: it installs Homebrew and `just` — exporting `XDG_CONFIG_HOME` first, so `~/.homebrew` is never created — and `exec`s `just setup`. Everything else lives in the `justfile`, which resolves paths from its own directory. Moving the repo was tested: 20 links dangled, `just relink` repointed them, nvim, fish and git kept working.
-
-**`stow --no-folding` is required, not a style choice.** With folding, a target directory that does not exist yet becomes a single link into the repo, and fish (`fish_variables`) and vim.pack (`nvim-pack-lock.json`) then write their own files *into the repo*. Without it every directory under `~` is real and only leaf files are links.
-
-`just etc` owns three files under `/etc`: `/etc/shells` gains `/opt/homebrew/bin/fish` (`chsh` refuses a shell not listed there); `/etc/pam.d/sudo_local` gets `pam_reattach.so` from `/opt/homebrew/lib/pam/`, then `pam_tid.so`, so Touch ID works for sudo including inside tmux; `/etc/homebrew/brew.env` sets `HOMEBREW_CACHE` and `HOMEBREW_XDG_CONFIG_HOME` (`docs/homebrew.md`).
-
-`just clean` removes any package not in the brewfile; `mas` apps are the exception, see `docs/homebrew.md`.
+**`stow --no-folding` is required, not a style choice.** With folding, a target directory that does not exist yet becomes a single link into the repo, and fish (`fish_variables`) and vim.pack (`nvim-pack-lock.json`) then write their own files *into the repo*.
 
 ## PATH
 
-`config/fish/.config/fish/conf.d/env.fish` writes the whole `PATH` outright: `~/.local/bin`, `/opt/homebrew/bin` and `sbin`, then the six system directories. `~/.local/bin` is the one directory for user-installed binaries (uv, `go install`, `cargo install` all land there), a keg-only formula is exposed by `link: true` in the brewfile and never by adding its keg to `PATH`, and `path_helper` is deliberately not used. The reasoning, the collision check and what is linked or deliberately not are in `docs/fish.md` and `docs/homebrew.md`.
+`PATH` is written outright in `config/fish/.config/fish/conf.d/env.fish`; user-installed binaries go in `~/.local/bin`; a keg-only formula is exposed with `link: true` in the brewfile, never by adding its keg to `PATH` (`docs/fish.md`, `docs/homebrew.md`).
 
 ## Git Conventions
 
 - Commit style: `type: description` (e.g. `feat:`, `chore:`, `fix:`)
 - Git signs commits via 1Password SSH agent (ED25519)
-- Default branch is `main`. Decisions about git's own config, and the diff and pager tools deliberately absent, are in `docs/git.md`.
+- Default branch is `main`.
 
-## Manual Setup
+## Skills
 
-Steps `just setup` cannot perform — macOS settings, OmniWM permissions, pi's and Claude Code's and Codex's local settings, rtk, Alfred — live in the `manual-setup` skill (`.pi/skills/manual-setup/SKILL.md`). Load it when setting up a machine or before changing any of those tools' settings: it also records which settings are deliberately off and why.
+- `.pi/skills/manual-setup/SKILL.md`: steps `just setup` cannot perform and local settings deliberately set or off — load when setting up a machine or before changing those tools' settings.
+- `.pi/skills/theme/SKILL.md`: any colour or appearance change — load before changing either; its values are measured, do not re-derive.
 
 ## Container Stack
 
-Fully migrated to podman. `podman machine` manages the Linux VM — no colima/Docker Desktop needed. lima is kept for general-purpose Linux VMs (not container-related). `podlet` converts existing container defs to Quadlet/k8s YAML format.
-
-Apple's `container` is installed from Homebrew's formula only to try out now and then: as of 2026-11-11 it is not complete enough to replace podman, which stays the one in daily use.
-
-## Theme
-
-All colour and appearance work — the sourcing ladder, which contrast instrument applies to which comparison, the light/dark switching mechanism, onedarkpro's limits and traps, and Alfred's theme design — lives in the `theme` skill (`.pi/skills/theme/SKILL.md`). Load it before changing any colour; every value there was measured and should not be re-derived.
+Containers run on podman; `podman machine` manages the Linux VM, with no colima or Docker Desktop.
 
 ## Agents
 
-pi is the harness (decided 2026-11-10): the orchestrator runs in pi, Claude Code is the `claude` binary behind the `pi-claude-code` package, and Codex CLI has no role in it. Both are still installed and runnable on their own. The whole arrangement — providers, subagents, the six agent definitions, what was tried and rejected — is in `docs/pi.md`.
+pi is the harness (decided 2026-11-10), Claude Code is a backend through `pi-claude-code`, Codex CLI has no role; details in `docs/pi.md`.
 
-**Never let a `CLAUDE.md` appear at the repo root.** Claude Code loads a project's `AGENTS.md` where `CLAUDE.md` would go only when there is no `CLAUDE.md`, so `/init`, `/revise-claude-md` (from the `claude-md-management` plugin) and the `#` shortcut, which all write that name, would silently shadow this file; a local setting guards against it. The user-scope `config/claude/.config/claude/CLAUDE.md` keeps its name because at user scope Claude Code reads only that. The settings files of all three tools stay local, since the tools write them. Details and the verifications are in the `manual-setup` skill.
+**Never let a `CLAUDE.md` appear at the repo root.** Claude Code loads a project's `AGENTS.md` where `CLAUDE.md` would go only when there is no `CLAUDE.md`, so `/init`, `/revise-claude-md` (from the `claude-md-management` plugin) and the `#` shortcut, which all write that name, would silently shadow this file; a local setting guards against it. The settings files of all three tools stay local, since the tools write them. Details and the verifications are in the `manual-setup` skill.
 
-**Stateless model (decided 2026-11-09).** The model carries nothing of its own between sessions: everything persistent lives in files the user edits — this file, `docs/`, `.pi/skills/`, the user-level `AGENTS.md` and `CLAUDE.md` — so what the model knows at session start is exactly what is in the repo. Auto-memory, the `remember` plugin and Codex memories are off; the `manual-setup` skill records each. Session transcripts are conversation continuity, not memory, and are kept (Claude Code's `--resume` ages them out with `cleanupPeriodDays`; pi never prunes, see `docs/pi.md`).
+**Stateless model (decided 2026-11-09).** The model carries nothing of its own between sessions: everything persistent lives in files the user edits — this file, `docs/`, `.pi/skills/`, the user-level `AGENTS.md` and `CLAUDE.md` — so what the model knows at session start is exactly what is in the repo. Memory switches and transcript retention are in `.pi/skills/manual-setup/SKILL.md` and `docs/pi.md`.
 
 ## Path-Scoped Documentation
 
-Measured findings tied to one area live in the flat, harness-neutral `docs/` directory, indexed below for human readers and agents. A `paths` frontmatter key loads each document only when a matching file is read, edited or written. Nothing was dropped from this file when they moved out — it is only not in every session's context. Prefer this mechanism over adding another always-loaded section when new guidance is tied to one file.
+Measured findings tied to one area live in the flat, harness-neutral `docs/` directory, indexed below for human readers and agents. A `paths` frontmatter key loads each document only when a matching file is read, edited or written. Prefer this mechanism over adding another always-loaded section when new guidance is tied to one file.
 
 | File | Loads when editing | Covers |
 |------|--------------------|--------|
-| `docs/neovim.md` | `config/nvim/**` | plugins via `vim.pack`, the 0.11+/0.12 LSP API, LspAttach patterns, mini.nvim's per-module `setup()` traps, nerd font icons written as `\u{…}` escapes, keymap organisation, formatters, snacks, sign column, fzf-lua colours, startup timings, and what is deliberately absent |
-| `docs/tmux.md` | `config/tmux/**` | who starts tmux, the style/format quirks, `message-style` needing `fill=`, extended-keys negotiation, duplicate options, and tmux 3.8's changed default styles |
+| `docs/neovim.md` | `config/nvim/**` | plugins via `vim.pack`, the 0.11+/0.12 LSP API, LspAttach patterns, mini.nvim's per-module `setup()` traps, nerd font icons written as `\u{…}` escapes, keymap organisation, formatters, snacks, sign column, fzf-lua colours, startup timings, and what is deliberately absent; treesitter parser install/update and the hand-registered tmux parser, Python server choice, lua_ls library setting, testing in an isolated config dir |
+| `docs/tmux.md` | `config/tmux/**` | who starts tmux, the style/format quirks, `message-style` needing `fill=`, extended-keys negotiation, duplicate options, and tmux 3.8's changed default styles; default key bindings not to rebind |
 | `docs/fish.md` | `config/fish/**` | why `PATH` is written outright, the ordering table and collision check, the conf.d layout and why the theme and the prompt's git handler live in `conf.d/`, the `vi`/`vim`/`ls`/`rm`/`wget` functions, the valid `fish_color_*`/`EZA_COLORS` names, and why fish theme files cannot hold the palette |
-| `docs/fish-prompt.md` | the prompt files under `config/fish/**` | the hand-written prompt — its segments and their nvim groups, the framed blocks and fading, the git caching, sanitising and timings, why pure, Starship and Tide were not used |
-| `docs/env.md` | `config/fish/**` | `GOPATH`/`GOBIN` in the environment and why Go's own env file cannot hold variables; the `~/Library` leaks on macOS and the variable verified for each fix; `TERMINFO_DIRS` from keg-only ncurses; why no `MANPATH` is set and Homebrew's `mandoc` must not be installed; npm's config path and the variables dropped; stale environments in a long-lived tmux server and in GUI apps launched from a terminal |
+| `docs/fish-prompt.md` | `config/fish/**/conf.d/prompt.fish`, `config/fish/**/conf.d/theme.fish`, `config/fish/**/functions/fish_prompt.fish`, `config/fish/**/functions/fish_mode_prompt.fish`, `config/fish/**/functions/fish_user_key_bindings.fish` | the hand-written prompt — its segments and their nvim groups, the framed blocks and fading, the git caching, sanitising and timings, why pure, Starship and Tide were not used; narrow-line drop order, palette keys and contrast, empty-Enter handling, exit-status choice, glyph choices |
+| `docs/env.md` | `config/fish/**`, `config/tealdeer/**`, `config/npm/**` | `GOPATH`/`GOBIN` in the environment and why Go's own env file cannot hold variables; the `~/Library` leaks on macOS and the variable verified for each fix; `TERMINFO_DIRS` from keg-only ncurses; why no `MANPATH` is set and Homebrew's `mandoc` must not be installed; tealdeer's cache config, npm's config path and the variables dropped; stale environments in a long-lived tmux server and in GUI apps launched from a terminal |
 | `docs/ghostty.md` | `config/ghostty/**` | why Ghostty's `command` starts tmux (absolute path, `env -u TMUX`), shell integration being off, `macos-option-as-alt`, and Ghostty 1.4.0 still having no status bar |
 | `docs/git.md` | `config/git/**` | `bat` and `delta` removed and why git's own diff is the better choice under a switching theme, `core.pager = nvim` rejected, `column.ui` declined, the `master` → `main` rename |
-| `docs/omniwm.md` | `config/omniwm/**` | the stowed `settings.toml` and its strict schema, the 0.8.0 upgrade, workspaces per display, app rules and the catch-all to workspace 3, no sticky windows, the workspace bar's three layers and the stowed OmniShell profile, the status menu, the window switcher, Quake and Hidden Bar being off, Overview colours, trackpad gestures and hotkeys |
-| `docs/pi.md` | `config/pi/**`, `.pi/**`, `docs/**` | pi's lack of XDG support and the two `PI_CODING_AGENT_*` variables, why sessions are DATA not STATE, which `settings.json` values are hand-set; pi as the harness, with Claude Code as a backend and OpenAI models through the `openai` provider — why `pi-claude-code` over `pi-claude-bridge` and what it measurably sends; the subagent extension (thinking, model override, fallback chains, background jobs, child identity), the six agents and the designs rejected; `rules.ts` |
-| `docs/homebrew.md` | `justfile`, `bootstrap.sh`, `brewfile` | `/etc/homebrew/brew.env` and the `brew.env` hierarchy; which keg-only formulae are linked and why (`curl`, `llvm`, `rustup`), which are deliberately not (`ncurses`, `openjdk`), the gnubin trio being prefixed rather than keg-only; Python's canonical formula name; bundle cleanup and the `mas` glitch |
+| `docs/omniwm.md` | `config/omniwm/**` | the stowed `settings.toml` and its strict schema, the 0.8.0 upgrade, workspaces per display, app rules and the catch-all to workspace 3, no sticky windows, the workspace bar's three layers and the stowed OmniShell profile, the status menu, the window switcher, Quake and Hidden Bar being off, Overview colours, trackpad gestures and hotkeys; `niri.infiniteLoop` wrapping, workspace naming, manual setup (permissions, Start at Login) |
+| `docs/pi.md` | `config/pi/**`, `.pi/**` | pi's lack of XDG support and the two `PI_CODING_AGENT_*` variables, why sessions are DATA not STATE, which `settings.json` values are hand-set; pi as the harness, with Claude Code as a backend and OpenAI models through the `openai` provider — why `pi-claude-code` over `pi-claude-bridge` and what it measurably sends; the subagent extension (thinking, model override, fallback chains, background jobs, child identity), the six agents and the designs rejected; `rules.ts`, why documents live in `docs/` and what was rejected |
+| `docs/homebrew.md` | `justfile`, `bootstrap.sh`, `brewfile` | `/etc/homebrew/brew.env` and the `brew.env` hierarchy; which keg-only formulae are linked and why (`curl`, `llvm`, `rustup`), which are deliberately not (`ncurses`, `openjdk`), the gnubin trio being prefixed rather than keg-only; Python's canonical formula name; bundle cleanup and the `mas` glitch; the brewfile's flat shape, why lima/podlet/container are installed |
+| `docs/setup.md` | `justfile`, `bootstrap.sh` | bootstrap and its XDG export, repo-relative paths and the move/relink test, stow's leaf links, `just etc` and its three system files (login shell, Touch ID for sudo inside tmux, Homebrew environment) |
 
-The loading is done by `.pi/extensions/rules.ts`: from cwd it finds the nearest ancestor (inclusive) containing `.git` (file or directory), then reads `docs/*.md` non-recursively; no `docs/` means no documents to load. It injects guidance when `read`/`edit`/`write` touches a matching path, blocking the first edit/write so the text lands before the change. The format is Claude Code's path-scoped frontmatter; Claude Code and Codex see the documents only if they open them. Why they live in `docs/`, where they lived before and the alternatives rejected are in `docs/pi.md`.
+pi injects these through `.pi/extensions/rules.ts` (`docs/pi.md`); Claude Code and Codex get no injection and must open the matching document themselves.
 
-`just check` runs `scripts/check-docs.py` first: every `docs/*.md` reference must name an existing file, every document must be indexed in the table above, and every `paths` glob must match a file.
+`just check` runs `scripts/check-docs.py` first: every `docs/*.md` reference must name an existing file, every document must have its own index row whose second-cell backticked globs equal its frontmatter `paths`, and every `paths` glob must match a repository file.

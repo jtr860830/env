@@ -31,7 +31,17 @@ for source in sources:
         for match in references.finditer(line):
             if not Path(match[0]).is_file():
                 errors.append(f"{source}:{number}: missing documentation: {match[0]}")
-index = set(references.findall(Path("AGENTS.md").read_text()))
+agents = Path("AGENTS.md").read_text()
+index = {}
+table = re.search(r"^\| File \| Loads when editing \| Covers \|\n\|[-| ]+\|\n((?:\|[^\n]*\n)+)", agents, re.M)
+if table:
+    for row in table[1].splitlines():
+        cells = row.split("|", 3)
+        file = re.fullmatch(r"\s*`(docs/[\w.-]+\.md)`\s*", cells[1])
+        if file:
+            if file[1] in index:
+                errors.append(f"{file[1]}: duplicate AGENTS.md index row")
+            index[file[1]] = set(re.findall(r"`([^`]+)`", cells[2]))
 files = subprocess.check_output(["git", "ls-files", "--cached", "--others", "--exclude-standard", "-z"]).decode().split("\0")
 for doc in docs:
     if str(doc) not in index:
@@ -39,6 +49,10 @@ for doc in docs:
     try:
         frontmatter = doc.read_text().split("---", 2)[1]
         globs = json.loads(re.search(r"^paths:\s*(\[.*\])\s*$", frontmatter, re.M)[1])
+        if str(doc) in index and index[str(doc)] != set(globs):
+            missing = sorted(set(globs) - index[str(doc)])
+            extra = sorted(index[str(doc)] - set(globs))
+            errors.append(f"{doc}: AGENTS.md index globs differ from frontmatter paths: missing {missing}; extra {extra}")
         for glob in globs:
             if not any(glob_regex(glob).fullmatch(file) for file in files if file):
                 errors.append(f"{doc}: paths glob matches no repository file: {glob}")
