@@ -2,7 +2,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { type ExtensionAPI, parseFrontmatter } from "@earendil-works/pi-coding-agent";
 
-const RULE_DIRS = [".pi/rules"];
+const RULE_DIRS = ["docs"];
 const PATH_TOOLS = new Set(["read", "edit", "write"]);
 const CUSTOM_TYPE = "rule";
 
@@ -32,7 +32,7 @@ function globToRegExp(glob: string): RegExp {
 function findRoot(cwd: string): string | undefined {
 	let dir = cwd;
 	for (;;) {
-		if (RULE_DIRS.some((d) => fs.existsSync(path.join(dir, d)))) return dir;
+		if (fs.existsSync(path.join(dir, ".git"))) return dir;
 		const parent = path.dirname(dir);
 		if (parent === dir) return undefined;
 		dir = parent;
@@ -67,17 +67,19 @@ export default function (pi: ExtensionAPI) {
 		const previous = new Map(rules.map((r) => [r.id, r.body]));
 		rules = loadRules(root);
 		for (const rule of rules) if (previous.get(rule.id) !== rule.body) injected.delete(rule.id);
+		watch();
 	};
 
 	const watch = () => {
 		for (const w of watchers) w.close();
 		watchers = [];
 		if (!root) return;
-		for (const dir of RULE_DIRS) {
+		for (const dir of [".", ...RULE_DIRS]) {
 			const abs = path.join(root, dir);
 			if (!fs.existsSync(abs)) continue;
 			watchers.push(
-				fs.watch(abs, () => {
+				fs.watch(abs, (_event, filename) => {
+					if (dir === "." && filename !== "docs") return;
 					clearTimeout(reloadTimer);
 					reloadTimer = setTimeout(reload, 200);
 				}),

@@ -4,7 +4,7 @@ paths: ["config/tmux/**"]
 
 ## Tmux Quirks
 
-- **tmux is started by Ghostty, not by fish**: Ghostty's `command` is `/usr/bin/env -u TMUX /opt/homebrew/bin/tmux new-session -A -s main` — absolute path because a Dock-launched Ghostty has only launchd's `PATH`, `env -u TMUX` because an app opened from inside tmux inherits `TMUX` and tmux would refuse to nest. Shells started anywhere else are plain fish. Details and the verification in `.pi/rules/ghostty.md`
+- **tmux is started by Ghostty, not by fish**: Ghostty's `command` is `/usr/bin/env -u TMUX /opt/homebrew/bin/tmux new-session -A -s main` — absolute path because a Dock-launched Ghostty has only launchd's `PATH`, `env -u TMUX` because an app opened from inside tmux inherits `TMUX` and tmux would refuse to nest. Shells started anywhere else are plain fish. Details and the verification in `docs/ghostty.md`
 - Mode detection without plugins: `#{?client_prefix,...}` and `#{?pane_in_mode,...}` are built-in tmux format strings
 - `pane-border-style` and `pane-active-border-style` set to the same color — a shared border between an active and an inactive pane renders half in each style. Re-verified on tmux 3.7c, so do not try giving the active border its own color again
 - **`message-style` needs `fill=`, not just `bg=`.** tmux draws the message over the existing status line and only paints the cells the text occupies, so the rest of the row shows through — `display-message HELLO` over `jtr860830@…` rendered as `HELLO60830@…`. `fill` makes it clear to end of line
