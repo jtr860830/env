@@ -27,7 +27,7 @@ import {
 	type Theme,
 	withFileMutationQueue,
 } from "@earendil-works/pi-coding-agent";
-import { Box, type Component, Container, Markdown, Spacer, Text } from "@earendil-works/pi-tui";
+import { Box, type Component, Container, Markdown, Spacer, Text, visibleWidth } from "@earendil-works/pi-tui";
 import { type Static, Type } from "typebox";
 import { type AgentConfig, discoverAgents, parseThinkingLevel, THINKING_LEVELS } from "./agents.ts";
 import { fallbackModel, registerFallback } from "./fallback.ts";
@@ -573,18 +573,91 @@ function modelMark(r: SingleResult): string {
 	return r.model ? `${r.model}${r.fallbackFrom?.length ? ` (fallback #${r.fallbackFrom.length})` : ""}` : "";
 }
 
-function widgetLines(bg: BackgroundTask): string[] {
+function formatElapsed(ms: number): string {
+	const seconds = Math.round(ms / 1000);
+	if (seconds < 60) return `${seconds}s`;
+	if (seconds < 3600) return `${Math.floor(seconds / 60)}m${seconds % 60}s`;
+	return `${Math.floor(seconds / 3600)}h${Math.floor((seconds % 3600) / 60)}m`;
+}
+
+interface StatusRow {
+	branch: "" | "├" | "└";
+	header: boolean;
+	state: "running" | "done" | "failed";
+	name: string;
+	model: string;
+	fallback: string;
+	turns: number | undefined;
+	elapsed: string;
+	tail: string;
+}
+
+function statusRows(bg: BackgroundTask): StatusRow[] {
 	const results = bg.partial?.details?.results ?? [];
-	const elapsed = `${Math.round((Date.now() - bg.startedAt) / 1000)}s`;
-	if (results.length === 0) return [[`⏳ ${bg.id}`, bg.group, elapsed, "starting"].filter(Boolean).join("  ")];
-	return results.map((r) => {
+	const elapsed = formatElapsed(Date.now() - bg.startedAt);
+	const blank = { branch: "", header: false, state: "running", model: "", fallback: "", turns: undefined, elapsed: "" } as const;
+	if (results.length === 0) {
+		return [bg.group ? { ...blank, header: true, name: bg.id, tail: "starting" } : { ...blank, name: bg.id, elapsed, tail: "starting" }];
+	}
+	const members = results.map((r, index): StatusRow => {
 		const state = memberState(r);
-		const icon = state === "running" ? "⏳" : state === "failed" ? "✗" : "✓";
-		const tail = state === "running" ? [elapsed, shortTask(lastAction(r), 60)] : [state];
-		return [`${icon} ${bg.id}`, bg.group ? r.agent : "", modelMark(r), `${r.usage.turns} turns`, ...tail]
-			.filter(Boolean)
-			.join("  ");
+		return {
+			branch: bg.group ? (index === results.length - 1 ? "└" : "├") : "",
+			header: false,
+			state,
+			name: bg.group ? r.agent : bg.id,
+			model: r.model ?? "",
+			fallback: r.fallbackFrom?.length ? `(fallback #${r.fallbackFrom.length})` : "",
+			turns: r.usage.turns,
+			elapsed: state === "running" ? elapsed : "",
+			tail: state === "running" ? shortTask(lastAction(r), 60) : state,
+		};
 	});
+	return bg.group ? [{ ...blank, header: true, name: bg.id, tail: "" }, ...members] : members;
+}
+
+const STATE_ICON = {
+	running: { glyph: "●", color: "accent" },
+	done: { glyph: "✓", color: "success" },
+	failed: { glyph: "✗", color: "error" },
+} as const;
+
+function formatStatus(rows: StatusRow[], theme: Theme): string {
+	const members = rows.filter((row) => !row.header);
+	const digits = Math.max(0, ...members.map((row) => String(row.turns ?? "").length));
+	const turns = (row: StatusRow) =>
+		row.turns === undefined ? "" : `${String(row.turns).padStart(digits)} ${row.turns === 1 ? "turn" : "turns"}`;
+	const lead = (row: StatusRow) => `${row.branch ? `${row.branch} ` : ""}${STATE_ICON[row.state].glyph} ${row.name}`;
+	const styledLead = (row: StatusRow) => {
+		const icon = STATE_ICON[row.state];
+		const branch = row.branch ? `${theme.fg("borderMuted", row.branch)} ` : "";
+		return `${branch}${theme.fg(icon.color, icon.glyph)} ${theme.fg("text", row.name)}`;
+	};
+	const columns: { plain: (row: StatusRow) => string; styled: (row: StatusRow) => string; right?: boolean }[] = [
+		{ plain: lead, styled: styledLead },
+		{
+			plain: (row) => [row.model, row.fallback].filter(Boolean).join(" "),
+			styled: (row) =>
+				[row.model && theme.fg("muted", row.model), row.fallback && theme.fg("warning", row.fallback)]
+					.filter(Boolean)
+					.join(" "),
+		},
+		{ plain: turns, styled: (row) => theme.fg("muted", turns(row)) },
+		{ plain: (row) => row.elapsed, styled: (row) => theme.fg("muted", row.elapsed), right: true },
+	];
+	const shown = columns
+		.map((column) => ({ ...column, width: Math.max(0, ...members.map((row) => visibleWidth(column.plain(row)))) }))
+		.filter((column) => column.width > 0);
+	return rows
+		.map((row) => {
+			if (row.header) return [styledLead(row), row.tail && theme.fg("muted", row.tail)].filter(Boolean).join("  ");
+			const cells = shown.map((column) => {
+				const pad = " ".repeat(column.width - visibleWidth(column.plain(row)));
+				return column.right ? pad + column.styled(row) : column.styled(row) + pad;
+			});
+			return [...cells, theme.fg("muted", row.tail)].join("  ");
+		})
+		.join("\n");
 }
 
 function describeTask(bg: BackgroundTask): string {
@@ -711,9 +784,9 @@ function renderDetails(details: SubagentDetails, expanded: boolean, theme: Theme
 		const failCount = details.results.filter((r) => r.exitCode !== -1 && isFailedResult(r)).length;
 		const isRunning = running > 0;
 		const icon = isRunning
-			? theme.fg("warning", "⏳")
+			? theme.fg("accent", "●")
 			: failCount > 0
-				? theme.fg("warning", "◐")
+				? theme.fg("warning", "◉")
 				: theme.fg("success", "✓");
 		const status = isRunning
 			? `${successCount + failCount}/${details.results.length} done, ${running} running`
@@ -776,7 +849,7 @@ function renderDetails(details: SubagentDetails, expanded: boolean, theme: Theme
 		for (const r of details.results) {
 			const rIcon =
 				r.exitCode === -1
-					? theme.fg("warning", "⏳")
+					? theme.fg("accent", "●")
 					: isFailedResult(r)
 						? theme.fg("error", "✗")
 						: theme.fg("success", "✓");
@@ -816,17 +889,17 @@ export default function (pi: ExtensionAPI) {
 		return agents.map((a) => `- ${a.name}: ${a.description}`).join("\n");
 	};
 
-	const updateWidget = () => {
+	const updateStatus = () => {
 		if (!current?.hasUI) return;
 		const running = [...backgroundTasks.values()];
 		if (running.length === 0) {
 			clearInterval(ticker);
 			ticker = undefined;
-			current.ui.setWidget("subagent", undefined);
+			current.ui.setStatus("subagent", undefined);
 			return;
 		}
-		ticker ??= setInterval(updateWidget, 1000);
-		current.ui.setWidget("subagent", running.flatMap(widgetLines));
+		ticker ??= setInterval(updateStatus, 1000);
+		current.ui.setStatus("subagent", formatStatus(running.flatMap(statusRows), current.ui.theme));
 	};
 
 	async function runCall(
@@ -970,7 +1043,7 @@ export default function (pi: ExtensionAPI) {
 		bg.result = result;
 		backgroundTasks.delete(bg.id);
 		if (bg.stoppedBy === "shutdown") return;
-		updateWidget();
+		updateStatus();
 		record({ event: "ended", key: bg.key, reason: bg.stoppedBy ?? (result.isError ? "failed" : "completed") });
 		if (bg.stoppedBy === "model") return;
 
@@ -1023,7 +1096,7 @@ export default function (pi: ExtensionAPI) {
 		for (const bg of backgroundTasks.values()) stop(bg, "shutdown");
 		clearInterval(ticker);
 		ticker = undefined;
-		if (current?.hasUI) current.ui.setWidget("subagent", undefined);
+		if (current?.hasUI) current.ui.setStatus("subagent", undefined);
 	});
 
 	pi.registerMessageRenderer<SubagentDetails>(RESULT_MESSAGE, (message, { expanded, outputPad }, theme) => {
@@ -1156,7 +1229,7 @@ export default function (pi: ExtensionAPI) {
 						bg.sessions.add(r.sessionId);
 						record({ event: "session", key, sessionId: r.sessionId });
 					});
-					updateWidget();
+					updateStatus();
 				}).catch(
 					(error): AgentToolResult<SubagentDetails> => ({
 						content: [{ type: "text", text: `Background task ${id} failed: ${error instanceof Error ? error.message : String(error)}` }],
@@ -1167,7 +1240,7 @@ export default function (pi: ExtensionAPI) {
 			};
 			backgroundTasks.set(id, bg);
 			bg.promise.then((result) => finish(bg, result));
-			updateWidget();
+			updateStatus();
 
 			return {
 				content: [
