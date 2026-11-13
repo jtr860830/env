@@ -62,7 +62,7 @@ function __prompt_close
     test $argv[1] -ge 5000; and set duration_pill (__prompt_pill (set_color $__prompt_c_yellow)(__prompt_duration $argv[1]))
     set -l columns (command stty size 2>/dev/null | string match -rg '^\d+ (\d+)$')
     test -n "$columns"; or set columns $COLUMNS
-    set -l width (math "min($columns - 1, $__prompt_width)")
+    set -l width (math "min($columns, $__prompt_width)")
     set -l frame
     for drop in none duration error
         switch $drop
@@ -101,7 +101,7 @@ function fish_prompt
     set -l dir_max
     set -l branch_max
     set -l show_git 1
-    set -l width (math $COLUMNS - 1)
+    set -l width $COLUMNS
     set -g __prompt_width $width
     set -l need 0
     set -l frame
