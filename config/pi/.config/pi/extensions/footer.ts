@@ -245,7 +245,9 @@ export default function (pi: ExtensionAPI) {
 			return {
 				dispose: unsubscribe,
 				invalidate() {},
-				render(width: number): string[] {
+				render(total: number): string[] {
+					const margin = total > 1 ? " " : "";
+					const width = total - margin.length;
 					const data = gather();
 					const view: View = {
 						tokens: true,
@@ -288,8 +290,8 @@ export default function (pi: ExtensionAPI) {
 					const statuses = [...footerData.getExtensionStatuses().entries()]
 						.sort(([a], [b]) => a.localeCompare(b))
 						.flatMap(([, text]) => statusLines(text))
-						.map((line) => truncateToWidth(theme.fg("muted", line), width, "…"));
-					return [truncateToWidth(built.line, width, "…"), ...(statuses.length > 0 ? statuses : [""])];
+						.map((line) => margin + truncateToWidth(theme.fg("muted", line), width, "…"));
+					return [margin + truncateToWidth(built.line, width, "…"), ...(statuses.length > 0 ? statuses : [""])];
 				},
 			};
 		});

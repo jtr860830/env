@@ -45,7 +45,7 @@ One row of pills and, below it, the extension status lines:
 ├ ● runner  openai/gpt-6-luna  1 turn  15s  $ sleep 20
 ```
 
-It follows the bars' rule: the directory is the subject and stays plain, everything else is a `float_bg` pill. Pill caps take `theme.colors.toolPendingBg` as a foreground. pi has no token for a directory or a branch, so the directory borrows `mdLink` (blue, `Directory`) and the branch `syntaxOperator` (cyan); under a built-in theme they degrade to blue and muted.
+It follows the bars' rule: the directory is the subject and stays plain, everything else is a `float_bg` pill. Both rows start one cell in from the left edge (the owner's request, 2026-11-13); the right end stays flush. Pill caps take `theme.colors.toolPendingBg` as a foreground. pi has no token for a directory or a branch, so the directory borrows `mdLink` (blue, `Directory`) and the branch `syntaxOperator` (cyan); under a built-in theme they degrade to blue and muted.
 
 - Narrow widths drop, in order: token counts, full path (abbreviated as `prompt_pwd` does), session name, provider, cost, branch length (to 8), git pill, context, path (cut from the left, to 8), model name. One stage is applied and the line measured; when the result fits with the short path, the full path is tried once more. Verified from 140 to 16 columns.
 - The thinking level is text inside the model pill, coloured by its `thinking*` token so it matches the editor border. It was a filled pill at the far right for a few hours; the owner dropped it as the last and loudest element for what is an attribute of the model.
