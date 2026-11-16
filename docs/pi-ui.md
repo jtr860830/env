@@ -4,7 +4,7 @@ paths: ["config/pi/**/themes/**", "config/pi/**/extensions/footer.ts", "config/p
 
 ## pi UI
 
-Three layers: the theme files give pi the editor's colours and `extensions/footer.ts` gives the footer the bars' shape, both from 2026-11-13, and `extensions/editor.ts` puts `❯` in front of the input (2026-11-16). Considered and not done: a fish-style framed editor through `setEditorComponent` (it overrides the editor's render, the part most likely to break on a pi upgrade, and pi's editor has no vi mode for `❯` to follow; the arrow alone was done later without a render of its own, see Editor), and restyling the transcript, which means overriding each built-in tool's renderer separately.
+Three layers: the theme files give pi the editor's colours (2026-11-13), `extensions/editor.ts` frames the input and carries the status pills, and `extensions/footer.ts` draws the extension status lines below it (both in this form since 2026-11-16). Considered and not done: restyling the transcript, which means overriding each built-in tool's renderer separately.
 
 ### Theme
 
@@ -35,47 +35,42 @@ Assigned against the obvious reading, with the reason: `customMessageLabel` is `
 
 APCA on the real backdrops, dark / light: `text` 56.2 / 93.2; `muted` 32.3 / 48.7 on `bg` and 33.7 / 42.2 on `float_bg`; `dim` 17.4 / 47.4 on `bg`. The two weakest cells are both dark and the owner accepted both on 2026-11-13: `dim` carries key hints and queued-message lines at 17.4, following the Alfred and fish precedent of `gray` for tertiary text, and tool output is `comment` at 33.7 on its panel. Raising either is one value.
 
-### Footer
-
-One row of pills and, below it, the extension status lines:
-
-```
-<folder> ~/.config/env (on <branch> main) (name)     (↑12k ↓3k …) ($1.428) (3.3%/1.0M) (anthropic/claude-fable-5-2 high)
-● parallel-1
-├ ● runner  openai/gpt-6-luna  1 turn  15s  $ sleep 20
-```
-
-It follows the bars' rule: the directory is the subject and stays plain, everything else is a `float_bg` pill. Both rows start one cell in from the left edge (the owner's request, 2026-11-13); the right end stays flush. Pill caps take `theme.colors.toolPendingBg` as a foreground. pi has no token for a directory or a branch, so the directory borrows `mdLink` (blue, `Directory`) and the branch `syntaxOperator` (cyan); under a built-in theme they degrade to blue and muted.
-
-- Narrow widths drop, in order: token counts, full path (abbreviated as `prompt_pwd` does), session name, provider, cost, branch length (to 8), git pill, context, path (cut from the left, to 8), model name. One stage is applied and the line measured; when the result fits with the short path, the full path is tried once more. Verified from 140 to 16 columns.
-- The thinking level is text inside the model pill, coloured by its `thinking*` token so it matches the editor border. Since 2026-11-16 the colour comes from `theme.getThinkingBorderColor(level)`, the function pi's editor border calls, in place of a level-to-token table in the extension; `high` measured as `38;2;198;120;221`, `purple`. It was a filled pill at the far right for a few hours; the owner dropped it as the last and loudest element for what is an attribute of the model.
-- Context turns `warning` above 70% and `error` above 90%, the built-in footer's thresholds.
-- Usage totals and context usage are cached by leaf id and model, as the built-in footer does.
-- **The line below the pills is always there**, blank when no extension has a status, so a starting task does not move the layout; the owner asked for it as the place for subagents. Every extension status is shown, a multi-line status one line per row. With pi's built-in footer the same statuses join into one line.
-- Not carried over from the built-in footer: `(auto)`, constant on this machine; the routed model of a virtual model, which extensions cannot read; `isUsingSubscription`, replaced by `isUsingOAuth` for the `sub` mark. The git pill is the branch only: dirty and ahead/behind would need the extension's own git calls.
-- The factory returns early unless `ctx.mode` is `tui`, because the file also loads in subagent children.
-
 ### Editor (2026-11-16)
 
-`extensions/editor.ts` draws `❯` in front of the editor's first line, in the last two cells of `editorPaddingX` (`3` in the local `settings.json`, the setting's maximum): the arrow is in the second column, under the footer's folder icon, and the text starts in the fourth, under the footer's path. The owner asked for a shell-like prompt mark and chose the colour.
+`extensions/editor.ts` frames the input as the fish prompt frames a command: `❯` in front of the first line, rounded corners on both borders, and the status pills on the bottom border.
 
 ```
-──────────────────────────────
+╭── ⠙ Working ─────────────────────────────────────────────────────────────────────╮
  ❯ first line
    second line
-──────────────────────────────
- <folder> ~/.config/env (on <branch> main)
+╰────────── (↑12k ↓3k …) ($1.428) (3.3%/1.0M) (anthropic/claude-fable-5-2 high) ╯
+ ● parallel-1
+ ├ ● runner  openai/gpt-6-luna  1 turn  15s  $ sleep 20
 ```
 
-The first form, earlier the same day, had the padding at `2`, the arrow at the left edge and the text in the third column, where it had always been. It was moved one cell in because everything else on the screen starts there (the footer, its status lines, the transcript's text) and the live `❯` of the fish prompt is indented under its frame as well. The cost is one cell of text on each side, since the padding is symmetric; the code did not change.
-
-- It is a `CustomEditor` subclass set with `ctx.ui.setEditorComponent`, and it has no render of its own: it takes `super.render()` and replaces the padding of line 1, the way the upstream `modal-editor.ts` example adds its mode label. What it relies on is that line 0 is the top border and a content line starts with the padding; when line 1 does not start with the padding, or the padding is under two cells, nothing is drawn and input is unaffected.
-- The colour is the editor's `borderColor`. pi sets that to the thinking level's colour and to `bashMode` while the text starts with `!`, so the arrow follows both; `capture-pane -e` shows no SGR sequence between the border and the arrow in either state. fish's `❯` follows the vi mode, which pi does not have.
-- Continuation lines stay blank. `render()`'s output does not tell a line break from a soft wrap, marking both would mislead, and telling them apart needs the editor's private layout. When the first line is scrolled out of view the arrow is not drawn and the border's `↑ N more` says so; `renderTopBorder` is overridden only to read its `hiddenLineCount`.
-- The constructor passes `embedWorkingStatus: true`, as pi does for its own editor (`interactive-mode.js`); without it a custom editor gets the working indicator on a row of its own instead of in the border; the owner saw it stay in the border in a real session. pi copies the border colour and the padding onto a custom editor itself (`setCustomEditorComponent`).
-- A file of its own, not part of `footer.ts`: pi loads extensions one file at a time and replacing the editor is the half more likely to break on an upgrade, so a failure costs the arrow and not the footer; the two share no code. Merging both into a `ui.ts` was the alternative. It is `editor.ts` because pi's word for the input is editor (`setEditorComponent`, `editorPaddingX`), and prompt there means what is sent to the model.
+- **No render of its own.** A `CustomEditor` subclass set with `ctx.ui.setEditorComponent` overrides three things. `renderTopBorder` and `renderBottomBorder` are protected hooks of pi-tui's `Editor` (`CustomEditor` uses the first itself for the working indicator): each puts a corner at either end and hands the rest of the width to `super`, so the working, compaction and retry indicators and `↑`/`↓ N more` stay pi's own. `render` takes `super.render()` and replaces the padding of line 1 with the arrow, as the upstream `modal-editor.ts` adds its mode label. Under 4 columns the borders are pi's, and when line 1 does not start with the padding nothing is drawn. The frame was declined on 2026-11-13 as needing a render override; the hooks were found three days later.
+- **The arrow** sits in the last two cells of `editorPaddingX` (`3` in the local `settings.json`, the setting's maximum): second column, text from the fourth. At `2`, the first form, it touched the left edge while the status lines, the transcript and the live `❯` of the fish prompt all start one cell in. The padding is symmetric, so text also ends three cells before the right frame.
+- **Colour** is the editor's `borderColor` for the arrow, corners and rules. pi sets it to the thinking level's colour and to `bashMode` while the text starts with `!`; `capture-pane -e` shows no SGR sequence between a corner and its rule. fish's frame is `gray` and its `❯` follows the vi mode; pi has no vi mode, and the level's colour is what the level text in the model pill matches.
+- **Pills on the bottom border, nothing on the top** (the owner's layout). fish puts status on the bottom frame as well, the pills stay where the footer row had them, and the top border is left to the working indicator. They are token counts, cost, context and model, each a `float_bg` pill with caps taking `theme.colors.toolPendingBg` as a foreground; the frame has no subject, as tmux's bar has none.
+- **No directory, branch or session name** (the owner, 2026-11-16); until then they led the footer row. pi sets the terminal title to `π - env`, or `π - name - env`, and tmux's `status-left` shows it; a pi session stays in one directory, unlike a shell; the agent runs git and the branch is in its output. Putting them on the top border, as fish does, was considered: it pushes the working indicator right, needs a second drop order, and the branch reaches only the footer's factory (`footerData.getGitBranch`), which would force the two files into one.
+- Narrow widths drop, in order: token counts, provider, cost, context, model; under about 20 columns only the frame is left. `↓ N more` keeps its room. Verified from 130 to 3 columns.
+- The thinking level is text inside the model pill, coloured by `theme.getThinkingBorderColor(level)`, the function pi's border calls; `high` measured as `38;2;198;120;221`, `purple`. It was a filled pill at the far right for a few hours on 2026-11-13; the owner dropped it as the last and loudest element for what is an attribute of the model. Context turns `warning` above 70% and `error` above 90%, and usage totals are cached by leaf id and model, both as the built-in footer does.
+- The provider is always shown. The footer row showed it only with more than one provider available, a count only the footer's factory gets; there are two here. Not carried over from the built-in footer: `(auto)`, constant on this machine; the routed model of a virtual model, which extensions cannot read; `isUsingSubscription`, replaced by `isUsingOAuth` for the `sub` mark.
+- **The frame and pills disappear while a selector or dialog is open.** `/model`, a confirmation and the reload box replace the editor in its container, leaving one rule and the status lines; the footer row was always there. Seen with `/model`, accepted.
+- Data comes from the `ctx` of `session_start` and from `ctx.ui.theme`; the editor factory itself is given only an `EditorTheme`. Gathering it is wrapped in `try`, and a failure draws the frame without pills: after `session_shutdown` every `ctx` getter throws (`docs/pi-subagents.md`). A precaution, not triggered.
+- Continuation lines stay blank. `render()`'s output does not tell a line break from a soft wrap, marking both would mislead, and telling them apart needs the editor's private layout. When the first line is scrolled out the arrow is not drawn and the border's `↑ N more` says so.
+- The constructor passes `embedWorkingStatus: true`, as pi does for its own editor (`interactive-mode.js`); without it a custom editor gets the working indicator on a row of its own. pi copies the border colour and the padding onto a custom editor itself (`setCustomEditorComponent`).
+- Two files still: `editor.ts` needs nothing from the footer's factory, pi loads extensions one file at a time, and a failure in the larger one leaves the status lines. One `ui.ts` was the alternative. It is `editor.ts` because pi's word for the input is editor (`setEditorComponent`, `editorPaddingX`), and prompt there means what is sent to the model.
 - Only one extension can own the editor. Nothing else in `~/.config/pi/extensions` calls `setEditorComponent`.
-- Verified in a scratch tmux server with `--no-session`, no model call, at padding `2` and `3`: empty, one and several lines, a `!` command, wrapped text down to 30 columns, the `/` completion menu, and 16 lines, where the arrow goes when the first line scrolls out and returns with the cursor.
+- Verified in a scratch tmux server. Without a model call: empty, one and several lines, a `!` command, wrapped text, the `/` completion menu (drawn below the bottom border, pills still there), 16 lines scrolled both ways, a session copy with usage, `/model` and Escape. With every extension loaded and one run on `openai/gpt-6-luna`: the working indicator in the top border, the pills updating during the run, `/reload`, Ctrl+D. Not exercised: the indicator together with `↑ N more` (a 16-line paste collapses to one line), and the light theme.
+
+### Footer
+
+`extensions/footer.ts` draws the extension status lines below the editor and nothing else. From 2026-11-13 to 2026-11-16 it also held the row of pills, led by the directory and branch.
+
+- **There is always one line**, blank when no extension has a status, so a starting task does not move the layout; the owner asked for it as the place for subagents. Every extension status is shown, a multi-line status one line per row. With pi's built-in footer the same statuses join into one line.
+- Lines start one cell in from the left edge (the owner's request, 2026-11-13) and are cut to the width.
+- The factory returns early unless `ctx.mode` is `tui`, because the file also loads in subagent children; the editor's does the same.
 
 ### Testing
 
