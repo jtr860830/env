@@ -1,10 +1,10 @@
 ---
-paths: ["config/pi/**/themes/**", "config/pi/**/extensions/footer.ts"]
+paths: ["config/pi/**/themes/**", "config/pi/**/extensions/footer.ts", "config/pi/**/extensions/editor.ts"]
 ---
 
 ## pi UI
 
-Two layers, both from 2026-11-13: the theme files give pi the editor's colours, and `extensions/footer.ts` gives the footer the bars' shape. Considered and not done: a fish-style framed editor through `setEditorComponent` (it overrides the editor's render, the part most likely to break on a pi upgrade, and pi's editor has no vi mode for `❯` to follow), and restyling the transcript, which means overriding each built-in tool's renderer separately.
+Three layers: the theme files give pi the editor's colours and `extensions/footer.ts` gives the footer the bars' shape, both from 2026-11-13, and `extensions/editor.ts` puts `❯` in front of the input (2026-11-16). Considered and not done: a fish-style framed editor through `setEditorComponent` (it overrides the editor's render, the part most likely to break on a pi upgrade, and pi's editor has no vi mode for `❯` to follow; the arrow alone was done later without a render of its own, see Editor), and restyling the transcript, which means overriding each built-in tool's renderer separately.
 
 ### Theme
 
@@ -55,9 +55,32 @@ It follows the bars' rule: the directory is the subject and stays plain, everyth
 - Not carried over from the built-in footer: `(auto)`, constant on this machine; the routed model of a virtual model, which extensions cannot read; `isUsingSubscription`, replaced by `isUsingOAuth` for the `sub` mark. The git pill is the branch only: dirty and ahead/behind would need the extension's own git calls.
 - The factory returns early unless `ctx.mode` is `tui`, because the file also loads in subagent children.
 
+### Editor (2026-11-16)
+
+`extensions/editor.ts` draws `❯` in front of the editor's first line, in the last two cells of `editorPaddingX` (`3` in the local `settings.json`, the setting's maximum): the arrow is in the second column, under the footer's folder icon, and the text starts in the fourth, under the footer's path. The owner asked for a shell-like prompt mark and chose the colour.
+
+```
+──────────────────────────────
+ ❯ first line
+   second line
+──────────────────────────────
+ <folder> ~/.config/env (on <branch> main)
+```
+
+The first form, earlier the same day, had the padding at `2`, the arrow at the left edge and the text in the third column, where it had always been. It was moved one cell in because everything else on the screen starts there (the footer, its status lines, the transcript's text) and the live `❯` of the fish prompt is indented under its frame as well; the arrow was the only character touching the edge. The cost is one cell of text on each side, since the padding is symmetric. The code did not change: the arrow goes in the last two cells of whatever padding there is.
+
+- It is a `CustomEditor` subclass set with `ctx.ui.setEditorComponent`, and it has no render of its own: it takes `super.render()` and replaces the padding of line 1, the way the upstream `modal-editor.ts` example adds its mode label. That is the difference from the framed editor declined on 2026-11-13. What it relies on is that line 0 is the top border and a content line starts with the padding; when line 1 does not start with the padding, or the padding is under two cells, nothing is drawn and input is unaffected.
+- The colour is the editor's `borderColor`. pi sets that to the thinking level's colour and to `bashMode` while the text starts with `!`, so the arrow follows both; `capture-pane -e` shows no SGR sequence between the border and the arrow in either state. fish's `❯` follows the vi mode, which pi does not have.
+- Continuation lines stay blank. `render()`'s output does not tell a line break from a soft wrap, marking both would mislead, and telling them apart needs the editor's private layout. When the first line is scrolled out of view the arrow is not drawn and the border's `↑ N more` says so; `renderTopBorder` is overridden only to read its `hiddenLineCount`.
+- The constructor passes `embedWorkingStatus: true`, as pi does for its own editor (`interactive-mode.js`); without it a custom editor gets the working indicator on a row of its own instead of in the border. pi copies the border colour and the padding onto a custom editor itself (`setCustomEditorComponent`).
+- A file of its own, not part of `footer.ts`: pi loads extensions one file at a time and replacing the editor is the half more likely to break on an upgrade, so a failure costs the arrow and not the footer; the two share no code. Merging both into a `ui.ts` was the alternative. It is `editor.ts` because pi's word for the input is editor (`setEditorComponent`, `editorPaddingX`), and prompt there means what is sent to the model.
+- Only one extension can own the editor. Nothing else in `~/.config/pi/extensions` calls `setEditorComponent`.
+- The factory returns early unless `ctx.mode` is `tui`, as the footer's does.
+- Verified in a scratch tmux server with `--no-session`, no model call. With the padding at `2`: empty, one line, a `!` command, a 30-column window where the text wraps, and 16 lines, where the arrow goes when the first line scrolls out and returns with the cursor. With it at `3`: empty, three lines, a `!` command, a line that wraps, and the `/` completion menu. Not exercised: the working indicator during a run.
+
 ### Testing
 
-- Type check as in `docs/pi-subagents.md`, with `footer.ts` added to `files`. The installed `tsc` rejects `baseUrl` (TS5102); `paths` alone is enough.
+- Type check as in `docs/pi-subagents.md`, with `footer.ts` and `editor.ts` added to `files`. The installed `tsc` rejects `baseUrl` (TS5102); `paths` alone is enough.
 - pi in its own tmux server with `--no-session --use-theme <name>`; a transcript is shown by opening a copy of a session file with `--session`.
 - To look at colour, not text: `capture-pane -p -e -N`, convert the SGR sequences to HTML spans, and render with `qlmanage -t -s 2000`. Without `-N` tmux trims trailing cells and panels look ragged.
 - Extension statuses can be faked with a scratch `-e` extension that calls `ctx.ui.setStatus`.
