@@ -43,11 +43,10 @@ function __prompt_duration
     end
 end
 
-function __prompt_frame --argument-names width left right colour
-    set -q colour[1]; or set colour $__prompt_c_gray
+function __prompt_frame --argument-names width left right
     test -n "$right"; and set right " $right"
     set -l rule (math "max(1, $width - $(string length --visible -- "$left$right"))")
-    echo -n -s $left (set_color $colour) (string repeat $rule ─) $right
+    echo -n -s $left (set_color $__prompt_c_gray) (string repeat $rule ─) $right
 end
 
 function __prompt_close
@@ -83,17 +82,6 @@ end
 
 function fish_prompt
     contains -- --final-rendering $argv; and set -lx __prompt_faded 1
-
-    set -l mode $__prompt_c_purple
-    switch $fish_bind_mode
-        case insert
-            set mode $__prompt_c_blue
-        case visual
-            set mode $__prompt_c_orange
-        case replace replace_one
-            set mode $__prompt_c_red
-    end
-    set -q __prompt_faded; and set mode $__prompt_c_gray
 
     set -l jobs_pill
     set -l jobs (count (jobs -g 2>/dev/null))
@@ -137,7 +125,7 @@ function fish_prompt
         end
         set -l git
         set -q show_git[1]; and set git (__prompt_git_pill $branch_max)
-        set frame (__prompt_frame $width "$(string join ' ' -- (__prompt_dir $dir_max -- $dir) $git $venv_pill) " "$jobs_pill" $mode)
+        set frame (__prompt_frame $width "$(string join ' ' -- (__prompt_dir $dir_max -- $dir) $git $venv_pill) " "$jobs_pill")
         set need (math (string length --visible -- $frame) - $width)
         test $need -le 0; and break
     end
@@ -149,5 +137,14 @@ function fish_prompt
         return
     end
 
+    set -l mode $__prompt_c_purple
+    switch $fish_bind_mode
+        case insert
+            set mode $__prompt_c_blue
+        case visual
+            set mode $__prompt_c_orange
+        case replace replace_one
+            set mode $__prompt_c_red
+    end
     echo -n -s (set_color $mode) '❯ ' (set_color normal)
 end
