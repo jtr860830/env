@@ -1,6 +1,6 @@
 import type { ThinkingLevel } from "@earendil-works/pi-agent-core";
 import { CustomEditor, type ExtensionAPI, type ExtensionContext, type ThemeColor } from "@earendil-works/pi-coding-agent";
-import { parseColor, visibleWidth } from "@earendil-works/pi-tui";
+import { type Component, parseColor, visibleWidth } from "@earendil-works/pi-tui";
 
 const GLYPH = "\u276f";
 const BASH_GLYPH = "$";
@@ -70,14 +70,11 @@ function sumUsage(ctx: ExtensionContext): Totals {
 }
 
 class PromptEditor extends CustomEditor {
-	private pi!: ExtensionAPI;
 	private ctx!: ExtensionContext;
 	private hiddenAbove = 0;
 	private readonly plain = this.borderColor;
-	private cached: { key: string; usage: Totals; percent: number | null; window: number } | undefined;
 
-	attach(pi: ExtensionAPI, ctx: ExtensionContext): this {
-		this.pi = pi;
+	attach(ctx: ExtensionContext): this {
 		this.ctx = ctx;
 		Object.defineProperty(this, "borderColor", { get: () => this.tint(), set: () => {} });
 		return this;
@@ -101,6 +98,34 @@ class PromptEditor extends CustomEditor {
 			return this.plain;
 		}
 	}
+
+	protected override renderTopBorder(width: number, hiddenLineCount: number): string {
+		this.hiddenAbove = hiddenLineCount;
+		return super.renderTopBorder(width, hiddenLineCount);
+	}
+
+	override render(width: number): string[] {
+		const lines = super.render(width);
+		const pad = this.getPaddingX();
+		const first = lines[1];
+		if (pad >= 2 && this.hiddenAbove === 0 && first?.startsWith(" ".repeat(pad))) {
+			lines[1] = `${" ".repeat(pad - 2)}${this.borderColor(this.bash() ? BASH_GLYPH : GLYPH)} ${first.slice(pad)}`;
+		}
+		return lines;
+	}
+}
+
+class StatusPills implements Component {
+	private readonly pi: ExtensionAPI;
+	private readonly ctx: ExtensionContext;
+	private cached: { key: string; usage: Totals; percent: number | null; window: number } | undefined;
+
+	constructor(pi: ExtensionAPI, ctx: ExtensionContext) {
+		this.pi = pi;
+		this.ctx = ctx;
+	}
+
+	invalidate(): void {}
 
 	private gather(): Data {
 		const ctx = this.ctx;
@@ -173,14 +198,7 @@ class PromptEditor extends CustomEditor {
 		return out.join(" ");
 	}
 
-	protected override renderTopBorder(width: number, hiddenLineCount: number): string {
-		this.hiddenAbove = hiddenLineCount;
-		return super.renderTopBorder(width, hiddenLineCount);
-	}
-
-	protected override renderBottomBorder(width: number, hiddenLineCount: number): string {
-		const rule = hiddenLineCount > 0 ? visibleWidth(` ↓ ${hiddenLineCount} more `) + 2 : 1;
-		let tail = "";
+	render(width: number): string[] {
 		try {
 			const data = this.gather();
 			const view: View = { tokens: true, provider: true, cost: true, context: true, model: true };
@@ -190,28 +208,15 @@ class PromptEditor extends CustomEditor {
 				() => (view.provider = false),
 				() => (view.cost = false),
 				() => (view.context = false),
-				() => (view.model = false),
 			];
 			for (const stage of stages) {
 				stage();
 				const pills = this.pills(view, data);
-				tail = pills ? ` ${pills}` : "";
-				if (visibleWidth(tail) + rule <= width) break;
+				const room = width - visibleWidth(pills);
+				if (room >= 0) return [" ".repeat(room) + pills];
 			}
-		} catch {
-			tail = "";
-		}
-		return super.renderBottomBorder(width - visibleWidth(tail), hiddenLineCount) + tail;
-	}
-
-	override render(width: number): string[] {
-		const lines = super.render(width);
-		const pad = this.getPaddingX();
-		const first = lines[1];
-		if (pad >= 2 && this.hiddenAbove === 0 && first?.startsWith(" ".repeat(pad))) {
-			lines[1] = `${" ".repeat(pad - 2)}${this.borderColor(this.bash() ? BASH_GLYPH : GLYPH)} ${first.slice(pad)}`;
-		}
-		return lines;
+		} catch {}
+		return [];
 	}
 }
 
@@ -219,7 +224,8 @@ export default function (pi: ExtensionAPI) {
 	pi.on("session_start", (_event, ctx) => {
 		if (ctx.mode !== "tui") return;
 		ctx.ui.setEditorComponent((tui, theme, keybindings) =>
-			new PromptEditor(tui, theme, keybindings, { embedWorkingStatus: true }).attach(pi, ctx),
+			new PromptEditor(tui, theme, keybindings, { embedWorkingStatus: true }).attach(ctx),
 		);
+		ctx.ui.setWidget("status", () => new StatusPills(pi, ctx));
 	});
 }
