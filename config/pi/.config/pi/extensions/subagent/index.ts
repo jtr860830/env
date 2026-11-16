@@ -306,6 +306,13 @@ function identitySuffix(agentName: string): string {
 	].join("\n");
 }
 
+interface ProcessOutcome {
+	code: number | null;
+	signal: NodeJS.Signals | null;
+	error?: Error;
+	aborted: boolean;
+}
+
 function runPi(
 	args: string[],
 	cwd: string,
@@ -313,7 +320,7 @@ function runPi(
 	signal: AbortSignal | undefined,
 	result: SingleResult,
 	emit: () => void,
-): Promise<{ exitCode: number; aborted: boolean }> {
+): Promise<ProcessOutcome> {
 	return new Promise((resolve) => {
 		const invocation = getPiInvocation(args);
 		const proc = spawn(invocation.command, invocation.args, {
@@ -324,6 +331,9 @@ function runPi(
 		});
 		let buffer = "";
 		let aborted = false;
+		let exited = false;
+		let settled = false;
+		let killTimer: NodeJS.Timeout | undefined;
 		let failedModel: string | undefined;
 
 		const processLine = (line: string) => {
@@ -375,23 +385,32 @@ function runPi(
 		proc.stderr.on("data", (data) => {
 			result.stderr += data.toString();
 		});
-		proc.on("close", (code) => {
-			if (buffer.trim()) processLine(buffer);
-			resolve({ exitCode: code ?? 0, aborted });
-		});
-		proc.on("error", () => resolve({ exitCode: 1, aborted }));
+		const killProc = () => {
+			if (settled || exited || !proc.kill("SIGTERM")) return;
+			aborted = true;
+			killTimer = setTimeout(() => {
+				if (!settled && !exited) proc.kill("SIGKILL");
+			}, 5000);
+		};
+		const settle = (outcome: Omit<ProcessOutcome, "aborted">) => {
+			if (settled) return;
+			settled = true;
+			clearTimeout(killTimer);
+			signal?.removeEventListener("abort", killProc);
+			resolve({ ...outcome, aborted });
+		};
 
-		if (signal) {
-			const killProc = () => {
-				aborted = true;
-				proc.kill("SIGTERM");
-				setTimeout(() => {
-					if (!proc.killed) proc.kill("SIGKILL");
-				}, 5000);
-			};
-			if (signal.aborted) killProc();
-			else signal.addEventListener("abort", killProc, { once: true });
-		}
+		proc.on("exit", () => {
+			exited = true;
+		});
+		proc.on("close", (code, terminationSignal) => {
+			if (buffer.trim()) processLine(buffer);
+			settle({ code, signal: terminationSignal });
+		});
+		proc.on("error", (error) => settle({ code: null, signal: null, error }));
+
+		if (signal?.aborted) killProc();
+		else signal?.addEventListener("abort", killProc, { once: true });
 	});
 }
 
@@ -462,9 +481,16 @@ async function runSingleAgent(
 		const env: Record<string, string> = { PI_SUBAGENT: agent.name };
 		if (thinkingLevel) env.PI_SUBAGENT_THINKING = thinkingLevel;
 
-		const { exitCode, aborted } = await runPi(args, opts.cwd ?? defaultCwd, env, signal, result, emit);
-		result.exitCode = exitCode;
-		if (aborted) result.stopReason = "aborted";
+		const outcome = await runPi(args, opts.cwd ?? defaultCwd, env, signal, result, emit);
+		result.exitCode = outcome.code ?? 1;
+		if (outcome.aborted) {
+			result.stopReason = "aborted";
+		} else if (outcome.error || outcome.signal) {
+			result.stopReason = "error";
+			result.errorMessage = outcome.error
+				? `Subagent process failed: ${outcome.error.message}`
+				: `Subagent was terminated by signal ${outcome.signal} before it finished.`;
+		}
 		result.done = true;
 		return result;
 	} finally {
@@ -880,6 +906,7 @@ export default function (pi: ExtensionAPI) {
 	const quiet: { customType: string; content: string; display: boolean; details?: SubagentDetails }[] = [];
 	let taskCount = 0;
 	let held = false;
+	let closed = false;
 	let current: ExtensionContext | undefined;
 	let ticker: NodeJS.Timeout | undefined;
 
@@ -890,7 +917,7 @@ export default function (pi: ExtensionAPI) {
 	};
 
 	const updateStatus = () => {
-		if (!current?.hasUI) return;
+		if (closed || !current?.hasUI) return;
 		const running = [...backgroundTasks.values()];
 		if (running.length === 0) {
 			clearInterval(ticker);
@@ -913,6 +940,7 @@ export default function (pi: ExtensionAPI) {
 			thinkingLevel: ctx.thinkingLevel,
 		};
 		const agents = discoverAgents();
+		const cwd = ctx.cwd;
 		const hasTasks = (params.tasks?.length ?? 0) > 0;
 		const hasSingle = Boolean(params.agent && params.brief);
 		const modeCount = Number(hasTasks) + Number(hasSingle);
@@ -961,7 +989,7 @@ export default function (pi: ExtensionAPI) {
 			};
 
 			const results = await mapWithConcurrencyLimit(params.tasks, MAX_CONCURRENCY, async (t, index) => {
-				const result = await runSingleAgent(ctx.cwd, dispatchDefaults, agents, {
+				const result = await runSingleAgent(cwd, dispatchDefaults, agents, {
 					agentName: t.agent,
 					task: t.brief,
 					cwd: t.cwd,
@@ -996,7 +1024,7 @@ export default function (pi: ExtensionAPI) {
 		}
 
 		if (params.agent && params.brief) {
-			const result = await runSingleAgent(ctx.cwd, dispatchDefaults, agents, {
+			const result = await runSingleAgent(cwd, dispatchDefaults, agents, {
 				agentName: params.agent,
 				task: params.brief,
 				cwd: params.cwd,
@@ -1026,7 +1054,9 @@ export default function (pi: ExtensionAPI) {
 		};
 	}
 
-	const record = (data: TaskRecord) => pi.appendEntry(TASK_RECORD, data);
+	const record = (data: TaskRecord) => {
+		if (!closed) pi.appendEntry(TASK_RECORD, data);
+	};
 
 	const sendQuiet = (content: string, details?: SubagentDetails) => {
 		const message = { customType: RESULT_MESSAGE, content, display: true, details };
@@ -1042,7 +1072,7 @@ export default function (pi: ExtensionAPI) {
 	const finish = (bg: BackgroundTask, result: AgentToolResult<SubagentDetails>) => {
 		bg.result = result;
 		backgroundTasks.delete(bg.id);
-		if (bg.stoppedBy === "shutdown") return;
+		if (closed || bg.stoppedBy === "shutdown") return;
 		updateStatus();
 		record({ event: "ended", key: bg.key, reason: bg.stoppedBy ?? (result.isError ? "failed" : "completed") });
 		if (bg.stoppedBy === "model") return;
@@ -1068,6 +1098,7 @@ export default function (pi: ExtensionAPI) {
 
 	pi.on("session_start", async (_event, ctx) => {
 		current = ctx;
+		closed = false;
 		const open = new Map<string, { id: string; summary: string; sessions: string[] }>();
 		for (const entry of ctx.sessionManager.getBranch()) {
 			if (entry.type !== "custom" || entry.customType !== TASK_RECORD) continue;
@@ -1093,6 +1124,7 @@ export default function (pi: ExtensionAPI) {
 	});
 
 	pi.on("session_shutdown", async () => {
+		closed = true;
 		for (const bg of backgroundTasks.values()) stop(bg, "shutdown");
 		clearInterval(ticker);
 		ticker = undefined;
