@@ -81,20 +81,12 @@ local function statusline_diagnostics()
   return pill("%#UserPill# " .. table.concat(parts))
 end
 
-local function statusline_filename()
-  local path = vim.api.nvim_buf_get_name(0)
-  if path == "" then return "[No Name]" end
-  local root = vim.fs.root(0, { ".git", ".hg", "package.json", "Makefile" })
-  local display = root and path:sub(#root + 2) or vim.fn.fnamemodify(path, ":~:.")
-  return display .. (vim.bo.modified and " [+]" or "")
-end
-
 require("mini.statusline").setup {
   use_icons = true,
   content = {
     active = function()
       local mode, mode_hl = MiniStatusline.section_mode { trunc_width = 9999 }
-      local filename = statusline_filename()
+      local modified = vim.bo.modified and pill "%#UserPill# + " or ""
       local diagnostics = statusline_diagnostics()
 
       local ft = vim.bo.filetype
@@ -103,9 +95,9 @@ require("mini.statusline").setup {
 
       return table.concat {
         pill("%#" .. mode_hl .. "# " .. mode .. " ", "UserPillCap" .. mode_hl:gsub("^MiniStatuslineMode", "")),
-        "%#MiniStatuslineFilename# ",
-        filename,
-        "%<%=",
+        "%#MiniStatuslineFilename#%=",
+        modified,
+        modified ~= "" and " " or "",
         diagnostics,
         diagnostics ~= "" and " " or "",
         filetype ~= "" and pill("%#UserPill# " .. filetype .. " ") or "",
