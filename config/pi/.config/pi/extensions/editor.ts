@@ -79,6 +79,7 @@ class PromptEditor extends CustomEditor {
 	attach(pi: ExtensionAPI, ctx: ExtensionContext): this {
 		this.pi = pi;
 		this.ctx = ctx;
+		Object.defineProperty(this, "borderColor", { get: () => this.tint(), set: () => {} });
 		return this;
 	}
 
@@ -94,16 +95,6 @@ class PromptEditor extends CustomEditor {
 			return (text) => theme.style(text, { fg });
 		} catch {
 			return this.plain;
-		}
-	}
-
-	private ruled(draw: () => string): string {
-		const own = this.borderColor;
-		this.borderColor = this.tint();
-		try {
-			return draw();
-		} finally {
-			this.borderColor = own;
 		}
 	}
 
@@ -180,7 +171,7 @@ class PromptEditor extends CustomEditor {
 
 	protected override renderTopBorder(width: number, hiddenLineCount: number): string {
 		this.hiddenAbove = hiddenLineCount;
-		return this.ruled(() => super.renderTopBorder(width, hiddenLineCount));
+		return super.renderTopBorder(width, hiddenLineCount);
 	}
 
 	protected override renderBottomBorder(width: number, hiddenLineCount: number): string {
@@ -206,7 +197,7 @@ class PromptEditor extends CustomEditor {
 		} catch {
 			tail = "";
 		}
-		return this.ruled(() => super.renderBottomBorder(width - visibleWidth(tail), hiddenLineCount)) + tail;
+		return super.renderBottomBorder(width - visibleWidth(tail), hiddenLineCount) + tail;
 	}
 
 	override render(width: number): string[] {
@@ -214,7 +205,7 @@ class PromptEditor extends CustomEditor {
 		const pad = this.getPaddingX();
 		const first = lines[1];
 		if (pad >= 2 && this.hiddenAbove === 0 && first?.startsWith(" ".repeat(pad))) {
-			lines[1] = `${" ".repeat(pad - 2)}${this.tint()(this.bash() ? BASH_GLYPH : GLYPH)} ${first.slice(pad)}`;
+			lines[1] = `${" ".repeat(pad - 2)}${this.borderColor(this.bash() ? BASH_GLYPH : GLYPH)} ${first.slice(pad)}`;
 		}
 		return lines;
 	}
