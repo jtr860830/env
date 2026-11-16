@@ -43,10 +43,10 @@ function __prompt_duration
     end
 end
 
-function __prompt_frame --argument-names width left right corner
-    test -n "$right"; and set right " $right "
-    set -l rule (math "max(1, $width - $(string length --visible -- "$left$right$corner"))")
-    echo -n -s $left (set_color $__prompt_c_gray) (string repeat $rule ─) $right (set_color $__prompt_c_gray) $corner
+function __prompt_frame --argument-names width left right
+    test -n "$right"; and set right " $right"
+    set -l rule (math "max(1, $width - $(string length --visible -- "$left$right"))")
+    echo -n -s $left (set_color $__prompt_c_gray) (string repeat $rule ─) $right
 end
 
 function __prompt_close
@@ -72,7 +72,7 @@ function __prompt_close
                 set error_pill
         end
         set -l pills $error_pill $duration_pill
-        set frame (__prompt_frame $width (set_color $__prompt_c_gray)╰ "$pills" ╯)
+        set frame (__prompt_frame $width "" "$pills")
         test (string length --visible -- $frame) -le $width; and break
     end
     printf '%s⏎%s%s\r\e[K' (set_color $__prompt_c_comment) (set_color normal) (string repeat (math $columns - 1) ' ')
@@ -82,7 +82,6 @@ end
 
 function fish_prompt
     contains -- --final-rendering $argv; and set -lx __prompt_faded 1
-    set -l line (set_color $__prompt_c_gray)
 
     set -l jobs_pill
     set -l jobs (count (jobs -g 2>/dev/null))
@@ -126,7 +125,7 @@ function fish_prompt
         end
         set -l git
         set -q show_git[1]; and set git (__prompt_git_pill $branch_max)
-        set frame (__prompt_frame $width "$(string join ' ' -- $line'╭' (__prompt_dir $dir_max -- $dir) $git $venv_pill) " "$jobs_pill" ╮)
+        set frame (__prompt_frame $width "$(string join ' ' -- (__prompt_dir $dir_max -- $dir) $git $venv_pill) " "$jobs_pill")
         set need (math (string length --visible -- $frame) - $width)
         test $need -le 0; and break
     end

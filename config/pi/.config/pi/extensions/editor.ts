@@ -5,10 +5,6 @@ import { visibleWidth } from "@earendil-works/pi-tui";
 const GLYPH = "\u276f";
 const CAP_LEFT = "\ue0b6";
 const CAP_RIGHT = "\ue0b4";
-const TOP_LEFT = "\u256d";
-const TOP_RIGHT = "\u256e";
-const BOTTOM_LEFT = "\u2570";
-const BOTTOM_RIGHT = "\u256f";
 
 interface Totals {
 	input: number;
@@ -156,13 +152,10 @@ class PromptEditor extends CustomEditor {
 
 	protected override renderTopBorder(width: number, hiddenLineCount: number): string {
 		this.hiddenAbove = hiddenLineCount;
-		if (width < 4) return super.renderTopBorder(width, hiddenLineCount);
-		return this.borderColor(TOP_LEFT) + super.renderTopBorder(width - 2, hiddenLineCount) + this.borderColor(TOP_RIGHT);
+		return super.renderTopBorder(width, hiddenLineCount);
 	}
 
 	protected override renderBottomBorder(width: number, hiddenLineCount: number): string {
-		if (width < 4) return super.renderBottomBorder(width, hiddenLineCount);
-		const room = width - 2;
 		const rule = hiddenLineCount > 0 ? visibleWidth(` ↓ ${hiddenLineCount} more `) + 2 : 1;
 		let tail = "";
 		try {
@@ -179,18 +172,13 @@ class PromptEditor extends CustomEditor {
 			for (const stage of stages) {
 				stage();
 				const pills = this.pills(view, data);
-				tail = pills ? ` ${pills} ` : "";
-				if (visibleWidth(tail) + rule <= room) break;
+				tail = pills ? ` ${pills}` : "";
+				if (visibleWidth(tail) + rule <= width) break;
 			}
 		} catch {
 			tail = "";
 		}
-		return (
-			this.borderColor(BOTTOM_LEFT) +
-			super.renderBottomBorder(room - visibleWidth(tail), hiddenLineCount) +
-			tail +
-			this.borderColor(BOTTOM_RIGHT)
-		);
+		return super.renderBottomBorder(width - visibleWidth(tail), hiddenLineCount) + tail;
 	}
 
 	override render(width: number): string[] {
