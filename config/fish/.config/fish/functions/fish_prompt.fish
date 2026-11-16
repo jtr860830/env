@@ -1,8 +1,5 @@
 function __prompt_pill
-    if set -q __prompt_faded
-        echo -n -s (set_color $__prompt_c_comment) (string replace -ra '\e\[[0-9;:]*m' '' -- "$argv") (set_color normal)
-        return
-    end
+    set -q __prompt_faded; and set argv (set_color $__prompt_c_comment)(string replace -ra '\e\[[0-9;:]*m' '' -- "$argv")
     printf '%s\ue0b6%s %s %s\ue0b4%s' (set_color $__prompt_c_float_bg) (set_color -b $__prompt_c_float_bg) "$argv" (set_color normal; set_color $__prompt_c_float_bg) (set_color normal)
 end
 
@@ -10,12 +7,8 @@ function __prompt_dir
     argparse 'max=' -- $argv
     set -l dir $argv[1]
     set -q _flag_max; and set dir (string shorten --left -m $_flag_max -- $dir)
-    if set -q __prompt_faded
-        echo -n -s (set_color $__prompt_c_comment) \uf07b ' ' $dir (set_color normal)
-        return
-    end
     string match -rq '^(?<parent>.*/)?(?<base>[^/]*)$' -- $dir
-    echo -n -s (set_color $__prompt_c_blue) \uf07b ' ' $parent (set_color --bold $__prompt_c_blue) $base (set_color normal)
+    __prompt_pill (set_color $__prompt_c_blue)\uf07b "$parent"(set_color --bold $__prompt_c_blue)$base
 end
 
 function __prompt_git_pill
