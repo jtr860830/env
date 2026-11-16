@@ -83,6 +83,10 @@ class PromptEditor extends CustomEditor {
 		return this;
 	}
 
+	override setPaddingX(_padding: number): void {
+		super.setPaddingX(2);
+	}
+
 	private bash(): boolean {
 		return this.getText().trimStart().startsWith("!");
 	}

@@ -38,6 +38,7 @@ set -gx NODE_REPL_HISTORY $XDG_DATA_HOME/node_repl_history
 set -gx NPM_CONFIG_USERCONFIG $XDG_CONFIG_HOME/npm/npmrc
 set -gx PI_CODING_AGENT_DIR $XDG_CONFIG_HOME/pi
 set -gx PI_CODING_AGENT_SESSION_DIR $XDG_DATA_HOME/pi/sessions
+set -gx PI_HARDWARE_CURSOR 1
 set -gx RTK_DB_PATH $XDG_STATE_HOME/rtk/history.db
 set -gx RTK_TEE_DIR $XDG_CACHE_HOME/rtk/tee
 set -gx RUSTUP_HOME $XDG_DATA_HOME/rustup
