@@ -23,7 +23,6 @@ export interface AgentConfig {
 	fallback?: string[];
 	thinking?: ThinkingLevel;
 	systemPrompt: string;
-	source: "user";
 	filePath: string;
 }
 
@@ -105,7 +104,6 @@ function loadAgentsFromDir(dir: string): AgentConfig[] {
 			fallback: parseToolList(frontmatter.fallback),
 			thinking: parseThinkingLevel(frontmatter.thinking),
 			systemPrompt: body,
-			source: "user",
 			filePath,
 		});
 	}

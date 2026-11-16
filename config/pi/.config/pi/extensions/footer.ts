@@ -1,5 +1,6 @@
 import { homedir } from "node:os";
 import { sep } from "node:path";
+import type { ThinkingLevel } from "@earendil-works/pi-agent-core";
 import type { ExtensionAPI, ExtensionContext, ThemeColor } from "@earendil-works/pi-coding-agent";
 import { truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
 
@@ -7,16 +8,6 @@ const CAP_LEFT = "\ue0b6";
 const CAP_RIGHT = "\ue0b4";
 const FOLDER = "\uf07b";
 const BRANCH = "\ue725";
-
-const LEVEL_COLOR: Record<string, ThemeColor> = {
-	off: "thinkingOff",
-	minimal: "thinkingMinimal",
-	low: "thinkingLow",
-	medium: "thinkingMedium",
-	high: "thinkingHigh",
-	xhigh: "thinkingXhigh",
-	max: "thinkingMax",
-};
 
 interface Totals {
 	input: number;
@@ -37,7 +28,7 @@ interface Data {
 	window: number;
 	provider: string;
 	model: string;
-	level: string | undefined;
+	level: ThinkingLevel | undefined;
 }
 
 interface View {
@@ -228,7 +219,7 @@ export default function (pi: ExtensionAPI) {
 					model.push(provider + theme.fg("text", data.model));
 				}
 				if (data.level === "off") model.push(theme.fg("muted", "thinking off"));
-				else if (data.level) model.push(theme.fg(LEVEL_COLOR[data.level] ?? "thinkingOff", data.level));
+				else if (data.level) model.push(theme.getThinkingBorderColor(data.level)(data.level));
 				if (model.length > 0) right.push(pill(model.join(" ")));
 
 				const leftText = left.join(" ");

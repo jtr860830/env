@@ -25,7 +25,6 @@ import {
 	formatReadLineRange,
 	getMarkdownTheme,
 	type Theme,
-	withFileMutationQueue,
 } from "@earendil-works/pi-coding-agent";
 import { Box, type Component, Container, Markdown, Spacer, Text, visibleWidth } from "@earendil-works/pi-tui";
 import { type Static, Type } from "typebox";
@@ -77,7 +76,8 @@ function formatToolCall(
 ): string {
 	const shortenPath = (p: string) => {
 		const home = os.homedir();
-		return p.startsWith(home) ? `~${p.slice(home.length)}` : p;
+		if (p === home) return "~";
+		return p.startsWith(home + path.sep) ? `~${p.slice(home.length)}` : p;
 	};
 
 	switch (toolName) {
@@ -147,7 +147,6 @@ interface UsageStats {
 
 interface SingleResult {
 	agent: string;
-	agentSource: "user" | "unknown";
 	task: string;
 	exitCode: number;
 	messages: Message[];
@@ -204,14 +203,12 @@ function modelLabel(r: SingleResult): string | undefined {
 }
 
 function truncateParallelOutput(output: string): string {
-	const byteLength = Buffer.byteLength(output, "utf8");
-	if (byteLength <= PER_TASK_OUTPUT_CAP) return output;
+	const bytes = Buffer.from(output, "utf8");
+	if (bytes.length <= PER_TASK_OUTPUT_CAP) return output;
 
-	let truncated = output.slice(0, PER_TASK_OUTPUT_CAP);
-	while (Buffer.byteLength(truncated, "utf8") > PER_TASK_OUTPUT_CAP) {
-		truncated = truncated.slice(0, -1);
-	}
-	return `${truncated}\n\n[Output truncated: ${byteLength - Buffer.byteLength(truncated, "utf8")} bytes omitted. Full output preserved in tool details.]`;
+	let end = PER_TASK_OUTPUT_CAP;
+	while (end > 0 && (bytes[end] & 0xc0) === 0x80) end--;
+	return `${bytes.toString("utf8", 0, end)}\n\n[Output truncated: ${bytes.length - end} bytes omitted. Full output preserved in tool details.]`;
 }
 
 type DisplayItem = { type: "text"; text: string } | { type: "toolCall"; name: string; args: Record<string, any> };
@@ -253,9 +250,7 @@ async function writePromptToTempFile(agentName: string, prompt: string): Promise
 	const tmpDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), "pi-subagent-"));
 	const safeName = agentName.replace(/[^\w.-]+/g, "_");
 	const filePath = path.join(tmpDir, `prompt-${safeName}.md`);
-	await withFileMutationQueue(filePath, async () => {
-		await fs.promises.writeFile(filePath, prompt, { encoding: "utf-8", mode: 0o600 });
-	});
+	await fs.promises.writeFile(filePath, prompt, { encoding: "utf-8", mode: 0o600 });
 	return { dir: tmpDir, filePath };
 }
 
@@ -370,10 +365,6 @@ function runPi(
 				}
 				emit();
 			}
-			if (event.type === "tool_result_end" && event.message) {
-				result.messages.push(event.message as Message);
-				emit();
-			}
 		};
 
 		proc.stdout.on("data", (data) => {
@@ -427,7 +418,6 @@ async function runSingleAgent(
 		const available = agents.map((a) => `"${a.name}"`).join(", ") || "none";
 		return {
 			agent: agentName,
-			agentSource: "unknown",
 			task,
 			exitCode: 1,
 			messages: [],
@@ -445,7 +435,6 @@ async function runSingleAgent(
 
 	const result: SingleResult = {
 		agent: agentName,
-		agentSource: agent.source,
 		task,
 		exitCode: 0,
 		messages: [],
@@ -714,7 +703,11 @@ function shortTask(task: string | undefined, max = 50): string {
 	return t.length > max ? `${t.slice(0, max)}...` : t;
 }
 
-function renderDetails(details: SubagentDetails, expanded: boolean, theme: Theme): Component {
+function expandHint(theme: Theme, keyHint: (keybinding: "app.tools.expand", description: string) => string): string {
+	return `${theme.fg("muted", "(")}${keyHint("app.tools.expand", "to expand")}${theme.fg("muted", ")")}`;
+}
+
+function renderDetails(details: SubagentDetails, expanded: boolean, theme: Theme, hint: string): Component {
 	const mdTheme = getMarkdownTheme();
 
 	const renderDisplayItems = (items: DisplayItem[], limit?: number) => {
@@ -742,7 +735,7 @@ function renderDetails(details: SubagentDetails, expanded: boolean, theme: Theme
 
 		if (expanded) {
 			const container = new Container();
-			let header = `${icon} ${theme.fg("toolTitle", theme.bold(r.agent))}${theme.fg("muted", ` (${r.agentSource})`)}`;
+			let header = `${icon} ${theme.fg("toolTitle", theme.bold(r.agent))}`;
 			if (isError && r.stopReason) header += ` ${theme.fg("error", `[${r.stopReason}]`)}`;
 			container.addChild(new Text(header, 0, 0));
 			if (isError && r.errorMessage)
@@ -778,13 +771,13 @@ function renderDetails(details: SubagentDetails, expanded: boolean, theme: Theme
 			return container;
 		}
 
-		let text = `${icon} ${theme.fg("toolTitle", theme.bold(r.agent))}${theme.fg("muted", ` (${r.agentSource})`)}`;
+		let text = `${icon} ${theme.fg("toolTitle", theme.bold(r.agent))}`;
 		if (isError && r.stopReason) text += ` ${theme.fg("error", `[${r.stopReason}]`)}`;
 		if (isError && r.errorMessage) text += `\n${theme.fg("error", `Error: ${r.errorMessage}`)}`;
 		else if (displayItems.length === 0) text += `\n${theme.fg("muted", "(no output)")}`;
 		else {
 			text += `\n${renderDisplayItems(displayItems, COLLAPSED_ITEM_COUNT)}`;
-			if (displayItems.length > COLLAPSED_ITEM_COUNT) text += `\n${theme.fg("muted", "(Ctrl+O to expand)")}`;
+			if (displayItems.length > COLLAPSED_ITEM_COUNT) text += `\n${hint}`;
 		}
 		const usageStr = formatUsageStats(r.usage, modelLabel(r));
 		if (usageStr) text += `\n${theme.fg("dim", usageStr)}`;
@@ -889,7 +882,7 @@ function renderDetails(details: SubagentDetails, expanded: boolean, theme: Theme
 			const usageStr = formatUsageStats(aggregateUsage(details.results));
 			if (usageStr) text += `\n\n${theme.fg("dim", `Total: ${usageStr}`)}`;
 		}
-		if (!expanded) text += `\n${theme.fg("muted", "(Ctrl+O to expand)")}`;
+		if (!expanded) text += `\n${hint}`;
 		return new Text(text, 0, 0);
 	}
 
@@ -953,7 +946,7 @@ export default function (pi: ExtensionAPI) {
 			});
 
 		if (modeCount !== 1) {
-			const available = agents.map((a) => `${a.name} (${a.source})`).join(", ") || "none";
+			const available = agents.map((a) => a.name).join(", ") || "none";
 			return {
 				content: [{ type: "text", text: `Invalid parameters. Provide exactly one mode: agent + brief, or tasks.\nAvailable agents: ${available}` }],
 				details: makeDetails("single")([]),
@@ -969,7 +962,6 @@ export default function (pi: ExtensionAPI) {
 
 			const allResults: SingleResult[] = params.tasks.map((t) => ({
 				agent: t.agent,
-				agentSource: "unknown",
 				task: t.brief,
 				exitCode: -1,
 				messages: [],
@@ -1047,7 +1039,7 @@ export default function (pi: ExtensionAPI) {
 			};
 		}
 
-		const available = agents.map((a) => `${a.name} (${a.source})`).join(", ") || "none";
+		const available = agents.map((a) => a.name).join(", ") || "none";
 		return {
 			content: [{ type: "text", text: `Invalid parameters. Available agents: ${available}` }],
 			details: makeDetails("single")([]),
@@ -1131,13 +1123,13 @@ export default function (pi: ExtensionAPI) {
 		if (current?.hasUI) current.ui.setStatus("subagent", undefined);
 	});
 
-	pi.registerMessageRenderer<SubagentDetails>(RESULT_MESSAGE, (message, { expanded, outputPad }, theme) => {
+	pi.registerMessageRenderer<SubagentDetails>(RESULT_MESSAGE, (message, { expanded, outputPad, keyHint }, theme) => {
 		const details = message.details;
 		if (!details || details.results.length === 0) return undefined;
 		const head = typeof message.content === "string" ? message.content.split("\n", 1)[0] : "";
 		const box = new Box(outputPad, 0);
 		if (head) box.addChild(new Text(theme.fg("muted", head), 0, 0));
-		box.addChild(renderDetails(details, expanded, theme));
+		box.addChild(renderDetails(details, expanded, theme, expandHint(theme, keyHint)));
 		return box;
 	});
 
@@ -1289,8 +1281,7 @@ export default function (pi: ExtensionAPI) {
 			if (args.tasks && args.tasks.length > 0) {
 				let text =
 					theme.fg("toolTitle", theme.bold("task ")) +
-					theme.fg("accent", `parallel (${args.tasks.length} tasks)`) +
-					theme.fg("muted", " [user]");
+					theme.fg("accent", `parallel (${args.tasks.length} tasks)`);
 				for (const t of args.tasks.slice(0, 3)) {
 					const preview = t.brief.length > 40 ? `${t.brief.slice(0, 40)}...` : t.brief;
 					text += `\n  ${theme.fg("accent", t.agent)}${theme.fg("dim", ` ${preview}`)}`;
@@ -1302,20 +1293,19 @@ export default function (pi: ExtensionAPI) {
 			const preview = args.brief ? (args.brief.length > 60 ? `${args.brief.slice(0, 60)}...` : args.brief) : "...";
 			let text =
 				theme.fg("toolTitle", theme.bold("task ")) +
-				theme.fg("accent", agentName) +
-				theme.fg("muted", " [user]");
+				theme.fg("accent", agentName);
 			text += `\n  ${theme.fg("dim", preview)}`;
 			return new Text(text, 0, 0);
 		},
 
-		renderResult(result, { expanded }, theme, _context) {
+		renderResult(result, { expanded }, theme, context) {
 			const details = result.details as SubagentDetails | undefined;
 			if (!details || details.results.length === 0) {
 				const text = result.content[0];
 				return new Text(text?.type === "text" ? text.text : "(no output)", 0, 0);
 			}
 
-			return renderDetails(details, expanded, theme);
+			return renderDetails(details, expanded, theme, expandHint(theme, context.keyHint));
 		},
 	});
 }
