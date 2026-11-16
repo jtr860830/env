@@ -29,7 +29,7 @@ Left as is: the rest of rtk's directory (`config.toml`, hook markers, trust stor
 
 ## pi
 
-`PI_CODING_AGENT_DIR=$XDG_CONFIG_HOME/pi` and `PI_CODING_AGENT_SESSION_DIR=$XDG_DATA_HOME/pi/sessions`: pi has no XDG handling and upstream closed the request as wontfix, so these two variables are the permanent answer. Why sessions go to DATA rather than STATE, and everything else about pi, is in `docs/pi.md`.
+`PI_CODING_AGENT_DIR=$XDG_CONFIG_HOME/pi` and `PI_CODING_AGENT_SESSION_DIR=$XDG_DATA_HOME/pi/sessions`: pi has no XDG handling and upstream closed the request as wontfix, so these two variables are the permanent answer. Why sessions go to DATA rather than STATE, and everything else about pi, is in `docs/pi.md`. `PI_HARDWARE_CURSOR=1` is the terminal's cursor in pi's input, a setting kept here rather than in pi's local `settings.json` (`docs/pi-ui.md`).
 
 ## npm and Node
 
