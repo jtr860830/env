@@ -1,16 +1,3 @@
-/**
- * Subagent Tool - Delegate tasks to specialized agents
- *
- * Spawns a separate `pi` process for each subagent invocation,
- * giving it an isolated context window.
- *
- * Supports two modes:
- *   - Single: { agent: "name", brief: "..." }
- *   - Parallel: { tasks: [{ agent: "name", brief: "..." }, ...] }
- *
- * Uses JSON mode to capture structured output from subagents.
- */
-
 import { spawn } from "node:child_process";
 import * as fs from "node:fs";
 import * as os from "node:os";
@@ -25,6 +12,7 @@ import {
 	formatReadLineRange,
 	getMarkdownTheme,
 	type Theme,
+	type ThemeColor,
 } from "@earendil-works/pi-coding-agent";
 import { Box, type Component, Container, Markdown, Spacer, Text, visibleWidth } from "@earendil-works/pi-tui";
 import { type Static, Type } from "typebox";
@@ -72,7 +60,7 @@ function formatUsageStats(
 function formatToolCall(
 	toolName: string,
 	args: Record<string, unknown>,
-	themeFg: (color: any, text: string) => string,
+	themeFg: (color: ThemeColor, text: string) => string,
 ): string {
 	const shortenPath = (p: string) => {
 		const home = os.homedir();
@@ -211,7 +199,7 @@ function truncateParallelOutput(output: string): string {
 	return `${bytes.toString("utf8", 0, end)}\n\n[Output truncated: ${bytes.length - end} bytes omitted. Full output preserved in tool details.]`;
 }
 
-type DisplayItem = { type: "text"; text: string } | { type: "toolCall"; name: string; args: Record<string, any> };
+type DisplayItem = { type: "text"; text: string } | { type: "toolCall"; name: string; args: Record<string, unknown> };
 
 function getDisplayItems(messages: Message[]): DisplayItem[] {
 	const items: DisplayItem[] = [];
@@ -235,7 +223,7 @@ async function mapWithConcurrencyLimit<TIn, TOut>(
 	const limit = Math.max(1, Math.min(concurrency, items.length));
 	const results: TOut[] = new Array(items.length);
 	let nextIndex = 0;
-	const workers = new Array(limit).fill(null).map(async () => {
+	const workers = Array.from({ length: limit }, async () => {
 		while (true) {
 			const current = nextIndex++;
 			if (current >= items.length) return;
@@ -333,15 +321,16 @@ function runPi(
 
 		const processLine = (line: string) => {
 			if (!line.trim()) return;
-			let event: any;
+			let event: { type?: unknown; id?: unknown; message?: Message } | null;
 			try {
 				event = JSON.parse(line);
 			} catch {
 				return;
 			}
+			if (!event || typeof event !== "object") return;
 			if (event.type === "session" && typeof event.id === "string") result.sessionId = event.id;
 			if (event.type === "message_end" && event.message) {
-				const msg = event.message as Message;
+				const msg = event.message;
 				result.messages.push(msg);
 				if (msg.role === "assistant") {
 					result.usage.turns++;
@@ -367,14 +356,16 @@ function runPi(
 			}
 		};
 
-		proc.stdout.on("data", (data) => {
-			buffer += data.toString();
+		proc.stdout.setEncoding("utf8");
+		proc.stderr.setEncoding("utf8");
+		proc.stdout.on("data", (data: string) => {
+			buffer += data;
 			const lines = buffer.split("\n");
 			buffer = lines.pop() || "";
 			for (const line of lines) processLine(line);
 		});
-		proc.stderr.on("data", (data) => {
-			result.stderr += data.toString();
+		proc.stderr.on("data", (data: string) => {
+			result.stderr += data;
 		});
 		const killProc = () => {
 			if (settled || exited || !proc.kill("SIGTERM")) return;
@@ -485,15 +476,8 @@ async function runSingleAgent(
 	} finally {
 		if (tmp) {
 			try {
-				fs.unlinkSync(tmp.filePath);
-			} catch {
-				/* ignore */
-			}
-			try {
-				fs.rmdirSync(tmp.dir);
-			} catch {
-				/* ignore */
-			}
+				fs.rmSync(tmp.dir, { recursive: true, force: true });
+			} catch {}
 		}
 	}
 }
@@ -832,7 +816,6 @@ function renderDetails(details: SubagentDetails, expanded: boolean, theme: Theme
 				);
 				container.addChild(new Text(theme.fg("muted", "Task: ") + theme.fg("dim", r.task), 0, 0));
 
-				// Show tool calls
 				for (const item of displayItems) {
 					if (item.type === "toolCall") {
 						container.addChild(
@@ -845,7 +828,6 @@ function renderDetails(details: SubagentDetails, expanded: boolean, theme: Theme
 					}
 				}
 
-				// Show final output as markdown
 				if (finalOutput) {
 					container.addChild(new Spacer(1));
 					container.addChild(new Markdown(finalOutput.trim(), 0, 0, mdTheme));
@@ -863,7 +845,6 @@ function renderDetails(details: SubagentDetails, expanded: boolean, theme: Theme
 			return container;
 		}
 
-		// Collapsed view (or still running)
 		let text = `${icon} ${theme.fg("toolTitle", theme.bold("parallel "))}${theme.fg("accent", status)}`;
 		for (const r of details.results) {
 			const rIcon =
@@ -1248,11 +1229,11 @@ export default function (pi: ExtensionAPI) {
 				sessions: new Set(),
 				promise: runCall(params, ctx, controller.signal, (partial) => {
 					bg.partial = partial;
-					(partial.details?.results ?? []).forEach((r) => {
-						if (!r.sessionId || bg.sessions.has(r.sessionId)) return;
+					for (const r of partial.details?.results ?? []) {
+						if (!r.sessionId || bg.sessions.has(r.sessionId)) continue;
 						bg.sessions.add(r.sessionId);
 						record({ event: "session", key, sessionId: r.sessionId });
-					});
+					}
 					updateStatus();
 				}).catch(
 					(error): AgentToolResult<SubagentDetails> => ({

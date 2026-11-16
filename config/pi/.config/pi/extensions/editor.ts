@@ -154,13 +154,13 @@ class PromptEditor extends CustomEditor {
 		return out.join(" ");
 	}
 
-	protected renderTopBorder(width: number, hiddenLineCount: number): string {
+	protected override renderTopBorder(width: number, hiddenLineCount: number): string {
 		this.hiddenAbove = hiddenLineCount;
 		if (width < 4) return super.renderTopBorder(width, hiddenLineCount);
 		return this.borderColor(TOP_LEFT) + super.renderTopBorder(width - 2, hiddenLineCount) + this.borderColor(TOP_RIGHT);
 	}
 
-	protected renderBottomBorder(width: number, hiddenLineCount: number): string {
+	protected override renderBottomBorder(width: number, hiddenLineCount: number): string {
 		if (width < 4) return super.renderBottomBorder(width, hiddenLineCount);
 		const room = width - 2;
 		const rule = hiddenLineCount > 0 ? visibleWidth(` ↓ ${hiddenLineCount} more `) + 2 : 1;
@@ -193,7 +193,7 @@ class PromptEditor extends CustomEditor {
 		);
 	}
 
-	render(width: number): string[] {
+	override render(width: number): string[] {
 		const lines = super.render(width);
 		const pad = this.getPaddingX();
 		const first = lines[1];
