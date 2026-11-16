@@ -1,10 +1,12 @@
 import type { ThinkingLevel } from "@earendil-works/pi-agent-core";
 import { CustomEditor, type ExtensionAPI, type ExtensionContext, type ThemeColor } from "@earendil-works/pi-coding-agent";
-import { visibleWidth } from "@earendil-works/pi-tui";
+import { parseColor, visibleWidth } from "@earendil-works/pi-tui";
 
 const GLYPH = "\u276f";
+const BASH_GLYPH = "$";
 const CAP_LEFT = "\ue0b6";
 const CAP_RIGHT = "\ue0b4";
+const INSERT = { dark: parseColor("#61afef"), light: parseColor("#4078f2") };
 
 interface Totals {
 	input: number;
@@ -71,12 +73,38 @@ class PromptEditor extends CustomEditor {
 	private pi!: ExtensionAPI;
 	private ctx!: ExtensionContext;
 	private hiddenAbove = 0;
+	private readonly plain = this.borderColor;
 	private cached: { key: string; usage: Totals; percent: number | null; window: number } | undefined;
 
 	attach(pi: ExtensionAPI, ctx: ExtensionContext): this {
 		this.pi = pi;
 		this.ctx = ctx;
 		return this;
+	}
+
+	private bash(): boolean {
+		return this.getText().trimStart().startsWith("!");
+	}
+
+	private tint(): (text: string) => string {
+		try {
+			const theme = this.ctx.ui.theme;
+			if (this.bash()) return theme.getBashModeBorderColor();
+			const fg = INSERT[theme.appearance];
+			return (text) => theme.style(text, { fg });
+		} catch {
+			return this.plain;
+		}
+	}
+
+	private ruled(draw: () => string): string {
+		const own = this.borderColor;
+		this.borderColor = this.tint();
+		try {
+			return draw();
+		} finally {
+			this.borderColor = own;
+		}
 	}
 
 	private gather(): Data {
@@ -152,7 +180,7 @@ class PromptEditor extends CustomEditor {
 
 	protected override renderTopBorder(width: number, hiddenLineCount: number): string {
 		this.hiddenAbove = hiddenLineCount;
-		return super.renderTopBorder(width, hiddenLineCount);
+		return this.ruled(() => super.renderTopBorder(width, hiddenLineCount));
 	}
 
 	protected override renderBottomBorder(width: number, hiddenLineCount: number): string {
@@ -178,7 +206,7 @@ class PromptEditor extends CustomEditor {
 		} catch {
 			tail = "";
 		}
-		return super.renderBottomBorder(width - visibleWidth(tail), hiddenLineCount) + tail;
+		return this.ruled(() => super.renderBottomBorder(width - visibleWidth(tail), hiddenLineCount)) + tail;
 	}
 
 	override render(width: number): string[] {
@@ -186,7 +214,7 @@ class PromptEditor extends CustomEditor {
 		const pad = this.getPaddingX();
 		const first = lines[1];
 		if (pad >= 2 && this.hiddenAbove === 0 && first?.startsWith(" ".repeat(pad))) {
-			lines[1] = `${" ".repeat(pad - 2)}${this.borderColor(GLYPH)} ${first.slice(pad)}`;
+			lines[1] = `${" ".repeat(pad - 2)}${this.tint()(this.bash() ? BASH_GLYPH : GLYPH)} ${first.slice(pad)}`;
 		}
 		return lines;
 	}
