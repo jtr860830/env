@@ -76,7 +76,7 @@ The first form, earlier the same day, had the padding at `2`, the arrow at the l
 - A file of its own, not part of `footer.ts`: pi loads extensions one file at a time and replacing the editor is the half more likely to break on an upgrade, so a failure costs the arrow and not the footer; the two share no code. Merging both into a `ui.ts` was the alternative. It is `editor.ts` because pi's word for the input is editor (`setEditorComponent`, `editorPaddingX`), and prompt there means what is sent to the model.
 - Only one extension can own the editor. Nothing else in `~/.config/pi/extensions` calls `setEditorComponent`.
 - The factory returns early unless `ctx.mode` is `tui`, as the footer's does.
-- Verified in a scratch tmux server with `--no-session`, no model call. With the padding at `2`: empty, one line, a `!` command, a 30-column window where the text wraps, and 16 lines, where the arrow goes when the first line scrolls out and returns with the cursor. With it at `3`: empty, three lines, a `!` command, a line that wraps, and the `/` completion menu. Not exercised: the working indicator during a run.
+- Verified in a scratch tmux server with `--no-session`, no model call. With the padding at `2`: empty, one line, a `!` command, a 30-column window where the text wraps, and 16 lines, where the arrow goes when the first line scrolls out and returns with the cursor. With it at `3`: empty, three lines, a `!` command, a line that wraps, and the `/` completion menu. The working indicator during a run stays in the border, seen by the owner in a real session the same day.
 
 ### Testing
 
