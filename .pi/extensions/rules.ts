@@ -1,6 +1,7 @@
 import * as fs from "node:fs";
+import * as os from "node:os";
 import * as path from "node:path";
-import { type ExtensionAPI, parseFrontmatter } from "@earendil-works/pi-coding-agent";
+import { type ExtensionAPI, type ExtensionContext, parseFrontmatter } from "@earendil-works/pi-coding-agent";
 
 const RULE_DIRS = ["docs"];
 const PATH_TOOLS = new Set(["read", "edit", "write"]);
@@ -29,8 +30,27 @@ function globToRegExp(glob: string): RegExp {
 	return new RegExp(`^${re}$`);
 }
 
+function realPath(target: string): string {
+	try {
+		return fs.realpathSync(target);
+	} catch {
+		try {
+			return path.join(fs.realpathSync(path.dirname(target)), path.basename(target));
+		} catch {
+			return target;
+		}
+	}
+}
+
+function resolveTarget(cwd: string, target: string): string {
+	let file = target.startsWith("@") ? target.slice(1) : target;
+	if (file === "~") file = os.homedir();
+	else if (file.startsWith("~/")) file = path.join(os.homedir(), file.slice(2));
+	return realPath(path.resolve(cwd, file));
+}
+
 function findRoot(cwd: string): string | undefined {
-	let dir = cwd;
+	let dir = realPath(cwd);
 	for (;;) {
 		if (fs.existsSync(path.join(dir, ".git"))) return dir;
 		const parent = path.dirname(dir);
@@ -87,28 +107,40 @@ export default function (pi: ExtensionAPI) {
 		}
 	};
 
+	let pending: { rule: Rule; rel: string }[] = [];
+	let flushTimer: ReturnType<typeof setTimeout> | undefined;
+
+	const restore = (ctx: ExtensionContext) => {
+		injected.clear();
+		for (const entry of ctx.sessionManager.buildContextEntries()) {
+			if (entry.type !== "custom_message" || entry.customType !== CUSTOM_TYPE) continue;
+			const details = entry.details as { id?: string; ids?: string[] } | undefined;
+			const text = typeof entry.content === "string" ? entry.content : "";
+			for (const id of details?.ids ?? (details?.id ? [details.id] : [])) {
+				const rule = rules.find((r) => r.id === id);
+				if (rule && text.includes(rule.body)) injected.add(id);
+			}
+		}
+	};
+
 	pi.on("session_shutdown", async () => {
 		for (const w of watchers) w.close();
 		watchers = [];
+		clearTimeout(reloadTimer);
+		clearTimeout(flushTimer);
+		flushTimer = undefined;
+		pending = [];
 	});
 
 	pi.on("session_start", async (_event, ctx) => {
 		root = findRoot(ctx.cwd);
 		rules = root ? loadRules(root) : [];
 		watch();
-		injected.clear();
-		for (const entry of ctx.sessionManager.getBranch()) {
-			if (entry.type !== "message") continue;
-			const message = entry.message;
-			if (message.role === "custom" && message.customType === CUSTOM_TYPE) {
-				const details = message.details as { id?: string; ids?: string[] } | undefined;
-				for (const id of details?.ids ?? (details?.id ? [details.id] : [])) injected.add(id);
-			}
-		}
+		restore(ctx);
 	});
 
-	let pending: { rule: Rule; rel: string }[] = [];
-	let flushTimer: ReturnType<typeof setTimeout> | undefined;
+	pi.on("session_tree", async (_event, ctx) => restore(ctx));
+	pi.on("session_compact", async (_event, ctx) => restore(ctx));
 
 	const flush = () => {
 		flushTimer = undefined;
@@ -129,7 +161,7 @@ export default function (pi: ExtensionAPI) {
 		if (!root || !PATH_TOOLS.has(event.toolName)) return;
 		const target = (event.input as { path?: string }).path;
 		if (!target) return;
-		const rel = path.relative(root, path.resolve(ctx.cwd, target));
+		const rel = path.relative(root, resolveTarget(ctx.cwd, target));
 		if (rel.startsWith("..") || path.isAbsolute(rel)) return;
 
 		const hits = rules.filter((r) => !injected.has(r.id) && r.patterns.some((p) => p.test(rel)));
