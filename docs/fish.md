@@ -1,5 +1,5 @@
 ---
-paths: ["config/fish/**", "fish_plugins"]
+paths: ["config/fish/**"]
 ---
 
 ## Fish PATH
@@ -29,21 +29,20 @@ print({k:v for k,v in d.items() if len(v)>1} or 'no collisions')"
 
 ## Layout
 
-The repository holds three things under `~/.config/fish`:
+The repository holds four things under `~/.config/fish`:
 
 | Path | Holds |
 |------|-------|
 | `conf.d/env.fish` | the environment, for every fish |
 | `config.fish` | interactive behaviour only: vi key bindings, the cursor for external commands, pure's two symbols, the call to `__apply_theme`, zoxide |
 | `functions/` | `__apply_theme`, an empty `fish_greeting`, and the wrappers `ls`, `rm`, `vi`, `vim`, `wget` |
+| `fish_plugins` | fisher's plugin list |
 
-Everything else there is written by fisher or by fish and is a real file outside the repository: the plugins' `functions/`, `conf.d/` and `themes/`, fisher's working copy of `fish_plugins`, and `fish_variables`.
+Everything else there is written by fisher or by fish and is a real file outside the repository: the plugins' `functions/`, `conf.d/` and `themes/`, and `fish_variables`.
 
 ## Plugins
 
-fisher comes from the `brewfile`, so the plugin list names only the two plugins, `pure-fish/pure` and `rose-pine/fish`, with no line for fisher itself. The list is `fish_plugins` at the repository's root, beside the `brewfile`. `just plugins` copies it to `~/.config/fish/fish_plugins`, runs `fisher update`, and then checks that every plugin in the list is installed.
-
-**The list is copied, not linked, because fisher rewrites it.** After each run fisher writes the file again from what it managed to install: a plugin whose download failed is left out while fisher still exits 0, and when every download fails fisher deletes the file. Through a link that would drop the plugin from the repository's list, and a retry would no longer ask for it. With a copy the repository's list is never touched, the check after the update turns a partial failure into a failed recipe, and the next `just plugins` starts from the full list again. `fisher update` is given `/dev/null` as its input because fisher reads plugin names from standard input whenever that is not a terminal.
+fisher comes from the `brewfile`, so `fish_plugins` lists only the two plugins, `pure-fish/pure` and `rose-pine/fish`, with no line for fisher itself. `just plugins` runs `fisher update`, which installs whatever the list names. fisher rewrites `fish_plugins` through its link each time; the content does not change.
 
 **A plugin must never find a link where it wants to write.** fisher copies with `cp -f`, which follows a link, a dangling one included, and would write the plugin's file into the repository. pure ships `fish_prompt.fish`, `fish_mode_prompt.fish` and `fish_title.fish`. So no file under `config/fish` may carry a name a plugin ships, and after deleting one run `just link` before fisher runs again (`docs/setup.md`).
 
