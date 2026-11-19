@@ -128,7 +128,7 @@ Each module is an independent sub-plugin — there is no unified enable, and eve
 
 Write non-ASCII glyphs as Lua `\u{…}` escapes — `"\u{25cf}"`, `"\u{e0b6}"` — which LuaJIT supports and which keep the source pure ASCII. The Edit tool cannot reliably embed nerd font characters (they silently become spaces), which is why this config once used `vim.fn.nr2char(codepoint)`; the escape solves the same problem without a function call, and was verified equal to `nr2char` for every glyph in use. `string.char()` is not a replacement — it only handles 0–255.
 
-Seven symbols are used in nvim and tmux (the fish prompt's own are in `docs/fish-prompt.md`): `▎` (U+258E, mini.diff signs), `▏` (U+258F, snacks indent), `○`/`●` (U+25CB/25CF, tmux windows), `■` (U+25A0, tmux zoom), and U+E0B6/U+E0B4 (the solid half-circles that cap tmux's bubble segments).
+Seven symbols are used in nvim and tmux: `▎` (U+258E, mini.diff signs), `▏` (U+258F, snacks indent), `○`/`●` (U+25CB/25CF, tmux windows), `■` (U+25A0, tmux zoom), and U+E0B6/U+E0B4 (the solid half-circles that cap tmux's bubble segments).
 
 In a script, write them as escapes (`\ue0b6`) rather than pasting the character — pasting silently produced `○` where `●` was meant. Beware substring collisions when scripting an edit over such bindings: a replacement targeting `active` also matches inside `inactive`, which is how both dots ended up identical; the bindings are now `dotDim`/`dotOn`.
 

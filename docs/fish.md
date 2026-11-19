@@ -6,7 +6,7 @@ paths: ["config/fish/**"]
 
 `conf.d/env.fish` sets the whole `PATH` with `set -gx PATH` rather than prepending with `fish_add_path`, **deliberately**: macOS's `path_helper` reads `/etc/paths` and `/etc/paths.d/*` and *prepends* the system entries, which would push `/usr/bin` ahead of Homebrew. Writing the list outright keeps it out of the way — do not "simplify" this to an append-style call.
 
-It lives in `conf.d/` rather than `config.fish` so it is set for every fish — interactive or not — before anything else runs; a GUI-launched process inherits only launchd's `/usr/bin:/bin:/usr/sbin:/sbin`. tmux is not started from fish at all: Ghostty's `command` does it (`docs/ghostty.md`), so fish has no tmux logic anywhere.
+It lives in `conf.d/` rather than `config.fish` so it is set for every fish — interactive or not — before anything else runs; a GUI-launched process inherits only launchd's `/usr/bin:/bin:/usr/sbin:/sbin`.
 
 | Path | Holds |
 |------|-------|
@@ -27,26 +27,45 @@ for p in '/usr/local/bin /usr/local/sbin /usr/bin /usr/sbin /bin /sbin'.split():
 print({k:v for k,v in d.items() if len(v)>1} or 'no collisions')"
 ```
 
-## conf.d Layout
+## Layout
 
-`config.fish` holds only behaviour — vi key bindings, the cursor for external commands and zoxide. Everything else is in `conf.d/`, which fish sources first, in filename order: `env.fish`, `prompt.fish`, `theme.fish`. There are no fish plugins and no fisher: pure was the only one, and it was replaced by the hand-written prompt (`docs/fish-prompt.md`) on 2026-10-31.
+The repository holds four things under `~/.config/fish`:
 
-**`fish_cursor_external line` gives a program started from fish a bar cursor (2026-11-16).** fish's vi cursors are its defaults, none of them blinking: a bar in insert (`\e[6 q`), a block in default and visual (`\e[2 q`), an underline in replace and replace_one (`\e[4 q`), the same as Neovim's default `guicursor`. At preexec fish sets the cursor for the command from `fish_cursor_external`, and from `fish_cursor_default`, the block, when that is unset. The line is there for pi, whose input is insert mode and which sets no shape of its own (`docs/pi-ui.md`). It is global, accepted on the owner's reasoning: a program that shows a cursor is nearly always waiting for input, and one with modes sets its own. Seen with the installed file: a bar in pi, a `python3` REPL, a `bash` started from fish and during `sleep`; nvim a block in normal and a bar in insert, as before; fish's own three shapes unchanged. Not seen: `ssh`. A fish already running needs the line typed once.
+| Path | Holds |
+|------|-------|
+| `conf.d/env.fish` | the environment, for every fish |
+| `config.fish` | interactive behaviour only: vi key bindings, the cursor for external commands, pure's two symbols, the call to `__apply_theme`, zoxide |
+| `functions/` | `__apply_theme`, an empty `fish_greeting`, and the wrappers `ls`, `rm`, `vi`, `vim`, `wget` |
+| `fish_plugins` | fisher's plugin list |
 
-`vi` and `vim` are fish functions (`functions/vi.fish`, `vim.fish`, `--wraps nvim`); without them `vim` opens Apple's unconfigured Vim. Functions only apply where fish runs the command, which is accepted — `EDITOR` and git's `core.editor` already name `nvim`, so only something invoking the literal name `vim` from outside fish misses them. Same mechanism as `ls`, `rm` and `wget` (the last for its HSTS file, `docs/env.md`).
+Everything else there is written by fisher or by fish and is a real file outside the repository: the plugins' `functions/`, `conf.d/` and `themes/`, and `fish_variables`.
 
-**`functions/fish_title.fish` sets the terminal title to `$`, or `$ <command>` while one runs (2026-11-16)**, in place of fish's default of the command cut to 20 characters and `prompt_pwd`. tmux's `status-left` shows the title and draws the leading `$` itself, so the two must agree on it (`docs/tmux.md`). It keeps the default's handling of its argument, which `fg` uses to pass the job's command, and of `status current-command` being `fish` at an idle prompt. Control characters become one space: without that the lines of a multi-line command ran together, `$ for i in 1 2sleep 1end`. It does not shorten; the reader does. The function is global, so a fish outside tmux has a title without the directory as well; accepted by the owner, the alternative being a test for `$TMUX` in fish. A fish already running keeps the default until the file is sourced or the shell restarted: fish found no new file at an empty Enter or after a command, tested.
+## Plugins
 
-**The theme is `conf.d/theme.fish`, not an autoloaded `functions/__apply_theme.fish`.** A function file is read only on first call, so its `--on-variable` handler would register only because something happens to call it at startup; a conf.d file is always sourced, so the handler always exists. It opens with `status is-interactive; or return`. The prompt's git handler lives in `conf.d/prompt.fish` for the same reason: inside `functions/fish_prompt.fish` it registered only when `fish_prompt` first ran, which is *after* the first `fish_prompt` event, so every new shell's first prompt had no git segment — caught in testing.
+fisher comes from the `brewfile`, so `fish_plugins` lists only the two plugins, `pure-fish/pure` and `rose-pine/fish`, with no line for fisher itself. `just plugins` runs `fisher update`, which installs whatever the list names. fisher rewrites `fish_plugins` through its link each time; the content does not change.
 
-## Fish Color Variables
+**A plugin must never find a link where it wants to write.** fisher copies with `cp -f`, which follows a link, a dangling one included, and would write the plugin's file into the repository. pure ships `fish_prompt.fish`, `fish_mode_prompt.fish` and `fish_title.fish`. So no file under `config/fish` may carry a name a plugin ships, and after deleting one run `just link` before fisher runs again (`docs/setup.md`).
 
-Valid fish color variables (fish 4.x): `fish_color_{normal,command,keyword,quote,redirection,end,option,error,param,comment,selection,search_match,operator,escape,autosuggestion,cwd,user,host,valid_path,prefix,history_current,status}`. Note: `fish_color_history_current_command`, `fish_color_history_duration`, and `fish_color_error_background` do NOT exist.
+## Prompt
 
-### EZA Colors
+The prompt is pure, with two settings in `config.fish`: `pure_symbol_prompt` and `pure_symbol_reverse_prompt` are both `$`. pure's defaults are `❯` in insert mode and `❮` in the others; the owner wants `$` in every mode and reads the mode from the cursor's shape. Its colours come from `rose-pine/fish`, which maps the theme onto pure's variables. pure's `⇡` and `⇣` are not in Maple Mono NF CN and come from a fallback font.
 
-`EZA_COLORS` uses the same format as `LS_COLORS`: `key=attrs:key=attrs:...`. Use truecolor ANSI codes (`38;2;R;G;B`), `2;38;2;R;G;B` for dim variants. Written out in full inside `__apply_theme` in `conf.d/theme.fish`, rather than in `conf.d/env.fish` — they have to be re-exported when the light/dark palette switches, which a static variable cannot do. Key names: `di` (dir), `ln` (symlink), `ex` (executable), `or` (broken symlink), `da` (date), `sn`/`sb` (size number/unit), `hd` (header), `ur`/`uw`/`ux` (user perms), `gr`/`gw`/`gx` (group perms, use dim), `ga`/`gm`/`gd`/`gv`/`gt` (git added/modified/deleted/renamed/type).
+## Colours
 
-## Waiting on Upstream
+The theme is `Rosé Pine Auto` from `rose-pine/fish`. It has a `[dark]` and a `[light]` section, and `fish_config theme choose` picks one from what the terminal reports in `fish_terminal_color_theme`.
 
-**fish theme files cannot hold the whole palette.** `~/.config/fish/themes/*.theme` takes `[light]`/`[dark]` sections and `fish_config theme choose` follows the terminal from them (unlike `theme save`), which would be more idiomatic than a hand-written handler — but theme files only set `fish_color_*`/`fish_pager_color_*` (checked against the shipped `tomorrow`, `solarized` and `ayu` themes, none of which set anything else), so the prompt's ten `__prompt_c_*` colours, `EZA_COLORS` and `LS_COLORS` would still need one. Adopting it adds a file and a `fish_config theme choose` call without removing anything, and splits one palette across two mechanisms. Worth revisiting only if a shipped theme is ever seen setting something outside those two prefixes.
+`functions/__apply_theme.fish` makes that choice instead of a bare line in `config.fish`, because the terminal does not always report. Rex answers the colour query only for the session its window is showing (`docs/rex.md`), and there is nothing to ask without a terminal. With no report the bare line leaves a placeholder in every colour variable, and pure then prints an error on each prompt. The function chooses the dark section until the terminal has reported, and runs again when the variable changes, so the colours follow a report that comes late and the system's switch between light and dark.
+
+The call to `__apply_theme` in `config.fish` is required: a file in `functions/` is read on first call, and only then does its `--on-variable` handler exist.
+
+`LS_COLORS` and `EZA_COLORS` are not set; `ls` and `eza` use the terminal's sixteen colours.
+
+## Cursor
+
+fish's vi cursors are its defaults: a bar in insert, a block in default and visual, an underline in replace. With the same prompt symbol in every mode they are the only sign of the mode.
+
+`fish_cursor_external line` gives a program started from fish a bar cursor rather than fish's block. It is there for pi, whose input is always insert mode and which sets no shape of its own (`docs/pi-ui.md`). It is global: a program that shows a cursor is nearly always waiting for input, and one with modes sets its own.
+
+## Functions
+
+`vi` and `vim` are fish functions (`--wraps nvim`); without them `vim` opens Apple's unconfigured Vim. Functions apply only where fish runs the command, which is accepted: `EDITOR` and git's `core.editor` already name `nvim`. `ls`, `rm` and `wget` work the same way, the last for its HSTS file (`docs/env.md`).

@@ -14,7 +14,7 @@ git clone https://github.com/jtr860830/env.git ~/.config/env
 1. installs everything in `brewfile`
 2. writes `/etc/shells`, `/etc/pam.d/sudo_local` (Touch ID for sudo) and `/etc/homebrew/brew.env`, compiles Rex's terminfo entry when Rex is installed, and makes Homebrew's fish the login shell — asks for sudo
 3. links every package under `config/` into `$HOME`
-4. installs Neovim plugins and treesitter parsers
+4. installs fish and Neovim plugins and treesitter parsers
 
 Open a new terminal afterwards. The repo can live in any directory; `~/.config/env` is only a convention.
 
