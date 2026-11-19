@@ -1,10 +1,10 @@
 ---
-paths: ["config/fish/**/conf.d/env.fish", "config/fish/**/functions/wget.fish", "config/tealdeer/**", "config/npm/**"]
+paths: ["config/fish/**/conf.d/env.fish", "config/fish/**/functions/wget.fish", "config/npm/**"]
 ---
 
 # Environment Variables
 
-Findings behind the variables `conf.d/env.fish` sets and the files that depend on them. Moved out of `AGENTS.md` on 2026-11-10 so they load only when matching config is read or edited. The tealdeer entry below is the whole reason its config file looks the way it does; that file changes rarely enough that it does not get its own document.
+Findings behind the variables `conf.d/env.fish` sets and the files that depend on them. Moved out of `AGENTS.md` on 2026-11-10 so they load only when matching config is read or edited.
 
 ## Go
 
@@ -21,7 +21,6 @@ Outside the XDG directories (`.config`, `.cache`, `.local`), `$HOME` holds only 
 - `GOCACHE=$XDG_CACHE_HOME/go-build` and `GOPLSCACHE=$XDG_CACHE_HOME/gopls` — both had been under `~/Library/Caches`
 - `GOMODCACHE=$XDG_CACHE_HOME/go/mod` — the module cache defaults to `$GOPATH/pkg/mod`, i.e. DATA, but it is a re-downloadable cache
 - `_ZO_DATA_DIR=$XDG_DATA_HOME/zoxide` — zoxide kept `db.zo` in `~/Library/Application Support/zoxide`; it was moved, not recreated
-- tealdeer's cache — `cache_dir = "~/.cache/tealdeer"` in the stowed `config/tealdeer/.config/tealdeer/config.toml`. `TEALDEER_CACHE_DIR` works but 1.9.1 prints a deprecation warning on every call; the config file expands `~` (tested) but not `$HOME`, and has no way to read `XDG_CACHE_HOME`, so the default value is written out
 - `RTK_DB_PATH=$XDG_STATE_HOME/rtk/history.db` and `RTK_TEE_DIR=$XDG_CACHE_HOME/rtk/tee` — rtk's 90-day savings history is action history, so STATE; the tee spool of failed commands' full output is disposable, so CACHE. Both read from `src/core/user_dirs.rs`; `RTK_CONFIG_DIR` looks like the config override but only redirects pipeline loading, verified — `rtk config` still names `~/Library/Application Support/rtk/config.toml`
 - `HOMEBREW_CACHE=$HOME/.cache/homebrew` — in `/etc/homebrew/brew.env` beside `HOMEBREW_XDG_CONFIG_HOME`, not in fish, because brew also runs without fish's environment (`bootstrap.sh` under `/bin/bash`, `sudo brew`, launchd); see `docs/homebrew.md`
 

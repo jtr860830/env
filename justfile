@@ -1,6 +1,6 @@
 set shell := ["bash", "-euo", "pipefail", "-c"]
 
-packages := "claude codex fish ghostty git npm nvim omniwm pi ssh tealdeer"
+packages := "claude codex fish ghostty git npm nvim omniwm pi ssh"
 rex_bin := env("HOME") / "Library/Application Support/com.superlogical.rex/RexServer/Versions/Current/Rex Server.app/Contents/MacOS/rex"
 rex_themes := "/Applications/Ghostty.app/Contents/Resources/ghostty/themes"
 
