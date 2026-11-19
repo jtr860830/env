@@ -12,7 +12,7 @@ git clone https://github.com/jtr860830/env.git ~/.config/env
 `bootstrap.sh` installs Homebrew and `just`, then runs `just setup`, which:
 
 1. installs everything in `brewfile`
-2. writes `/etc/shells`, `/etc/pam.d/sudo_local` (Touch ID for sudo) and `/etc/homebrew/brew.env`, and makes Homebrew's fish the login shell — asks for sudo
+2. writes `/etc/shells`, `/etc/pam.d/sudo_local` (Touch ID for sudo) and `/etc/homebrew/brew.env`, compiles Rex's terminfo entry when Rex is installed, and makes Homebrew's fish the login shell — asks for sudo
 3. links every package under `config/` into `$HOME`
 4. installs Neovim plugins and treesitter parsers
 
@@ -25,7 +25,7 @@ Files under `config/` are linked into `$HOME`, so editing them takes effect imme
 | command | when |
 |---|---|
 | `just update` | upgrade all packages and plugins to their latest versions |
-| `just link` | after adding a new file under `config/` |
+| `just link` | after adding or removing a file under `config/` |
 | `just install` | after adding a package to `brewfile` |
 | `just clean` | remove installed packages that are no longer in `brewfile` |
 | `just check` | verify docs references, packages are installed and up to date, and links are clean |

@@ -1,6 +1,8 @@
 set shell := ["bash", "-euo", "pipefail", "-c"]
 
 packages := "claude codex fish ghostty git npm nvim omniwm pi ssh tealdeer tmux"
+rex_bin := env("HOME") / "Library/Application Support/com.superlogical.rex/RexServer/Versions/Current/Rex Server.app/Contents/MacOS/rex"
+rex_themes := "/Applications/Ghostty.app/Contents/Resources/ghostty/themes"
 
 default:
     @just --list
@@ -22,7 +24,8 @@ plugins:
     nvim --headless +qa
 
 link:
-    stow --no-folding -d config -t ~ {{packages}}
+    stow --no-folding -R -d config -t ~ {{packages}}
+    [ ! -x "{{rex_bin}}" ] || { mkdir -p ~/.local/bin && ln -sfn "{{rex_bin}}" ~/.local/bin/rex; }
 
 relink:
     cd config && find . -mindepth 2 \( -type f -o -type l \) -print0 | while IFS= read -r -d '' f; do t="$HOME/${f#./*/}"; if [ -L "$t" ] && [ ! -e "$t" ]; then rm "$t"; fi; done
@@ -34,6 +37,7 @@ etc:
     printf 'HOMEBREW_CACHE=%s/.cache/homebrew\nHOMEBREW_XDG_CONFIG_HOME=%s/.config\n' "$HOME" "$HOME" | sudo tee /etc/homebrew/brew.env >/dev/null
     printf 'auth       optional       /opt/homebrew/lib/pam/pam_reattach.so\nauth       sufficient     pam_tid.so\n' | sudo tee /etc/pam.d/sudo_local >/dev/null
     sudo chmod 444 /etc/pam.d/sudo_local
+    [ ! -x "{{rex_bin}}" ] || { sudo mkdir -p /usr/local/share/terminfo && "{{rex_bin}}" terminfo show | sudo /usr/bin/tic -x -o /usr/local/share/terminfo /dev/stdin; }
     [ "$(dscl . -read ~ UserShell | cut -d' ' -f2)" = /opt/homebrew/bin/fish ] || chsh -s /opt/homebrew/bin/fish
 
 check: check-docs

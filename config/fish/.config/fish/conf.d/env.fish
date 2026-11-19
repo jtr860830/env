@@ -19,7 +19,7 @@ set -gx LANG en_US.UTF-8
 set -gx EDITOR nvim
 set -gx VISUAL nvim
 set -gx MANPAGER 'nvim +Man!'
-set -gx TERMINFO_DIRS /opt/homebrew/opt/ncurses/share/terminfo
+set -gx TERMINFO_DIRS /opt/homebrew/opt/ncurses/share/terminfo:/usr/local/share/terminfo
 
 set -gx CARGO_HOME $XDG_DATA_HOME/cargo
 set -gx CARGO_INSTALL_ROOT $HOME/.local
