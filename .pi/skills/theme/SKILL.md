@@ -31,7 +31,7 @@ The colour scheme is Rosé Pine everywhere: Main when the system is dark, Dawn w
   - Dawn's terminal text, `#575279`, is slightly lighter than nvim's;
   - pi's `system` theme computes its own lightness, so its colours are near Rosé Pine rather than equal to it.
 
-A new themed element follows the same order: use the tool's official Rosé Pine port if there is one, otherwise let it take the terminal's colours, and only then ask the owner whether a hand-copied value is worth it.
+A new themed element follows the same order: use the tool's official Rosé Pine port if there is one and it follows the system's light and dark, otherwise let it take the terminal's colours, and only then ask the owner whether a hand-copied value is worth it.
 
 ## Light and dark
 
