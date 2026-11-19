@@ -2,26 +2,19 @@
 paths: ["config/ghostty/**"]
 ---
 
-## Ghostty and tmux
+## Ghostty
 
-Ghostty starts tmux itself — `command = /usr/bin/env -u TMUX /opt/homebrew/bin/tmux new-session -A -s main` in its config — and fish's config has no tmux logic at all. So only Ghostty windows land in the `main` session; a shell started anywhere else (Zed's terminal, an SSH login, a subshell) is plain fish, with nothing to exclude. The previous `exec tmux` in `config.fish` needed a guard for every non-Ghostty host.
+Ghostty is the fallback terminal while Rex is a preview (`docs/rex.md`). It opens the login shell directly and is otherwise at its defaults, shell integration included. Its config is five lines:
 
-- **Absolute path**: Ghostty launched from the Dock or Alfred has only launchd's `PATH` (`/usr/bin:/bin:/usr/sbin:/sbin`), and `command` runs before fish's `env.fish`.
-- **`env -u TMUX`**: an app launched with `open` from inside tmux inherits `TMUX` (see `docs/env.md`, `### GUI Apps Launched From a Terminal`); tmux would refuse to start with *sessions should be nested with care*. Clearing it makes a polluted launch attach normally.
-- Detaching closes the window, as `exec` did; panes run the login shell (`/opt/homebrew/bin/fish`), where `env.fish` sets `PATH`.
+| Line | Why |
+|---|---|
+| `theme = dark:Rose Pine,light:Rose Pine Dawn` | the colour scheme, from the themes Ghostty bundles, following the system's light and dark (the `theme` skill) |
+| `font-family = Maple Mono NF CN`, `font-size = 14` | the font used everywhere here |
+| `macos-option-as-alt = true` | `⌥hjkl` must reach mini.move in nvim; without it Option types special characters |
+| `adjust-cell-height = 24%` | the owner's habit, the same spacing Rex is given |
 
-Verified with two fresh instances (`open -na /Applications/Ghostty.app`): one under the clean launchd environment, one inheriting this shell's `TMUX` — both attached to `main` as a new client.
+There is no theme file here: the two themes are Ghostty's own, and `just rex` imports the same two files into Rex from Ghostty's bundle.
 
-## Ghostty Shell Integration
+## Temporary
 
-`shell-integration = none` — disabled. Of its features (`cursor`, `sudo`, `title`, `ssh-env`, `ssh-terminfo`, `path`), working directory and title are tmux's job here, `ssh-env`'s TERM conversion never triggers because the shell sees `TERM=tmux-256color`, and the rest were not wanted. Verify it is really off with `fish -c 'functions __ghostty_setup'`: it prints nothing and exits 1 when the function was never defined. `$GHOSTTY_SHELL_FEATURES` is set by the Ghostty process itself and says nothing about whether the shell loaded the integration.
-
-## Key Keybinding Patterns
-
-Tmux handles all split and pane management. No custom Ghostty keybindings — tmux workflow makes them redundant. Tmux prefix is `Ctrl+B`.
-
-Ghostty requires `macos-option-as-alt = true` for `<A-*>` keybindings to work in Neovim on macOS — without it, Option sends special characters instead.
-
-## Waiting on Upstream
-
-**Ghostty has no status bar, and 1.4.0 did not add one.** 1.3.1 had no such option among its 200 config keys, and the closest surfaces (`title`, `window-subtitle`) take a literal string or a fixed enum; 1.4.0 (installed 2026-11) is the same on that point — `+show-config --default` lists nothing for status, tmux or control mode — so the 1.4 roadmap's "true Tmux control mode" (which would render tmux windows as native tabs) has not shipped either. The open request is [Discussion #2421](https://github.com/ghostty-org/ghostty/discussions/2421). tmux's own bar stays.
+When Rex has a proper release, remove the `config/ghostty` package and its entry in `packages`, the `ghostty` cask, and this document. Before that, give `just rex` another source for the two theme files, and change `launcher.terminal` and `quakeTerminal.provider` in OmniWM's settings, which name Ghostty (`docs/omniwm.md`).

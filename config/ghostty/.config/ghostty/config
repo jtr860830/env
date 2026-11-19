@@ -1,19 +1,5 @@
-window-padding-balance = true
-mouse-hide-while-typing = true
-quit-after-last-window-closed = true
-confirm-close-surface = false
-selection-clear-on-copy = true
-shell-integration = none
-command = /usr/bin/env -u TMUX /opt/homebrew/bin/tmux new-session -A -s main
-
-macos-icon = glass
-macos-titlebar-style = hidden
-macos-option-as-alt = true
-
-theme = dark:onedarkpro_onedark,light:onedarkpro_onelight
-adjust-cell-height = 24%
-
+theme = dark:Rose Pine,light:Rose Pine Dawn
 font-family = Maple Mono NF CN
 font-size = 14
-font-feature = calt
-font-feature = ss11
+macos-option-as-alt = true
+adjust-cell-height = 24%
