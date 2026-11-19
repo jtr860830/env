@@ -1,12 +1,6 @@
 import type { ThinkingLevel } from "@earendil-works/pi-agent-core";
 import { CustomEditor, type ExtensionAPI, type ExtensionContext, type ThemeColor } from "@earendil-works/pi-coding-agent";
-import { type Component, parseColor, visibleWidth } from "@earendil-works/pi-tui";
-
-const GLYPH = "\u276f";
-const BASH_GLYPH = "$";
-const CAP_LEFT = "\ue0b6";
-const CAP_RIGHT = "\ue0b4";
-const INSERT = { dark: parseColor("#61afef"), light: parseColor("#4078f2") };
+import { visibleWidth } from "@earendil-works/pi-tui";
 
 interface Totals {
 	input: number;
@@ -17,22 +11,11 @@ interface Totals {
 	hitRate: number | undefined;
 }
 
-interface Data {
-	usage: Totals;
-	subscription: boolean;
-	percent: number | null;
-	window: number;
-	provider: string;
-	model: string;
-	level: ThinkingLevel | undefined;
-}
-
 interface View {
 	tokens: boolean;
 	provider: boolean;
 	cost: boolean;
 	context: boolean;
-	model: boolean;
 }
 
 function formatTokens(count: number): string {
@@ -69,34 +52,58 @@ function sumUsage(ctx: ExtensionContext): Totals {
 	return totals;
 }
 
-class PromptEditor extends CustomEditor {
+class InfoEditor extends CustomEditor {
+	private pi!: ExtensionAPI;
 	private ctx!: ExtensionContext;
 	private hiddenAbove = 0;
-	private readonly plain = this.borderColor;
+	private cached: { key: string; usage: Totals; percent: number | null; window: number } | undefined;
 
-	attach(ctx: ExtensionContext): this {
+	attach(pi: ExtensionAPI, ctx: ExtensionContext): this {
+		this.pi = pi;
 		this.ctx = ctx;
-		Object.defineProperty(this, "borderColor", { get: () => this.tint(), set: () => {} });
 		return this;
+	}
+
+	private info(view: View): string {
+		const ctx = this.ctx;
+		const theme = ctx.ui.theme;
+		const model = ctx.model;
+		const key = `${ctx.sessionManager.getLeafId()}\n${model?.provider}\n${model?.id}`;
+		if (!this.cached || this.cached.key !== key) {
+			const context = ctx.getContextUsage();
+			this.cached = { key, usage: sumUsage(ctx), percent: context?.percent ?? null, window: context?.contextWindow ?? model?.contextWindow ?? 0 };
+		}
+		const { usage, percent, window } = this.cached;
+		const out: string[] = [];
+
+		if (view.tokens) {
+			const parts: string[] = [];
+			if (usage.input) parts.push(`↑${formatTokens(usage.input)}`);
+			if (usage.output) parts.push(`↓${formatTokens(usage.output)}`);
+			if (usage.cacheRead) parts.push(`R${formatTokens(usage.cacheRead)}`);
+			if (usage.cacheWrite) parts.push(`W${formatTokens(usage.cacheWrite)}`);
+			if ((usage.cacheRead > 0 || usage.cacheWrite > 0) && usage.hitRate !== undefined) parts.push(`CH${usage.hitRate.toFixed(1)}%`);
+			if (parts.length > 0) out.push(theme.fg("muted", parts.join(" ")));
+		}
+
+		const subscription = model ? ctx.modelRegistry.isUsingOAuth(model) : false;
+		if (view.cost && (usage.cost || subscription)) {
+			out.push(theme.fg("muted", `$${usage.cost.toFixed(3)}${subscription ? " sub" : ""}`));
+		}
+
+		if (view.context) {
+			const color: ThemeColor = percent !== null && percent > 90 ? "error" : percent !== null && percent > 70 ? "warning" : "muted";
+			out.push(theme.fg(color, `${percent === null ? "?" : `${percent.toFixed(1)}%`}/${formatTokens(window)}`));
+		}
+
+		const level: ThinkingLevel | undefined = model?.reasoning ? this.pi.getThinkingLevel() : undefined;
+		const provider = model?.provider && view.provider ? `${model.provider}/` : "";
+		out.push(theme.fg("muted", `${provider}${model?.id ?? "no-model"}${level ? ` ${level === "off" ? "thinking off" : level}` : ""}`));
+		return out.join(theme.fg("muted", "  "));
 	}
 
 	override setPaddingX(_padding: number): void {
 		super.setPaddingX(2);
-	}
-
-	private bash(): boolean {
-		return this.getText().trimStart().startsWith("!");
-	}
-
-	private tint(): (text: string) => string {
-		try {
-			const theme = this.ctx.ui.theme;
-			if (this.bash()) return theme.getBashModeBorderColor();
-			const fg = INSERT[theme.appearance];
-			return (text) => theme.style(text, { fg });
-		} catch {
-			return this.plain;
-		}
 	}
 
 	protected override renderTopBorder(width: number, hiddenLineCount: number): string {
@@ -109,123 +116,32 @@ class PromptEditor extends CustomEditor {
 		const pad = this.getPaddingX();
 		const first = lines[1];
 		if (pad >= 2 && this.hiddenAbove === 0 && first?.startsWith(" ".repeat(pad))) {
-			lines[1] = `${" ".repeat(pad - 2)}${this.borderColor(this.bash() ? BASH_GLYPH : GLYPH)} ${first.slice(pad)}`;
+			const glyph = this.getText().trimStart().startsWith("!") ? "$" : "\u276f";
+			lines[1] = `${" ".repeat(pad - 2)}${this.borderColor(glyph)} ${first.slice(pad)}`;
 		}
 		return lines;
 	}
-}
 
-class StatusPills implements Component {
-	private readonly pi: ExtensionAPI;
-	private readonly ctx: ExtensionContext;
-	private cached: { key: string; usage: Totals; percent: number | null; window: number } | undefined;
-
-	constructor(pi: ExtensionAPI, ctx: ExtensionContext) {
-		this.pi = pi;
-		this.ctx = ctx;
-	}
-
-	invalidate(): void {}
-
-	private gather(): Data {
-		const ctx = this.ctx;
-		const model = ctx.model;
-		const key = `${ctx.sessionManager.getLeafId()}\n${model?.provider}\n${model?.id}`;
-		if (!this.cached || this.cached.key !== key) {
-			const context = ctx.getContextUsage();
-			this.cached = {
-				key,
-				usage: sumUsage(ctx),
-				percent: context?.percent ?? null,
-				window: context?.contextWindow ?? model?.contextWindow ?? 0,
-			};
-		}
-		return {
-			usage: this.cached.usage,
-			subscription: model ? ctx.modelRegistry.isUsingOAuth(model) : false,
-			percent: this.cached.percent,
-			window: this.cached.window,
-			provider: model?.provider ?? "",
-			model: model?.id ?? "no-model",
-			level: model?.reasoning ? this.pi.getThinkingLevel() : undefined,
-		};
-	}
-
-	private pills(view: View, data: Data): string {
-		const theme = this.ctx.ui.theme;
-		const surface = theme.colors.toolPendingBg;
-		const reset = theme.getBgAnsi("toolPendingBg");
-		const pill = (inner: string): string =>
-			theme.style(CAP_LEFT, { fg: surface }) +
-			theme.bg("toolPendingBg", ` ${inner} `.replace(/\x1b\[(?:0|49)?m/g, (match) => match + reset)) +
-			theme.style(CAP_RIGHT, { fg: surface });
-		const out: string[] = [];
-		const usage = data.usage;
-
-		if (view.tokens) {
-			const parts: string[] = [];
-			if (usage.input) parts.push(`↑${formatTokens(usage.input)}`);
-			if (usage.output) parts.push(`↓${formatTokens(usage.output)}`);
-			if (usage.cacheRead) parts.push(`R${formatTokens(usage.cacheRead)}`);
-			if (usage.cacheWrite) parts.push(`W${formatTokens(usage.cacheWrite)}`);
-			if ((usage.cacheRead > 0 || usage.cacheWrite > 0) && usage.hitRate !== undefined) {
-				parts.push(`CH${usage.hitRate.toFixed(1)}%`);
-			}
-			if (parts.length > 0) out.push(pill(theme.fg("muted", parts.join(" "))));
-		}
-
-		if (view.cost && (usage.cost || data.subscription)) {
-			const cost = theme.fg("text", `$${usage.cost.toFixed(3)}`);
-			out.push(pill(data.subscription ? `${cost} ${theme.fg("muted", "sub")}` : cost));
-		}
-
-		if (view.context) {
-			const percent = data.percent;
-			const text = `${percent === null ? "?" : `${percent.toFixed(1)}%`}/${formatTokens(data.window)}`;
-			const color: ThemeColor =
-				percent !== null && percent > 90 ? "error" : percent !== null && percent > 70 ? "warning" : "text";
-			out.push(pill(theme.fg(color, text)));
-		}
-
-		if (view.model) {
-			const provider = data.provider && view.provider ? theme.fg("muted", data.provider) + theme.fg("dim", "/") : "";
-			const model = [provider + theme.fg("text", data.model)];
-			if (data.level === "off") model.push(theme.fg("muted", "thinking off"));
-			else if (data.level) model.push(theme.getThinkingBorderColor(data.level)(data.level));
-			out.push(pill(model.join(" ")));
-		}
-
-		return out.join(" ");
-	}
-
-	render(width: number): string[] {
+	protected override renderBottomBorder(width: number, hiddenLineCount: number): string {
+		const scroll = hiddenLineCount > 0 ? visibleWidth(` ↓ ${hiddenLineCount} more `) + 6 : 1;
 		try {
-			const data = this.gather();
-			const view: View = { tokens: true, provider: true, cost: true, context: true, model: true };
-			const stages: Array<() => void> = [
-				() => {},
-				() => (view.tokens = false),
-				() => (view.provider = false),
-				() => (view.cost = false),
-				() => (view.context = false),
-			];
+			const view: View = { tokens: true, provider: true, cost: true, context: true };
+			const stages: Array<() => void> = [() => {}, () => (view.tokens = false), () => (view.provider = false), () => (view.cost = false), () => (view.context = false)];
 			for (const stage of stages) {
 				stage();
-				const pills = this.pills(view, data);
-				const room = width - visibleWidth(pills);
-				if (room >= 0) return [" ".repeat(room) + pills];
+				const text = this.info(view);
+				const rest = width - visibleWidth(text) - 4;
+				if (rest < scroll) continue;
+				return `${super.renderBottomBorder(rest, hiddenLineCount)}${this.borderColor(" ")}${text}${this.borderColor(" ──")}`;
 			}
 		} catch {}
-		return [];
+		return super.renderBottomBorder(width, hiddenLineCount);
 	}
 }
 
 export default function (pi: ExtensionAPI) {
 	pi.on("session_start", (_event, ctx) => {
 		if (ctx.mode !== "tui") return;
-		ctx.ui.setEditorComponent((tui, theme, keybindings) =>
-			new PromptEditor(tui, theme, keybindings, { embedWorkingStatus: true }).attach(ctx),
-		);
-		ctx.ui.setWidget("status", () => new StatusPills(pi, ctx));
+		ctx.ui.setEditorComponent((tui, theme, keybindings) => new InfoEditor(tui, theme, keybindings, { embedWorkingStatus: true }).attach(pi, ctx));
 	});
 }

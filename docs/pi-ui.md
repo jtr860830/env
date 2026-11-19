@@ -1,95 +1,54 @@
 ---
-paths: ["config/pi/**/themes/**", "config/pi/**/extensions/footer.ts", "config/pi/**/extensions/editor.ts"]
+paths: ["config/pi/**/extensions/footer.ts", "config/pi/**/extensions/editor.ts"]
 ---
 
 ## pi UI
 
-Three layers: the theme files give pi the editor's colours (2026-11-13), `extensions/editor.ts` draws the arrow in pi's own input and a row of status pills above it, and `extensions/footer.ts` draws the extension status lines below it (both in this form since 2026-11-16). Considered and not done: restyling the transcript, which means overriding each built-in tool's renderer separately.
-
-### Theme
-
-`themes/onedarkpro_onedark.json` and `onedarkpro_onelight.json`; `vars` are onedarkpro's keys and every value is the one nvim reports, read with `nvim -u NONE`, `packadd onedarkpro.nvim` and `dofile` of `theme.lua` under a scratch `XDG_CACHE_HOME`. Selected by `"theme": "onedarkpro_onelight/onedarkpro_onedark"` in the local `settings.json`; pi persists only the fields it modified itself, so the hand edit survived a running session. The light/dark switch was not exercised: a tmux server with no client reports nothing and pi falls back to dark.
-
-pi's default `system` theme was the starting point and is not enough: it takes hues from the terminal's ANSI palette but recomputes lightness, so no value is the palette's; its token-to-hue table is fixed (keywords blue, headings yellow); and its panels are hue-tinted.
-
-| pi token | key | nvim group |
-|---|---|---|
-| `text`, `muted`, `dim` | `fg`, `comment`, `gray` | `Normal`, `Comment`, `NonText` |
-| `accent` | `purple` | `TabLineSel` ("current") |
-| `border`, `borderMuted` | `gray` | `WinSeparator`, `FloatBorder` |
-| `success`, `error`, `warning` | `green`, `red`, `yellow` | `DiagnosticOk`/`Error`/`Warn` |
-| `selectedBg` | `pmenu_sel` | `PmenuSel` |
-| `searchMatchBg`, `searchMatchText` | `selection`, `yellow` | `Search` |
-| `mdHeading`, `mdListBullet` | `red` | `@markup.heading`, `@markup.list` |
-| `mdCode`, `mdCodeBlock` | `green` | `@markup.raw` |
-| `mdLink`, `mdQuote` | `blue` | `@markup.link.label`, `@markup.quote` |
-| `mdLinkUrl` | `purple` | `@markup.link.url` |
-| `syntax*` | keyword `purple`, function `blue`, variable `red`, string `green`, number `orange`, type `yellow`, operator `cyan`, punctuation `fg` | the groups of the same names |
-| `bashMode` | `yellow` | `MiniStatuslineModeCommand` |
-
-**Every panel is `float_bg`; only a failed tool block is tinted.** The fish prompt marks a command only when it fails, and that rule is used here because semantics returns nothing for a tool panel. All-neutral was not possible: the built-in tool blocks tell success from failure by background alone. The tint is onedarkpro's own red surface, chosen per half by ΔL\* against `float_bg`: dark `diff_delete` +8.50; light `diff_delete` is −1.86, so light uses `diff_text_delete` at −7.80.
-
-**The seven thinking levels have no nvim concept**, so the reference is pi's own ramp from neutral through blue and violet to red, mapped to the nearest keys in order: `gray`, `comment`, `cyan`, `blue`, `purple`, `orange`, `red`. `high`, the default here, lands on the purple of tmux's idle state and nvim's Normal mode. Since 2026-11-16 the ramp colours only the level text in the model pill (Editor).
-
-Assigned against the obvious reading, with the reason: `customMessageLabel` is `purple`, not `FloatTitle`'s green, because green already means success next to it in the transcript. The scrollbar is `gray` on `fg_gutter`; nvim's `PmenuThumb`/`PmenuSbar` are `#333842`/`#2f333d` and vanish on `bg`.
-
-APCA on the real backdrops, dark / light: `text` 56.2 / 93.2; `muted` 32.3 / 48.7 on `bg` and 33.7 / 42.2 on `float_bg`; `dim` 17.4 / 47.4 on `bg`. The two weakest cells are both dark and the owner accepted both on 2026-11-13: `dim` carries key hints and queued-message lines at 17.4, following the Alfred and fish precedent of `gray` for tertiary text, and tool output is `comment` at 33.7 on its panel. Raising either is one value.
-
-### Editor (2026-11-16)
-
-`extensions/editor.ts` adds `❯` in front of the first line of pi's input, gives the borders its own colour, and puts a row of status pills above the top border. The borders are otherwise pi's own straight rules. For about three hours on 2026-11-16 they had rounded corners, `╭ ╮ ╰ ╯`, as the fish prompt then did; the owner found the corners more annoying than useful and had all three places changed to pi's native look.
+pi's appearance is its own, with two small extensions: `extensions/editor.ts` adds an arrow to the input and puts session information in the input's bottom rule, and `extensions/footer.ts` draws the extension status lines below it.
 
 ```
-              (↑12k ↓3k …) ($1.428) (3.3%/1.0M) (anthropic/claude-fable-5-2 high)
-── ⠙ Working ───────────────────────────────────────────────────────────────────────
+── ⠴ Working ─────────────────────────────────────────────────────────────────────
 ❯ first line
   second line
-────────────────────────────────────────────────────────────────────────────────────
+───── ↑9.0k ↓2.1k R206k W4.5k CH93.8%  $0.320  4.8%/1.0M  anthropic/claude-fable-5-2 high ──
  ● parallel-1
- ├ ● runner  openai/gpt-6-luna  1 turn  15s  $ sleep 20
+ ├ ● runner  openai/gpt-6-luna  1 turn  15s  $ go test ./...
 ```
 
-- **No render of its own.** A `CustomEditor` subclass set with `ctx.ui.setEditorComponent` overrides two drawing methods. `renderTopBorder` is a protected hook of pi-tui's `Editor` (`CustomEditor` uses it itself for the working indicator); the override only records how many lines are scrolled out and returns `super`, so the working, compaction and retry indicators and `↑`/`↓ N more` stay pi's own. `renderBottomBorder`, the other hook, was overridden while the pills stood on that border and is pi's again. `render` takes `super.render()` and replaces the padding of line 1 with the arrow, as the upstream `modal-editor.ts` adds its mode label. The colour is not passed to the hooks: `attach()` redefines the editor's public `borderColor` as an accessor that returns the extension's colour and ignores what pi assigns, so everything that reads it gets the same answer. When line 1 does not start with the padding nothing is drawn. The overrides are marked `override` and the type check runs with `noImplicitOverride`, so a hook renamed by a pi upgrade fails the check; unmarked, the arrow would silently go. A framed editor was declined on 2026-11-13 as needing a render override; the hooks were found three days later.
-- **The arrow** sits in the last two cells of the editor's padding, which the class fixes at `2` by overriding `setPaddingX`: first column, text from the third. Until 2026-11-16 the `2` was `editorPaddingX` in the local `settings.json`, and without that key the arrow was not drawn and nothing said so (seen with the key removed); pi pushes the setting through `setPaddingX` at creation and on every `/reload`, so the override is the one place, and the padding row in `/settings` no longer does anything. With the padding at `3` it is one cell in, and it was for part of 2026-11-16, before the frame: the arrow was then the only character at the left edge, while the status lines and the transcript start one cell in. Once the corners stood at that edge the owner moved it back and kept it there when they went, since pi's own rules all start in the first column; its markers do not (`$` of a `!` block in the second, the `→` of the completion menu in the third, measured). fish's live prompt followed the same day. The code is the same for both; the padding is symmetric, so text also ends two cells before the right frame.
-- **Colour: the rules and the arrow are blue, and yellow with `$` for the arrow while the text starts with `!` (2026-11-16).** Blue is `MiniStatuslineModeInsert`, the colour of fish's `❯` in insert mode: the input is always waiting for text, so it is insert, not Normal's purple (the owner's correction). Yellow is the theme's `bashMode`, already mapped to `MiniStatuslineModeCommand`, and `$` is what tmux's left pill and pi's own `!` block show for a shell. The `!` test is pi's own, `text.trimStart().startsWith("!")`. Measured in both halves: `#61afef` / `#4078f2`, `#e5c07b` / `#c18401`, unchanged by a level change, typed text in its own colour.
-  - **Until then all three took the editor's `borderColor`**, which pi sets to the thinking level's colour. The owner saw no reason for the level to colour the frame: it is text in the model pill, and with one level saved per model the rule was a constant purple. The ramp stays for that text.
-  - **The blue is two literals in `editor.ts`, `INSERT`, picked by `theme.appearance`**, the only colours written in an extension; change them with the themes' `blue`. A theme file cannot hold a token of its own: `colors` is strict and custom keys are rejected, and `vars` cannot be read from an extension. Borrowing `borderAccent` and setting it to `blue` worked too, and would have turned the `[compaction: Nk tokens]` label in `/tree` blue, its one use in pi 1.5.2. `theme.style(text, { fg })` takes a `Color` from pi-tui's `parseColor`.
-  - **Gray rules were built twice and passed over.** With the rules at the editor's initial `borderColor` (`borderMuted`, `gray`) and only the arrow coloured, pi matched fish and tmux; the owner chose rules in the arrow's colour. fish's own rule went the other way an hour earlier, so the two differ here.
-  - **The working indicator needs the accessor (2026-11-16).** The first version swapped `borderColor` only while a border hook ran, and the owner then saw `Working` in purple on a blue rule: the indicator is a `Loader` that redraws its own text every 80 ms, outside any hook, through `editor.borderColor ?? getThinkingBorderColor(level)`. Reproduced with a `low` model, spinner and text cyan on a blue rule. With the accessor, seen in both halves on real requests to `openai/gpt-6-luna`: rule, spinner, `Working` and arrow blue; all yellow with `$` once `!` is typed during the answer; unchanged by a level change. Predicted blue from reading the code before that, wrongly.
-  - Not seen: the compaction indicator, which takes the same path; a light/dark switch while pi runs. The retry indicator is pi's `warning` and does not read the border.
-- **The pills are a row of their own above the top border, right-aligned (2026-11-16, the owner's move).** `StatusPills`, a component set with `ctx.ui.setWidget("status", …)`, pi's slot above the editor. They are token counts, cost, context and model, each a `float_bg` pill with caps taking `theme.colors.toolPendingBg` as a foreground; the last one ends in the last column, the side fish and tmux keep status on. Both borders are now plain rules, the top one still carrying the working indicator.
-  - **Until that afternoon they stood on the bottom border**, drawn by an override of `renderBottomBorder` that gave `super` the width they left; fish has its status on a bottom rule too. The owner asked for them above the input.
-  - **What the move changes, all seen:** one more row, since pi keeps its blank row above the slot; the pills stay while `/model` is open, where on the border they went with the editor; the completion menu and the status lines are where they were.
-  - **The slot is shared and ordered by registration.** `pi-web-access` puts its `web-activity` lines there, and a second widget is drawn between the pills and the top border. Seen with a scratch extension's widget, not with a real search. Declined: left alignment, built and shown, which reads as a heading over the transcript's left edge.
-- **No directory, branch or session name** (the owner, 2026-11-16); until then they led the footer row. pi sets the terminal title to `π - env`, or `π - name - env`, and tmux's `status-left` shows it; a pi session stays in one directory, unlike a shell; the agent runs git and the branch is in its output. Putting them on the top border, as fish does, was considered: it pushes the working indicator right, needs a second drop order, and the branch reaches only the footer's factory (`footerData.getGitBranch`), which would force the two files into one.
-- Narrow widths drop, in order: token counts, provider, cost, context; when the model pill alone does not fit, the row is not drawn. Verified with the installed file at 100, 60, 36, 18 and 3 columns: four pills, three without the provider, the model alone, no row, no row; the pill row and both rules exactly the width each time.
-- The thinking level is text inside the model pill, coloured by `theme.getThinkingBorderColor(level)`, the function pi's own border calls; `high` measured as `38;2;198;120;221`, `purple`. It was a filled pill at the far right for a few hours on 2026-11-13; the owner dropped it as the last and loudest element for what is an attribute of the model. Context turns `warning` above 70% and `error` above 90%, and usage totals are cached by leaf id and model, both as the built-in footer does.
-- The provider is always shown. The footer row showed it only with more than one provider available, from `footerData.getAvailableProviderCount`, which only the footer's factory is given. The editor could count them itself: `ctx.modelRegistry.getAvailable()` returned `anthropic`, `claude-code` and `openai` in 0.04 ms (2026-11-16; this line first said the count could not be read). Not done, since the answer here is always more than one. Not carried over from the built-in footer: `(auto)`, constant on this machine; the routed model of a virtual model, which extensions cannot read; `isUsingSubscription`, replaced by `isUsingOAuth` for the `sub` mark.
-- **The arrow disappears while a selector or dialog is open; the pills do not.** `/model`, a confirmation and the reload box replace the editor in its container, leaving the selector's own straight rules; the widget slot and the status lines are outside it. Seen with `/model`.
-- Data comes from the `ctx` of `session_start` and from `ctx.ui.theme`; the editor factory itself is given only an `EditorTheme`. Gathering it is wrapped in `try`, and a failure draws no pill row: after `session_shutdown` every `ctx` getter throws (`docs/pi-subagents.md`). A precaution, not triggered.
-- **Rounded corners on every border were looked at on 2026-11-16 and are moot now.** pi has no setting or theme field for a border's shape, and the editor is the one border with hooks; every other one is a `DynamicBorder`, one rule that does not know whether it is the top or the bottom one. A scratch extension replacing `DynamicBorder.prototype.render` did change `/model` and `/settings`. It was declined then: it patches a class pi does not offer for that and reaches the transcript as well, telling top from bottom was not solved, and `/tree` has a third rule. Since the editor went back to straight rules the same afternoon, every border in pi has one shape again without it.
-- **The cursor is the terminal's, a steady bar as in fish's insert mode (2026-11-16).** Two things outside this file do it. `PI_HARDWARE_CURSOR=1` in `env.fish` makes pi show the terminal's cursor in place of the reverse-video cell it draws; pi never sets a shape, so the shape is what the shell left, and fish leaves a bar through `fish_cursor_external` (`docs/fish.md`). Seen from fish with the installed files: a bar, in the right column after typing, after `/reload`, and no drawn cell left. With the variable alone the cursor was a block, fish's default for a running command.
-  - **The variable replaced `"showHardwareCursor": true` in the local `settings.json` the same day**, to have it in the repo. The setting wins when present (`settings.showHardwareCursor ?? env`), so the key must be absent. Seen with a settings file without the key: the terminal's cursor, right column, also after `/reload`. `process.env.PI_HARDWARE_CURSOR ??= "1"` at the top of `editor.ts` did the same and was not used: it works only because extensions load before pi first reads the setting.
-  - **`tui.setShowHardwareCursor(true)` from the editor factory does not last.** It worked at startup; after `/reload` the cursor was pi's drawn block again and stayed so for 12 s and through typing, because `applyRuntimeSettings` sets it back from the setting. Hence the variable, which that setting falls back to.
-  - Declined: writing `\e[6 q` from the extension and `\e[0 q` at `session_shutdown`, eight lines, tested with the setting on (a bar, CJK input in the right column, the `/model` search line, restored at exit). It covers a pi not started from fish, which does not happen here.
-  - Not seen: Ghostty itself (the shape was read from tmux's `#{cursor_shape}`), the cursor while the model answers.
-- Continuation lines stay blank. `render()`'s output does not tell a line break from a soft wrap, marking both would mislead, and telling them apart needs the editor's private layout. When the first line is scrolled out the arrow is not drawn and the border's `↑ N more` says so.
-- The constructor passes `embedWorkingStatus: true`, as pi does for its own editor (`interactive-mode.js`); without it a custom editor gets the working indicator on a row of its own. pi copies the border colour and the padding onto a custom editor itself (`setCustomEditorComponent`).
-- Two files still: `editor.ts` needs nothing from the footer's factory, pi loads extensions one file at a time, and a failure in the larger one leaves the status lines. One `ui.ts` was the alternative. It is `editor.ts` because pi's word for the input is editor (`setEditorComponent`, the `editorPaddingX` setting), and prompt there means what is sent to the model.
-- Only one extension can own the editor. Nothing else in `~/.config/pi/extensions` calls `setEditorComponent`.
-- Verified in a scratch tmux server. The row above the border, with the installed file and a session copy with usage: the five widths, `!` mode, the completion menu, `/reload` (one row, not two), `/model`, and one run on `openai/gpt-6-luna` with the indicator in the border below the pills. The older list is from the cornered version, which took the level's colour, and the straight one was checked again without a model call: empty, typed text, `!`, the completion menu, the five widths, a status line below. When driving the editor there, do not send Shift+Enter: without `extended-keys` in the scratch server it arrives as Enter and submits the text to the model, which happened once on a session copy. Without a model call, with the padding at `3` and the arrow, three lines, wrapped text and the completion menu again at `2`: empty, one and several lines, a `!` command, wrapped text, the `/` completion menu (drawn below the bottom border, pills still there), 16 lines scrolled both ways, a session copy with usage, `/model` and Escape. With every extension loaded and one run on `openai/gpt-6-luna`: the working indicator in the top border, the pills updating during the run, `/reload`, Ctrl+D. Not exercised: the indicator together with `↑ N more` (a 16-line paste collapses to one line), and the light theme.
+### Colours
+
+pi's built-in `system` theme, which is what pi uses when the local `settings.json` has no `theme` key. There is no theme file here and the key must stay unset (`manual-setup`). `system` asks the terminal for its foreground, background and sixteen colours, takes hues from them and computes lightness itself, and asks again when the terminal switches between light and dark. Its colours are therefore near Rosé Pine rather than equal to it; that is accepted (the `theme` skill).
+
+Neither extension holds a colour. Both draw with theme tokens (`muted`, `warning`, `error`) and the editor's own `borderColor`.
+
+### Editor
+
+`extensions/editor.ts` is a `CustomEditor` subclass set with `ctx.ui.setEditorComponent`, constructed with `embedWorkingStatus: true` as pi does for its own editor, so the working indicator stays in the top rule.
+
+- **The arrow.** `❯` in front of the first line of the input, `$` while the text starts with `!`. It sits in the editor's padding, which the class fixes at 2 by overriding `setPaddingX`, since pi pushes its own padding setting at creation and on every `/reload`. Continuation lines stay blank, and the arrow is not drawn while lines are scrolled off above; the top rule's `↑ N more` says so.
+- **The information rule.** Plain `muted` text at the right end of the bottom rule, opposite `Working` in the top one: token counts (`↑` input, `↓` output, `R` cache read, `W` cache write, `CH` the latest cache hit rate), cost (with ` sub` when the model is used through a subscription), context use against the window, and `provider/model level`. Context turns `warning` above 70% and `error` above 90%.
+- **Narrow widths** drop, in order: token counts, provider, cost, context. When even the model does not fit, the rule is pi's plain one. `↓ N more` keeps its place at the left of the rule.
+- **Rules and arrow take pi's own `borderColor`**, which follows the thinking level and changes in bash mode. Nothing overrides it.
+- **A selector or dialog replaces the editor**, so the arrow and the information rule are gone while `/model` or a confirmation is open, and return when it closes.
+- **It overrides four methods of pi's editor**: `setPaddingX`, `render`, and the protected hooks `renderTopBorder` and `renderBottomBorder`. A rename upstream breaks it, and the type check below catches that through `noImplicitOverride`. Gathering the information is wrapped in `try`, and a failure draws pi's plain rule.
+- The factory returns early unless `ctx.mode` is `tui`, because the file also loads in subagent children.
+- Only one extension can own the editor; nothing else in `~/.config/pi/extensions` calls `setEditorComponent`.
+
+**The cursor is the terminal's**, a steady bar. `PI_HARDWARE_CURSOR=1` in `conf.d/env.fish` makes pi show the terminal's cursor instead of drawing a cell of its own; pi sets no shape, so the shape is what fish left through `fish_cursor_external` (`docs/fish.md`). The local `settings.json` must not set `showHardwareCursor`, which would win over the variable.
 
 ### Footer
 
-`extensions/footer.ts` draws the extension status lines below the editor and nothing else. From 2026-11-13 to 2026-11-16 it also held the row of pills, led by the directory and branch.
+`extensions/footer.ts` draws the extension status lines below the editor and nothing else.
 
-- **There is always one line**, blank when no extension has a status, so a starting task does not move the layout; the owner asked for it as the place for subagents. Every extension status is shown, a multi-line status one line per row. With pi's built-in footer the same statuses join into one line.
-- Lines start one cell in from the left edge (the owner's request, 2026-11-13) and are cut to the width.
-- The factory returns early unless `ctx.mode` is `tui`, because the file also loads in subagent children; the editor's does the same.
+- **There is always one line**, blank when no extension has a status, so a starting task does not move the layout. Every extension status is shown, a multi-line status one line per row; pi's built-in footer joins them into one line, which is why this exists. It is where the subagent extension reports (`docs/pi-subagents.md`).
+- Lines start one cell in from the left edge and are cut to the width.
+- The factory returns early unless `ctx.mode` is `tui`, as the editor's does.
+
+Two files rather than one: pi loads extensions a file at a time, and a failure in the editor leaves the status lines standing.
 
 ### Testing
 
-- Type check as in `docs/pi-subagents.md`, with `footer.ts` and `editor.ts` added to `files`. The installed `tsc` rejects `baseUrl` (TS5102); `paths` alone is enough.
-- pi in its own tmux server with `--no-session --use-theme <name>`; a transcript is shown by opening a copy of a session file with `--session`.
-- To look at colour, not text: `capture-pane -p -e -N`, convert the SGR sequences to HTML spans, and render with `qlmanage -t -s 2000`. Without `-N` tmux trims trailing cells and panels look ragged.
+- **Type check**: `tsc -p` on a tsconfig kept outside the repo, as in `docs/pi-subagents.md`, with `editor.ts` and `footer.ts` in `files`. The installed `tsc` rejects `baseUrl`; `paths` alone is enough.
+- **On screen**: pi in a Rex session of its own, `rex new <label> -c <scratch dir> -- pi --no-session`, driven with `rex send` and `rex send-key` and read with `rex capture --trim` (`docs/rex.md`). A transcript is shown by opening a copy of a session file with `--session`.
+- **Colour**: `rex capture --format=html`. A session made with `rex new` is not on screen, so Rex does not answer its colour queries and `system` falls back to dark; show the session in Rex's window to see the real colours.
 - Extension statuses can be faked with a scratch `-e` extension that calls `ctx.ui.setStatus`.
