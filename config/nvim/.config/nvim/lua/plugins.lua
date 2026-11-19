@@ -47,81 +47,32 @@ clue.setup {
   },
   window = {
     delay = 300,
-    config = { width = "auto", border = "rounded" },
-  },
-}
-
-local sev = vim.diagnostic.severity
-local hl_map = {
-  [sev.ERROR] = "MiniStatuslineDiagError",
-  [sev.WARN] = "MiniStatuslineDiagWarn",
-  [sev.INFO] = "MiniStatuslineDiagInfo",
-}
-local cfg = vim.diagnostic.config() or {}
-local sign_text = type(cfg.signs) == "table" and cfg.signs.text or {}
-
-local lcap, rcap = "\u{e0b6}", "\u{e0b4}"
-
-local function pill(inner, cap)
-  cap = cap or "UserPillCap"
-  return table.concat { "%#", cap, "#", lcap, inner, "%#", cap, "#", rcap }
-end
-
-local function statusline_diagnostics()
-  local counts = vim.diagnostic.count(0)
-  local parts = {}
-  for _, s in ipairs { sev.ERROR, sev.WARN, sev.INFO } do
-    local count = counts[s] or 0
-    if count > 0 then
-      local icon = sign_text[s] or ""
-      table.insert(parts, "%#" .. hl_map[s] .. "#" .. (icon ~= "" and icon .. " " or "") .. count .. " ")
-    end
-  end
-  if #parts == 0 then return "" end
-  return pill("%#UserPill# " .. table.concat(parts))
-end
-
-require("mini.statusline").setup {
-  use_icons = true,
-  content = {
-    active = function()
-      local mode, mode_hl = MiniStatusline.section_mode { trunc_width = 9999 }
-      local modified = vim.bo.modified and pill "%#UserPill# + " or ""
-      local diagnostics = statusline_diagnostics()
-
-      local ft = vim.bo.filetype
-      local icon = ft ~= "" and require("mini.icons").get("filetype", ft) or ""
-      local filetype = ft ~= "" and (icon .. " " .. ft) or ""
-
-      return table.concat {
-        pill("%#" .. mode_hl .. "# " .. mode .. " ", "UserPillCap" .. mode_hl:gsub("^MiniStatuslineMode", "")),
-        "%#MiniStatuslineFilename#%=",
-        modified,
-        modified ~= "" and " " or "",
-        diagnostics,
-        diagnostics ~= "" and " " or "",
-        filetype ~= "" and pill("%#UserPill# " .. filetype .. " ") or "",
-      }
-    end,
+    config = { width = "auto" },
   },
 }
 
 require("snacks").setup {
   bigfile = { enabled = true },
-  input = { enabled = true },
-  notifier = { enabled = true },
   statuscolumn = { enabled = true },
   indent = {
     indent = { char = "▏" },
     scope = { char = "▏" },
   },
-  words = {
-    enabled = true,
-    debounce = 200,
-  },
+  words = { enabled = true },
 }
 
-require("dropbar").setup()
+require("dropbar").setup {
+  symbol = { on_click = false },
+  bar = {
+    sources = function(buf)
+      local sources = require "dropbar.sources"
+      local utils = require "dropbar.utils"
+      if vim.bo[buf].ft == "markdown" then return { sources.markdown } end
+      if vim.bo[buf].buftype == "terminal" then return { sources.terminal } end
+      return { utils.source.fallback { sources.lsp, sources.treesitter } }
+    end,
+  },
+}
 
 require("conform").setup {
   formatters_by_ft = {

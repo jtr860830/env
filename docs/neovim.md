@@ -4,201 +4,152 @@ paths: ["config/nvim/**"]
 
 ## Neovim
 
-Custom minimal config in `config/nvim/.config/nvim/`, stowed to `~/.config/nvim` file by file (`--no-folding`, so `~/.config/nvim` itself is a real directory). Edits are live — no rebuild step.
+A small hand-written config in `config/nvim/.config/nvim/`, stowed to `~/.config/nvim` file by file, so `~/.config/nvim` itself is a real directory. Edits are live.
 
-- **Plugins come from Neovim 0.12's built-in `vim.pack`**, declared in one `vim.pack.add { … }` near the top of `init.lua`, installed to `~/.local/share/nvim/site/pack/core/opt/`. `{ confirm = false }` so a headless first run installs without asking. `just plugins` runs `vim.pack.update(nil, { force = true })`.
-- **`nvim-pack-lock.json` is deliberately not in the repo** (gitignored at `config/nvim/.config/nvim/`): the requirement is latest plugins, not pinned ones, so the lockfile lives only as a real file in `~/.config/nvim`. A lockfile that appears inside `config/` came from a probe run with `XDG_CONFIG_HOME` pointed at the repo — delete it.
+- **Plugins come from Neovim 0.12's built-in `vim.pack`**, declared in one `vim.pack.add { … }` near the top of `init.lua` and installed to `~/.local/share/nvim/site/pack/core/opt/`. `{ confirm = false }` lets a headless first run install without asking. `just plugins` runs `vim.pack.update(nil, { force = true })`. A plugin taken out of the list stays on disk until `vim.pack.del { "<name>" }`.
+- **`nvim-pack-lock.json` is deliberately not in the repo** (gitignored): the requirement is latest plugins, not pinned ones, so the lockfile is a real file in `~/.config/nvim`. One that appears inside `config/` came from a probe run with `XDG_CONFIG_HOME` pointed at the repo; delete it.
 - **blink.cmp is pinned to `vim.version.range "1.*"`** so vim.pack checks out a release tag, which is what makes blink download its prebuilt Rust fuzzy library; verify with `require("blink.cmp.fuzzy.rust")`.
-- **mini.nvim's URL is `nvim-mini/mini.nvim`** — the repo moved from `echasnovski`.
-- The four `vim.g.loaded_*_provider = 0` lines at the top keep providers disabled for `:checkhealth` and startup.
+- **`rose-pine/neovim` is added with `name = "rose-pine"`**, upstream's own form: vim.pack names a plugin after the last part of its URL, which here would be `neovim`.
+- **mini.nvim's URL is `nvim-mini/mini.nvim`**; the repo moved from `echasnovski`.
+- The four `vim.g.loaded_*_provider = 0` lines keep providers disabled for `:checkhealth` and startup. `vim.loader.enable()` is the first line because Neovim ships the loader off and it shortens startup.
 
-### LSP (neovim 0.11+ API)
+### Colours
 
-Uses `vim.lsp.config` + `vim.lsp.enable` — no `require("lspconfig")` needed. nvim-lspconfig provides `lsp/` directory configs read automatically by `vim.lsp.enable`.
+`vim.cmd.colorscheme "rose-pine"` in `init.lua`, with no `setup()` and no highlight override anywhere in the config (the `theme` skill has the rule). The scheme follows `background`: Main when it is dark, Dawn when it is light, and Neovim sets `background` from what the terminal reports, so it follows the system's switch while open. Rosé Pine defines groups for blink.cmp, mini, snacks, fzf-lua and the `@lsp` semantic tokens; dropbar has none of its own and takes the linked defaults.
 
-LSP servers are managed in two places: the binary in the `brewfile` and the name in `nvim/lua/lsp.lua` → `vim.lsp.enable { ... }`. A third, `nvim/lsp/<name>.lua`, is optional and only needed when that server has settings of its own. Note `vim.lsp.enable` does not discover the directory, and globbing the runtimepath for `lsp/*.lua` is not an alternative because nvim-lspconfig ships 406 of them.
+### Statusline and the bottom of the screen
 
-A server only attaches to the filetypes its `lsp/<name>.lua` claims, so check them against `vim.filetype.add` in `options.lua`. `helm_ls` claims `helm` and `yaml.helm-values` — mapping Helm templates to `gotmpl` silently left them with no LSP. The `helm` parser inherits `gotmpl` and additionally injects `yaml`, so it is the better choice anyway (parse tree becomes `[helm, yaml]`).
+`lua/statusline.lua` draws the statusline itself. Left: the mode as one coloured letter, the file name, `[+]`. Right: the pending command (`%S`), `recording @q`, the search count, the diagnostic counts, and the filetype icon at the far end. There is no cursor position.
 
-LSP servers live on the shell `PATH`, not in an editor-private one, because `helix` resolves them from `PATH` too. `clangd` and `clang-format` come from Homebrew's `llvm`, linked with `link: true` in the brewfile — without it `clangd` fell back to Apple's and conform's C formatter had no `clang-format` at all.
+- **It is hand-written because `cmdheight = 0`.** The owner wants no empty line under the statusline, and with the command line hidden Neovim's own search count and recording message have nowhere to show, so the statusline carries them. `showcmdloc = "statusline"` moves the pending command there for the same reason. `showmode` is left at its default: with no command line `-- INSERT --` is not drawn.
+- **The mode letter's colour is the background Rosé Pine defines for `MiniStatuslineMode*`**, reused as a foreground and read again on `ColorScheme`. The groups exist without mini.statusline's `setup()` because the theme defines them, and `require("mini.statusline").section_mode` supplies the mode's name, so there is no mode table here. mini.statusline is not set up.
+- **The diagnostic counts come from `vim.diagnostic.status()`**, formatted in `lua/diagnostics.lua` (`status.format`) to `● 2 ● 1` with the sign column's own dot, in place of Neovim's default letters and colons.
+- **`<Esc>` is a function**, `nohlsearch` and then a scheduled `redrawstatus`, or the search count lingers. The `<cmd>nohlsearch<Bar>redrawstatus<CR>` form leaves `~@<fd>` in the statusline.
+- **LSP loading progress is not shown.** Neovim's default statusline has it; this one does not.
 
-```lua
-vim.lsp.config("lua_ls", { settings = ... })  -- per-server override
-vim.lsp.enable { "gopls", "ts_ls", ... }
+**Messages use Neovim 0.12's new message UI**, `require("vim._core.ui2").enable { msg = { targets = "msg" } }` in `options.lua`. It is experimental. Without it `cmdheight = 0` makes every error and multi-line message wait for Enter. With it messages and `vim.notify` appear in a box at the bottom right, and a prompt such as `:q` on a modified buffer takes the bottom rows while it is open. When it becomes Neovim's default, delete the line.
+
+### LSP
+
+Uses `vim.lsp.config` and `vim.lsp.enable`; no `require("lspconfig")`. nvim-lspconfig provides the `lsp/` directory configs that `vim.lsp.enable` reads.
+
+A server is managed in two places: the binary in the `brewfile` and the name in `lua/lsp.lua`'s `vim.lsp.enable { … }`. A third, `lsp/<name>.lua`, is needed only when the server has settings of its own. `vim.lsp.enable` does not discover that directory, and nvim-lspconfig ships hundreds of configs, so globbing the runtimepath is not an alternative.
+
+A server attaches only to the filetypes its config claims, so check them against `vim.filetype.add` in `options.lua`. `helm_ls` claims `helm` and `yaml.helm-values`; mapping Helm templates to `gotmpl` leaves them with no LSP. The `helm` parser inherits `gotmpl` and injects `yaml`.
+
+Servers live on the shell `PATH`, not in an editor-private one. `clangd` and `clang-format` come from Homebrew's `llvm`, linked with `link: true` in the brewfile (`docs/homebrew.md`).
+
+#### One file per server
+
+Configs in `lsp/<name>.lua` are deep-merged with the one nvim-lspconfig ships, so a file setting only `settings.Lua.runtime` still gets `cmd`, `filetypes` and `root_markers` from lspconfig. Only `lua_ls` has a file. An empty `return {}` file adds nothing: presence in `lsp/` does not activate a server.
+
+**blink.cmp sets `capabilities` itself, and `on_attach` must never go in the wildcard.** blink runs `vim.lsp.config('*', { capabilities = … })`, so there is no hand-written copy. The merge is `tbl_deep_extend('force', …)` over the wildcard, `lsp/<name>.lua`, then `after/lsp/<name>.lua`. `capabilities` is a table and merges; `on_attach` is a function, so a server's own one replaces the wildcard's outright, and `clangd`, `basedpyright` and `ts_ls` ship one. Shared per-buffer setup therefore lives in an `LspAttach` autocmd, which fires for every client however the configs merged. `after/lsp/<name>.lua` is not an alternative: it would replace lspconfig's `on_attach` and lose those servers' commands.
+
+`vim.lsp.config[name]` shows the resolved config, wildcard included.
+
+`LspAttach` fires once per client, so a buffer with two clients (`helm_ls` beside `yamlls`) runs the callback twice. Buffer-local autocmds registered inside it use a per-buffer augroup with `clear = true` so they do not stack.
+
+#### Borders
+
+`opt.winborder = "rounded"` gives every float without an explicit border the same rounded one: hover (`K`, Neovim's own mapping), the diagnostic float, the signature, blink.cmp's menu and documentation, mini.clue's window. None of them is passed a border here. fzf-lua sets its own in `lua/fzf.lua`.
+
+#### lua_ls library
+
+`lsp/lua_ls.lua` sets `workspace.library` to `$VIMRUNTIME` plus the vim.pack directory, not the whole runtimepath: the config directory is itself on the runtimepath, so its definitions would load twice. lua_ls publishes nothing until the workspace has loaded, so to measure it plant one known error and wait for that.
+
+#### Python
+
+`basedpyright` rather than `pyright`, for inlay hints and semantic tokens, which `pyright` does not advertise. `pyright` stays in the `brewfile`: Claude Code's `pyright-lsp` plugin runs `pyright-langserver`, which basedpyright does not provide. The two share no executable names.
+
+#### Semantic tokens
+
+Nothing here configures them. nvim-lspconfig's `gopls` config turns them on, and `lua_ls`, `basedpyright` and `clangd` send them unasked; `bashls` and `yamlls` have none. They layer `@lsp.type.*` groups over treesitter highlighting, and Rosé Pine defines those groups.
+
+#### Neovim 0.12 API
+
+- `client:supports_method "textDocument/inlayHint"`, with a colon.
+- `[d`, `]d` and `<C-w>d` are default mappings; do not re-map them. `<leader>cd` stays only as a `+code` shortcut.
+- `K` and every other LSP key are Neovim's defaults; `LspAttach` registers no keymaps.
+- `an` and `in` in visual and operator-pending are built-in treesitter node selection, and with a count cover what mini.ai's textobjects would.
+
+### Diagnostics
+
+`vim.diagnostic` display lives in `lua/diagnostics.lua`, not `lsp.lua`: LSP is one producer of diagnostics, not the owner of how they are drawn. Signs are `●` for every severity, told apart by the `DiagnosticSign*` colours; the same dot is used in the statusline. End-of-line text keeps Neovim's default `■` prefix.
+
+### Per-filetype options
+
+`after/ftplugin/<filetype>.lua`, not a `FileType` autocmd. `after/` rather than `ftplugin/` because it runs after the bundled ftplugin and wins. `markdown` and `text` turn on `wrap`, `linebreak` and `breakindent`; code keeps the global `wrap = false`. With `wrap` on, `j` and `k` still move by logical line, deliberately.
+
+### Treesitter
+
+`nvim-treesitter` (the `main` branch) supplies parsers and queries; highlighting is native. `lua/treesitter.lua` calls `require("nvim-treesitter").install { … }` and then `vim.treesitter.start()` per buffer. Parsers are compiled locally into `~/.local/share/nvim/site/parser/`. `install()` is async; with no UI the file waits on it, so `nvim --headless +qa` installs every parser, which `just plugins` relies on. `install()` skips parsers that exist, so `just plugins` also runs `update():wait()`, or updated queries can outrun stale parsers.
+
+`tmux` is registered by hand in a `User TSUpdate` autocmd at the top of the file, because nvim-treesitter dropped it when upstream stopped committing the generated `src/`. The registration sets `generate = true` and takes upstream's own queries.
+
+### Modules
+
+mini.nvim: each module is an independent sub-plugin and needs its own `setup()`. Set up: icons, diff, move, pairs, surround, clue.
+
+- **`mini.icons` must be `setup()`**, not merely required: fzf-lua detects it through the `MiniIcons` global. dropbar only knows nvim-web-devicons, hence `MiniIcons.mock_nvim_web_devicons()`.
+- `mini.move` is what `⌥hjkl` drives, so the terminal must send Option as Alt (`docs/rex.md`).
+- **mini.clue** group labels are declared in `clues`. Each mode needs its own trigger entry, and a clue set with no matching trigger is silently inert: `z()` needs a `z` trigger, `marks()` needs `'` and `` ` ``, `registers()` needs `"` plus `<C-r>` in insert and cmdline. A trigger does not shadow the key. The triggers are buffer-local, so inspect them with `nvim_buf_get_keymap` after a `BufEnter`. Its `delay` of 300 is shorter than the default on purpose.
+
+snacks.nvim: only modules named in `setup()` are enabled. Set: bigfile, statuscolumn, indent, words. The statuscolumn lays out `[diagnostic] [line number] [git]`; `signcolumn = "yes"` is still set and snacks draws over it. `words` is what highlights other uses of the symbol under the cursor; Neovim does not do that on its own.
+
+Three characters are kept by the owner's choice rather than left at a default: `▎` for mini.diff's signs, `▏` for snacks.indent's line and scope. snacks.indent's `char` must be nested, `indent = { indent = { char = … }, scope = { char = … } }`; at the top level it is ignored.
+
+**dropbar is a breadcrumb only.** Its `bar.sources` leaves out the file path, which the statusline already shows, and gives the LSP's or treesitter's symbols (markdown headings in markdown). `symbol = { on_click = false }` removes the click regions, so nothing opens its menu; no key is bound to it either.
+
+### Completion
+
+blink.cmp with its own keymap, the `lsp`, `path` and `buffer` sources, the signature window and automatic documentation. The `snippets` source is left out: it serves snippet libraries from the runtimepath and none are installed; LSP snippets arrive through the `lsp` source.
+
+### fzf-lua
+
+`fzf_colors = true` takes fzf's colours from Neovim's current highlight groups, so it follows the scheme. Every picker is reachable as `:FzfLua <name>`; the `<leader>f` mappings are shortcuts.
+
+### Keymaps
+
+- `keymaps.lua`: global keymaps, and plugin keymaps that `require` lazily inside a function.
+- `fzf.lua`: fzf's keymaps, beside its setup because the file holds the module in a local.
+
+Window, buffer and split keymaps are absent on purpose; the terminal does that. Conventional LSP keys and bracket navigation stay outside the `<leader>c` group.
+
+### Formatters
+
+conform, without `format_on_save`: format with `<leader>cf`.
+
+### Deliberately absent
+
+Do not re-add these:
+
+- **`opt.hlsearch`, `opt.grepformat`, `grepprg`**: Neovim's defaults already, and it picks rg itself.
+- **`smartindent`**: `indentexpr` overrules it, and where there is none it strips the indentation off `#` comments.
+- **mini.statusline, snacks.notifier, snacks.input**: replaced by `lua/statusline.lua`, the new message UI and Neovim's own prompt, so `grn` asks at the bottom of the screen.
+- **snacks.scroll**, and blink's `snippets` source.
+
+### Non-ASCII glyphs
+
+Write a glyph in Lua as a `\u{…}` escape (`"\u{25cf}"`) where an editing tool might mangle it; nerd font characters pasted through one have become spaces. Before adding a glyph, check it is in Maple Mono, since macOS otherwise falls back to another font:
+
+```sh
+uv run --with fonttools python3 -c \
+  "from fontTools.ttLib import TTFont; print(0x25A0 in TTFont('<font>.ttf', fontNumber=0).getBestCmap())"
 ```
 
-### One File Per Server
+`●`, `▎` and `▏` are East Asian Width Ambiguous: one cell only because `LANG=en_US.UTF-8`.
 
-A server that needs its own settings gets `nvim/lsp/<name>.lua` (stowed like every other leaf file). Configs there are **deep-merged** with the one nvim-lspconfig ships — a file setting only `settings.Lua.runtime` still resolves `cmd`, `filetypes` and `root_markers` from lspconfig, and lspconfig's own `settings.Lua` keys survive alongside.
+### Testing a change
 
-Only `lua_ls` has a file. Nine empty `return {}` files were tried and deleted: an empty table adds nothing to the merge, and presence in `nvim/lsp/` is not what activates a server — `vim.lsp.enable` in `lsp.lua` is the only switch.
-
-**blink.cmp sets `capabilities` itself, and `on_attach` must never go in the wildcard.** blink's `plugin/blink-cmp.lua` runs `vim.lsp.config('*', { capabilities = get_lsp_capabilities(<existing>) })` on Nvim 0.11+, so a hand-written copy in `lsp.lua` was removed — verified on an attached `lua_ls` client: `snippetSupport` and `labelDetailsSupport` are still `true`. The merge is `vim.tbl_deep_extend('force', …)` over layers — `'*'`, then `lsp/<name>.lua`, then `after/lsp/<name>.lua`. `capabilities` is a table and deep-merges. `on_attach` is a *function*, so a layer-2 one **replaces** the wildcard outright. In nvim-lspconfig 2.11.0 three of the ten servers enabled at the time ship one — `clangd`, `pyright` (since replaced by `basedpyright`, below), `ts_ls` — for their `LspClangdSwitchSourceHeader`-style commands, and those three silently lost the shared body when it was briefly moved to the wildcard: `K` fell back to Neovim's borderless default and inlay hints never turned on despite `clangd` advertising support.
-
-Shared per-buffer setup therefore lives in an `LspAttach` autocmd, which fires for every client regardless of how configs merged. `after/lsp/<name>.lua` is not an alternative — layer 3 would clobber lspconfig's `on_attach` and lose those commands.
-
-**`vim.lsp.config[name]` is the reliable instrument, and it *does* include the wildcard.** `runtime/lua/vim/lsp.lua:355` resolves it as `tbl_deep_extend('force', _configs['*'], rtp_config, _configs[name])`. An earlier note here claimed the opposite; it was wrong, and it licensed reading a correct signal as noise.
-
-**Never test a change to this config with `set rtp+=`.** It *appends*, so `~/.config/nvim` still wins `require "lsp"`. With stow `~/.config/nvim` *is* the repo, but a probe should still not touch the live data and cache. Use an isolated config and data dir:
+Never test with `set rtp+=`: it appends, so `~/.config/nvim` still wins. Use an isolated config and data directory:
 
 ```sh
 I=$(mktemp -d); mkdir -p $I/config; ln -s "$(git rev-parse --show-toplevel)/config/nvim/.config/nvim" $I/config/nvim
 env XDG_CONFIG_HOME=$I/config XDG_DATA_HOME=$I/data XDG_STATE_HOME=$I/state XDG_CACHE_HOME=$I/cache nvim --headless <file> -c '...' -c qa
 ```
 
-The first run installs every plugin and parser into `$I/data`. It also writes `nvim-pack-lock.json` **through the symlink into the repo** — delete it afterwards (it is gitignored, but stow would link it).
+The first run installs every plugin and parser into `$I/data`, and writes `nvim-pack-lock.json` through the link into the repo; delete it afterwards. Confirm which file won with `vim.api.nvim_get_runtime_file("lua/lsp.lua", true)`.
 
-Confirm which file won with `vim.api.nvim_get_runtime_file("lua/lsp.lua", true)` before trusting any result.
+To see the screen, run nvim in a Rex session of its own and read it with `rex capture` (`docs/rex.md`).
 
-**`K` is Neovim's own buffer-local `vim.lsp.buf.hover()` mapping; this config no longer overrides it.** It used to, only to pass `border = "rounded"`; `opt.winborder = "rounded"` (Nvim 0.11+) now gives every float without an explicit border — hover, diagnostic float, signature — the same rounded border, verified on both windows' `nvim_win_get_config().border`. So `K`'s `desc` can no longer tell you whether the `LspAttach` body ran; check `vim.lsp.inlay_hint.is_enabled` against `client:supports_method "textDocument/inlayHint"` instead. `winborder` must therefore stay `"rounded"`: passing `{ border = … }` to `vim.lsp.buf.hover` needs a function wrapper (a bare `vim.lsp.buf.hover` keymap value ignores opts), which is what the old override was. blink, fzf-lua and mini.clue pass explicit borders and are unaffected.
-
-### lua_ls Library
-
-`lsp/lua_ls.lua` sets `workspace.library` to `$VIMRUNTIME` plus the vim.pack directory (`stdpath("data")/site/pack/core/opt`), not `nvim_get_runtime_file("", true)`. nvim-lspconfig's own `lua_ls` notes warn the whole runtimepath is "a lot slower and will cause issues when working on your own configuration" — the config directory is itself on the runtimepath, so its definitions load twice. With the narrower list a probe file using `MiniIcons`, `MiniStatusline`, `vim.uv` and `require("blink.cmp")` produced exactly the same diagnostics as before (only the planted undefined global); time to first diagnostics went 9.1s → 7.9s, one run each, so treat speed as unchanged.
-
-Measuring lua_ls needs care: it publishes nothing until the workspace has loaded, so a fixed short wait reads 0 diagnostics even on a broken file, and waiting for `DiagnosticChanged` hangs on a clean one. Plant one known error and wait for that.
-
-### Python Server
-
-`basedpyright`, not `pyright`, for Neovim. **`pyright` stays in the `brewfile` anyway**: Claude Code's `pyright-lsp` plugin runs `pyright-langserver --stdio`, which `basedpyright` does not provide (it ships `basedpyright-langserver`), and the official marketplace has no basedpyright plugin. The two packages share no executable names, so both install cleanly. It is a fork on the same type-checking engine, so diagnostics are unchanged, but it advertises `textDocument/inlayHint` and `semanticTokens/full`, neither of which `pyright` 1.1.414 does — so the `LspAttach` inlay-hint logic now actually fires for Python. Compared by attaching each candidate to the same file: `basedpyright` 1.39.8, `pyrefly` 1.3.1, `ty` 0.0.84 and `zuban` 0.9.1 all support both and all caught the planted type error. `pyrefly` is the mature Rust option if speed on a large codebase ever matters; `ty` (Astral) was still pre-1.0.
-
-lspconfig's `basedpyright` ships its own `on_attach`, the same shape that broke `pyright` when shared setup sat in the wildcard. Under `LspAttach` both survive: the buffer gets this config's inlay hints *and* lspconfig's `LspPyrightOrganizeImports` / `LspPyrightSetPythonPath`.
-
-Semantic tokens layer `@lsp.type.*` groups over treesitter highlighting, so Python colours may shift; check against the `theme` skill before assuming the palette still holds.
-
-### LspAttach Patterns
-
-`LspAttach` fires **once per client**, so a buffer with two clients on it (`helm_ls` alongside `yamlls`, say) runs the callback twice. When registering buffer-local autocmds inside it, always use a per-buffer augroup to prevent stacking:
-
-```lua
-local hint_group = vim.api.nvim_create_augroup("UserLspInlayHints_" .. bufnr, { clear = true })
-vim.api.nvim_create_autocmd("InsertEnter", { group = hint_group, buffer = bufnr, ... })
-```
-
-### Neovim 0.12 API Patterns
-
-- `client:supports_method("textDocument/inlayHint")` — colon syntax (dot deprecated)
-- `[d` / `]d` are **default mappings** (`vim.diagnostic.jump` with a count) and `<C-w>d` opens the float — do not re-map them. `<leader>cd` stays only as a `+code` group shortcut
-- `vim.diagnostic.count(0)` — efficient per-buffer count
-- `vim.treesitter.start()` via FileType autocmd — nvim-treesitter 0.10+ removed configs module
-- `vim.fs.root(0, { ".git", ... })` — find project root without shell spawn
-- `an`/`in` in visual and operator-pending are **built-in** treesitter node selection ("select parent/child node"). With a count they reproduce mini.ai's structural textobjects — `dan` deletes an argument, `d3an` a whole function call, at the same depth in lua, python and go. Do not add `mini.ai` on the grounds that vanilla lacks `ia`/`af`.
-
-### Diagnostics Are Not LSP
-
-`vim.diagnostic` display config lives in `nvim/lua/diagnostics.lua`, not in `lsp.lua`. LSP is one producer of diagnostics, not the owner of how they are drawn — it only looked that way because no linter is installed here. The other `vim.diagnostic` uses are correctly placed: `<leader>cd` in `keymaps.lua`, severity counts in the statusline in `plugins.lua`.
-
-### Per-Filetype Options
-
-`nvim/after/ftplugin/<filetype>.lua` is the mechanism, not a `FileType` autocmd. Neovim already has `~/.config/nvim/after` on the runtimepath because `~/.config/nvim` is the config root, so the directory only needs to exist under the stowed tree. `after/` rather than plain `ftplugin/` because it runs *after* the bundled ftplugin for that filetype and therefore wins.
-
-Prose filetypes (`markdown`, `text`) turn on `wrap`, `linebreak` and `breakindent` there; code keeps the global `wrap = false` from `options.lua`. `breakindent` is the one that matters — without it a wrapped line's continuation starts at column 0 and the indent structure is lost. Adding another filetype means another file; there is no pattern matching, which is the trade for not having to register an autocmd.
-
-`opt.sidescrolloff = 8` only does anything while `wrap` is off, so it stays meaningful for code and is simply inert in prose buffers.
-
-With `wrap` on, `j`/`k` still move by logical line, so one keypress can cross several screen rows. Deliberately not remapped to `gj`/`gk` — revisit if it grates while writing.
-
-### Deliberately Absent
-
-Do not "helpfully" re-add these — each was removed after checking:
-
-- **`opt.hlsearch` / `opt.grepformat`** — identical to Neovim's defaults. Neovim also picks `grepprg` itself: `"rg --vimgrep -uu "` when rg is on PATH, `"grep -HIn $* /dev/null"` otherwise, so an `executable("rg")` guard duplicates it. Nothing here uses `:grep`; fzf-lua builds its own rg invocation and never reads `grepprg`.
-- **`snacks.scroll`** (smooth scrolling) — installed and left un-`setup()`; declined, not blocked.
-- **blink's `snippets` source** — it serves snippet *libraries* found on the runtimepath, and none are installed, so it returned nothing on every keystroke. LSP snippets arrive through the `lsp` source instead; `snippetSupport = true` is hardcoded in blink (`sources/lib/init.lua`), not an option. Snippet libraries are unwanted; LSP-driven completion is.
-
-### Treesitter
-
-**`nvim-treesitter` (the `main` branch) supplies parsers and queries; highlighting stays native.** `treesitter.lua` calls `require("nvim-treesitter").install { … }` with the language list and then `vim.treesitter.start()` per buffer. Parsers are compiled locally (`tree-sitter-cli` from the brewfile, Apple clang) into `~/.local/share/nvim/site/parser/`. `install()` is async; with no UI (`#vim.api.nvim_list_uis() == 0`) the file waits on it, so `nvim --headless +qa` installs every parser — that is what `just plugins` relies on. `install()` skips parsers that already exist, so `just plugins` also runs `require("nvim-treesitter").update():wait()` after `vim.pack.update` — otherwise updated queries can outrun stale parsers, which is exactly how the old `diff` mismatch happened.
-
-**`tmux` is registered by hand, in a `User TSUpdate` autocmd at the top of `treesitter.lua`.** nvim-treesitter dropped it on 2026-07-15 (`78bebef1`, with `muttrc`, `zathurarc`, `hlsplaylist`) because upstream [Freed-Wu/tree-sitter-tmux](https://github.com/Freed-Wu/tree-sitter-tmux) stopped committing the generated `src/`; an old parser left in `parser/` then made every `update()` print `Parser not available for language "tmux"`. Upstream is alive (releases 0.1.3/0.1.4 in July 2026), so the registration sets `generate = true` — `tree-sitter-cli` builds `parser.c` locally — and `queries = "queries"` to take upstream's own queries, which use standard capture names. Verified on the real `tmux.conf`: no parse errors despite the nested `#{?…}` formats, and keyword/string/variable captures in the hundreds. If nvim-treesitter ever restores `tmux`, delete the autocmd. Neovim bundles queries for only 7 languages (`c lua markdown markdown_inline query vim vimdoc`); the rest come from this plugin.
-
-### mini.nvim Modules
-
-Each module is an independent sub-plugin — there is no unified enable, and every one needs its own `setup()`.
-
-- **`mini.icons` must be `setup()`**, not merely required. `require("mini.icons").get(...)` works without it, but fzf-lua detects the provider through the `MiniIcons` global — without `setup()` it falls back to `nvim-web-devicons`, which is not installed, and shows *no* icons at all. dropbar never looks for mini.icons, only `nvim-web-devicons`, and degrades to one generic glyph for every filetype, hence `MiniIcons.mock_nvim_web_devicons()`. Two calls, and stylua splits a semicolon one-liner back apart.
-- **`mini.statusline` never calls `content.inactive` when `laststatus = 3`** — its own expression is `(… || &laststatus==3) ? active() : inactive()`. Its default inactive still uses `MiniStatuslineInactive`, so keep that highlight in `theme.lua` even with no custom inactive content.
-- **The statusline is pills throughout and has no file name (2026-11-16):** the mode on the left; an unsaved pill `+`, the diagnostic counts and the filetype on the right. Until then the path from the project root stood beside the mode as plain text with `[+]`. dropbar's winbar shows the same path and tmux's bar shows `$ vi <file>` (`docs/tmux.md`), so it was on screen three times; `[+]` was the one thing only the statusline had, and it stayed as a pill.
-  - **The `+` is `UserPill`'s `fg`, not yellow.** Neovim's own `[+]` flag and `MiniTablineModifiedCurrent` both take `StatusLine`; onedarkpro has no editor group for an unsaved buffer, and its two plugin groups disagree (barbar purple, neo-tree red, neither installed). Yellow here already means a warning, drawn on the same row, and a git change (`MiniDiffSignChange`, eza's `gm`, the prompt's `*`); unsaved is neither. The prompt's `*` is not the counterpart: it compares with git, `[+]` with the disk.
-  - **The cost:** dropbar draws only for a buffer with a treesitter parser, an LSP giving document symbols, or markdown. A `.txt` file, a file of unknown type and an unnamed buffer therefore show no name inside nvim, seen for all three; tmux's bar still has the command.
-  - `MiniStatuslineFilename` now colours only the gap between the pills. Checked in an isolated config (the recipe under `### One File Per Server`): saved, unsaved, with diagnostics, after undo, an unnamed buffer, 30 columns, and the cell colours in both themes.
-- `mini.move` replaces hand-rolled `:m .+1`-style mappings: same reindent behaviour, but respects a count and does not raise `E16` at the last line.
-
-### Nerd Font Icons
-
-Write non-ASCII glyphs as Lua `\u{…}` escapes — `"\u{25cf}"`, `"\u{e0b6}"` — which LuaJIT supports and which keep the source pure ASCII. The Edit tool cannot reliably embed nerd font characters (they silently become spaces), which is why this config once used `vim.fn.nr2char(codepoint)`; the escape solves the same problem without a function call, and was verified equal to `nr2char` for every glyph in use. `string.char()` is not a replacement — it only handles 0–255.
-
-Seven symbols are used in nvim and tmux: `▎` (U+258E, mini.diff signs), `▏` (U+258F, snacks indent), `○`/`●` (U+25CB/25CF, tmux windows), `■` (U+25A0, tmux zoom), and U+E0B6/U+E0B4 (the solid half-circles that cap tmux's bubble segments).
-
-In a script, write them as escapes (`\ue0b6`) rather than pasting the character — pasting silently produced `○` where `●` was meant. Beware substring collisions when scripting an edit over such bindings: a replacement targeting `active` also matches inside `inactive`, which is how both dots ended up identical; the bindings are now `dotDim`/`dotOn`.
-
-Three things to check before adding another:
-
-- **Is the glyph in Maple Mono?** macOS falls back to another font when it is not, so it renders but with a mismatched weight and no guarantee on another machine. `▣` (U+25A3), `⛶`, `⤢` and `⊞` are all absent; `■`, `█`, `◉`, `◎` are present. Check with:
-  ```sh
-  uv run --with fonttools python3 -c \
-    "from fontTools.ttLib import TTFont; print(0x25A0 in TTFont('<font>.ttf', fontNumber=0).getBestCmap())"
-  ```
-- **`bold` does nothing to geometric shapes.** `●` has an identical glyph and advance width in the Regular and Bold faces, so `#[fg=…,bold]` on one is dead styling.
-- All seven are East Asian Width **Ambiguous**, i.e. one cell only because `LANG=en_US.UTF-8`. Switching to a CJK locale would make them two cells wide and break both the tmux status bar and the sign column. `◉` (U+25C9) is the one Neutral alternative.
-
-### Sign Column
-
-- snacks.statuscolumn enabled — layout is `[diagnostic] [line number] [git]` left to right
-- `signcolumn = "yes"` still set; snacks.statuscolumn overrides it with its own rendering
-- Diagnostic signs use `●` (`"\u{25cf}"`) for all severities — same character as tmux current window indicator. Color only distinguishes severity via `DiagnosticSign*` highlight groups.
-
-### snacks.nvim
-
-Only modules explicitly set in `setup()` are enabled. onedarkpro `snacks = true` manages `SnacksIndent`/`SnacksIndentScope` highlight groups automatically.
-
-snacks.indent config structure — `char` must be nested under `indent`, not at the top level:
-```lua
-indent = { indent = { char = "▏" }, scope = { char = "▏" } }  -- correct
-indent = { char = "▏", scope = { char = "▏" } }               -- wrong, char ignored
-```
-
-### fzf-lua Colors
-
-`fzf_colors = true` in `fzf.setup {}` auto-syncs all fzf UI colors (selection, highlights, prompt, border) from Neovim's current highlight groups — onedarkpro is picked up automatically.
-
-Every picker is reachable as `:FzfLua <name>` with Tab completion, so the `<leader>f` mappings are shortcuts, not the only access. That includes twelve git pickers (`git_blame` `git_bcommits` `git_status` `git_hunks` …) — `git_status` even stages with left/right. Only `git log -L` style range history is missing, which is the one thing `mini.git` would add.
-
-### Keymap Organisation
-
-Keymaps are split across files by dependency:
-
-- `keymaps.lua` — global keymaps. Plugin keymaps can also live here if they use a lazy `require` inside a function wrapper (the `require` runs at keypress time, not at startup):
-  ```lua
-  map("n", "<leader>cf", function() require("conform").format { lsp_format = "fallback" } end, ...)
-  ```
-- `fzf.lua` — fzf keymaps (uses top-level `local fzf = require "fzf-lua"`, so must stay with setup)
-- `lsp.lua` `LspAttach` — registers no keymaps; `K` and every other LSP key are Neovim 0.12 defaults
-
-mini.clue group labels are declared in `clues` to show prefix descriptions at the first level:
-- Each mode needs a separate trigger entry — `{ mode, keys }` cannot combine modes in one object
-- While popup is visible, key timeout is paused; without a trigger in that mode, pure `timeoutlen` applies
-- Available `gen_clues`: `g`, `marks`, `registers`, `windows`, `z`, `square_brackets`, `builtin_completion`
-- `gen_clues.g()` on nvim 0.11+ auto-includes visual mode `gr = '+LSP'` clue
-- **A clue set with no matching trigger is silently inert.** `z()` needs a `z` trigger, `marks()` needs `'` and `` ` ``, `registers()` needs `"` plus `<C-r>` in insert and cmdline. Adding the sets without the triggers left ~187 entries unreachable. Adding a trigger does not shadow the key itself — `zz`, `zf`/`za`, `'a` and `"qp` all still work, the popup only appears after the 300ms delay.
-- Inspect what is actually wired up with `nvim_buf_get_keymap` after a `BufEnter`; the triggers are buffer-local, so `maparg` shows nothing
-
-```lua
-{ mode = "n", keys = "<leader>f", desc = "+find" },
-{ mode = "n", keys = "<leader>c", desc = "+code" },
-```
-
-Window/buffer/split keymaps are intentionally absent — tmux handles that workflow. Conventional LSP keys (`gd`, `gD`, `K`) and bracket navigation (`[d`/`]d`) stay outside the `<leader>c` group.
-
-### Formatters
-
-conform is configured without `format_on_save` — format manually with `<leader>cf`.
-
-`smartindent` is deliberately **not** set. `indentexpr` overrules it, so it was a no-op for python, yaml, lua, go and sh, while a filetype with no `indentexpr` had it treat a leading `#` as a preprocessor directive and stripped the indentation off every comment. `autoindent` is on by default and keeps ordinary lines indented.
-
-### Startup Performance
-
-Profile: `nvim --startuptime /tmp/nvim-startup.log +qa && cat /tmp/nvim-startup.log`
-Baseline (no config): ~24ms. Current setup: ~42ms with `vim.loader.enable()` at the top of `init.lua`, against ~60ms without it — median of 7 runs each, with the loader disabled by stubbing `vim.loader.enable` from `--cmd` (a `--cmd 'lua vim.loader.enable(false)'` run is not a test: `init.lua` turns it back on). Nvim 0.12 still ships the loader off by default. Largest contributor: onedarkpro (~1.4ms plugin load); most of the time is Neovim runtime + ShaDa.
-fzf-lua has no native lazy loading — requires lazy.nvim; not worth adding at current speed.
-
+Profile startup with `nvim --startuptime /tmp/nvim-startup.log +qa`.

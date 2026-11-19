@@ -14,14 +14,15 @@ vim.pack.add({
   { src = "https://github.com/saghen/blink.cmp", version = vim.version.range "1.*" },
   "https://github.com/ibhagwan/fzf-lua",
   "https://github.com/nvim-mini/mini.nvim",
-  "https://github.com/olimorris/onedarkpro.nvim",
+  { src = "https://github.com/rose-pine/neovim", name = "rose-pine" },
   "https://github.com/Bekaboo/dropbar.nvim",
   "https://github.com/folke/snacks.nvim",
   "https://github.com/stevearc/conform.nvim",
 }, { confirm = false })
 
+vim.cmd.colorscheme "rose-pine"
+
 require "options"
-require "theme"
 require "keymaps"
 require "treesitter"
 require "lsp"
@@ -29,3 +30,4 @@ require "diagnostics"
 require "completion"
 require "fzf"
 require "plugins"
+require "statusline"

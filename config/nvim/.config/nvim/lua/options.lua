@@ -20,8 +20,9 @@ opt.splitbelow = true
 opt.splitright = true
 opt.splitkeep = "screen"
 
-opt.showmode = false
 opt.laststatus = 3
+opt.cmdheight = 0
+opt.showcmdloc = "statusline"
 opt.winborder = "rounded"
 
 opt.undofile = true
@@ -32,6 +33,8 @@ opt.updatetime = 250
 opt.timeoutlen = 300
 
 opt.clipboard = "unnamedplus"
+
+require("vim._core.ui2").enable { msg = { targets = "msg" } }
 
 vim.filetype.add {
   pattern = {

@@ -3,7 +3,10 @@ local map = vim.keymap.set
 map("v", "<", "<gv")
 map("v", ">", ">gv")
 
-map("n", "<Esc>", "<cmd>nohlsearch<CR>", { desc = "Clear search" })
+map("n", "<Esc>", function()
+  vim.cmd.nohlsearch()
+  vim.schedule(vim.cmd.redrawstatus)
+end, { desc = "Clear search" })
 
 map("n", "<leader>w", "<cmd>w<CR>", { desc = "Save" })
 map("n", "<leader>q", "<cmd>q<CR>", { desc = "Quit" })
