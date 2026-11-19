@@ -105,7 +105,6 @@ cask "signal"
 cask "slack"
 cask "tailscale-app"
 cask "telegram"
-cask "wireshark-app"
 cask "zed"
 cask "zen"
 
