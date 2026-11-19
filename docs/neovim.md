@@ -59,7 +59,7 @@ Configs in `lsp/<name>.lua` are deep-merged with the one nvim-lspconfig ships, s
 
 #### Python
 
-`basedpyright` rather than `pyright`, for inlay hints and semantic tokens, which `pyright` does not advertise. `pyright` stays in the `brewfile`: Claude Code's `pyright-lsp` plugin runs `pyright-langserver`, which basedpyright does not provide. The two share no executable names.
+`basedpyright` rather than `pyright`, for inlay hints and semantic tokens, which `pyright` does not advertise.
 
 #### Semantic tokens
 

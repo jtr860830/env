@@ -37,7 +37,7 @@ Edits under `config/` are live immediately — `~` holds symlinks into the repo.
 
 ## Agents
 
-pi is the harness (decided 2026-11-10), Claude Code is a backend through `pi-claude-code`, Codex CLI has no role; details in `docs/pi.md`, subagents in `docs/pi-subagents.md`, the colours, the editor's arrow and information rule and the footer's status lines in `docs/pi-ui.md`.
+pi is the harness (decided 2026-11-10), Claude Code is a backend through `pi-claude-code` and is also run on its own, Codex CLI has no role in pi; details in `docs/pi.md`, subagents in `docs/pi-subagents.md`, the colours, the editor's arrow and information rule and the footer's status lines in `docs/pi-ui.md`.
 
 **Never let a `CLAUDE.md` appear at the repo root.** Claude Code's default loads `AGENTS.md` only when there is no `CLAUDE.md`, so one written by `/init`, `/revise-claude-md` or the `#` shortcut would silently shadow this file. The local setting that guards against it and the verifications are in the `manual-setup` skill. The settings files of all three tools stay local, since the tools write them.
 
