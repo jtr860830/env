@@ -35,7 +35,7 @@ OpenAI models use the ChatGPT subscription (`/login openai`, the `openai` provid
 
 ### User-level context file
 
-`~/.config/pi/AGENTS.md` (stowed) is the user-level context file: the language rule and the note on condensed command output, nothing about delegation. It loads in subagent children too.
+`~/.config/pi/AGENTS.md` (stowed) is the user-level context file: only the note on condensed command output, nothing about language or delegation. It loads in subagent children too.
 
 User-level harness is mechanism, not policy. The `task` tool is available the way an operating system offers system calls, and when to delegate is left to what runs above it: delegation should be optional rather than the default working mode, and policy changes faster than mechanism. The accepted cost is that the main session delegates only when asked or when it judges the tool description applies. Each result carries the subagent's session id, so its transcript can be inspected. The extension itself is in `docs/pi-subagents.md`.
 

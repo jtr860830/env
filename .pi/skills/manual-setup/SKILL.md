@@ -38,23 +38,28 @@ Then:
 
 ## rtk
 
-`rtk init -g`, `rtk init -g --codex` and `rtk init -g --agent pi`. Each writes local files only (`~/.config/claude/RTK.md` and a `PreToolUse` Bash hook in Claude's `settings.json`; `~/.config/codex/{AGENTS.md,hooks.json,RTK.md}`; `~/.config/pi/extensions/rtk.ts`), except the `@RTK.md` line it appends to the stowed Claude `CLAUDE.md`, which is committed.
+`rtk init -g`, `rtk init -g --codex` and `rtk init -g --agent pi`. Each writes local files only (a `PreToolUse` Bash hook in Claude's `settings.json`; `~/.config/codex/{AGENTS.md,hooks.json,RTK.md}`; `~/.config/pi/extensions/rtk.ts`), except Claude's `RTK.md` and the `@RTK.md` line it appends to `CLAUDE.md`: both are stowed, so rtk writes them through the links into the repo and an upgrade that rewords them shows up as a diff.
 
 - `RTK.md` is what tells the agent its output is condensed and that `rtk bypass <cmd>` returns it raw, so `--hook-only` is not used.
+- **`RTK.md` must sit beside the real `CLAUDE.md`.** Claude Code resolves `@RTK.md` from the directory of the link's target, the repo, so a local `~/.config/claude/RTK.md` next to the link is silently not loaded.
 - **The pi install writes only the extension, no such file.** The same text, plus `rtk recall`, is hand-copied into the stowed `config/pi/.config/pi/AGENTS.md` as `## Command Output`. An rtk upgrade that rewords `RTK.md` does not update that copy; keep it close to `RTK.md` so the two can be compared.
 - **Answer no to "Delegate oversize reads to a cheaper model".** It writes a `pipeline.toml` that routes any large whole-file read to another model, sending the file out and keeping it from the agent. With no `pipeline.toml` rtk is on `rtk:default` (`rtk pipeline status`).
 - The telemetry prompt is moot: the Homebrew build has no telemetry endpoint (`rtk telemetry status`).
 
 ## Claude Code
 
-`CLAUDE_CONFIG_DIR=~/.config/claude` is set in `conf.d/env.fish`. The one stowed file there is the user-scope `~/.config/claude/CLAUDE.md`, a writable link into the repo: `#` and `/memory` edit the repo file, and the repo is public. At user scope Claude Code reads only a file of that name. Hand-set values in `~/.config/claude/settings.json`:
+`CLAUDE_CONFIG_DIR=~/.config/claude` is set in `conf.d/env.fish`. The stowed files there are the user-scope `~/.config/claude/CLAUDE.md` and the `RTK.md` it imports, writable links into the repo: `#` and `/memory` edit the repo file, and the repo is public. At user scope Claude Code reads only a file of that name. Hand-set values in `~/.config/claude/settings.json`:
 
 - `pluginConfigs["cc-plugin-agents-md@builtin"].options.instructionFiles = "claude-md-and-agents-md"`. Claude Code's default loads a project's `AGENTS.md` only when there is no `CLAUDE.md`, and `/init`, `/revise-claude-md` and the `#` shortcut all write `CLAUDE.md` by name. With this value a stray `CLAUDE.md` loads beside `AGENTS.md` instead of replacing it. It is an option of the built-in plugin, not a top-level key.
 - `autoMemoryEnabled` and `autoDreamEnabled` set to `false`, so `~/.config/claude/projects/<cwd>/memory/` is neither read nor written.
-- Plugins: only `codex@openai-codex` at user scope, for the Codex delegation in the stowed `CLAUDE.md` when Claude Code is run on its own; `pi-claude-code` loads no setting sources, so none of this reaches pi. superpowers, security-guidance and the LSP plugins are uninstalled: in a direct session they cost context every turn, and security-guidance ran a background LLM review on every stop, commit and push. A plugin needed for one project is installed there with `--scope local`.
+- Plugins: only `codex@openai-codex` at user scope, so Claude Code run on its own can reach Codex; how to use it comes from the plugin's own skills and agent, and the stowed `CLAUDE.md` holds no delegation policy; `pi-claude-code` loads no setting sources, so none of this reaches pi. superpowers, security-guidance and the LSP plugins are uninstalled: in a direct session they cost context every turn, and security-guidance ran a background LLM review on every stop, commit and push. A plugin needed for one project is installed there with `--scope local`.
 - The `remember` plugin uninstalled, not merely disabled (`claude plugin uninstall remember@claude-plugins-official`): a disabled one still fires its hooks in the session that disabled it, and it keeps a per-project `.remember/` store.
-- `syncClaudeAiSkills` set to `false`: the skills claude.ai syncs cost their descriptions in every session and were almost never used. When a Word, Excel, PowerPoint or PDF job comes up, copy that one skill's directory from anthropics/skills into the project's `.pi/skills/` for the duration.
+- `syncClaudeAiSkills` and `syncClaudeAiPlugins` set to `false`: the skills claude.ai syncs cost their descriptions in every session and were almost never used. When a Word, Excel, PowerPoint or PDF job comes up, copy that one skill's directory from anthropics/skills into the project's `.pi/skills/` for the duration.
 - `enableArtifact: false`, `disableBundledSkills: true` and `disableWorkflows: true`: tool and skill definitions that cost tokens every turn and were not used; `/init` and `/doctor` stay typable. `CLAUDE_CODE_SEND_FEEDBACK=0` in `conf.d/env.fish` is there for the same reason.
+- No `advisorModel` and `awaySummaryEnabled: false`: background calls that spend tokens unasked. An advisor call re-reads the whole transcript uncached at the advisor model's rates. `/advisor` writes the key back, so `/advisor off` after use.
+- `env.CLAUDE_CODE_SUBAGENT_MODEL = "sonnet"`: a subagent with no `model` of its own runs on Sonnet instead of inheriting the main model. It sits in `settings.json` rather than `env.fish` so `claude -p` from `pi-claude-code` is unaffected.
+- `env.CLAUDE_CODE_DISABLE_FAST_MODE = "1"`: removes `/fast`, which bills the same model at a higher per-token rate and is not used.
+- `attribution: false`: no Co-Authored-By trailer or PR footer.
 
 ## Codex
 
