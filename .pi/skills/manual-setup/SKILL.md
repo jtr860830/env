@@ -33,7 +33,7 @@ Hand-set values in `~/.config/pi/settings.json` (why they are local is in `docs/
 Then:
 
 - Log in with `/login anthropic` (API key) and `/login openai` (Sign in with ChatGPT).
-- Packages, recorded in that file's `packages` list by `pi install`: `https://github.com/earendil-works/pi-claude-code` (needs `claude auth login` done in Claude Code), `npm:pi-web-access` (no key) and `git:github.com/obra/superpowers`.
+- Packages, recorded in that file's `packages` list by `pi install`: `https://github.com/earendil-works/pi-claude-code` (needs `claude auth login` done in Claude Code) and `npm:pi-web-access` (no key).
 - `/trust` once in this repo so `.pi/` loads, including for subagent children; the decision lives in `~/.config/pi/trust.json`.
 
 ## rtk

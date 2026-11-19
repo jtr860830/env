@@ -10,7 +10,7 @@ Personal configuration for one Mac (Apple Silicon). Dotfiles live under `config/
 
 ## House Style
 
-**No comments in config files.** Single-user repo — the reasoning lives in `docs/`, and in this file only for what applies everywhere, rather than alongside the code. Do not add explanatory comments back when editing; put the finding in the file that loads for that area. Documents describe the current state and the reason for each departure from a tool's default; rejected alternatives and measurements live in the design documents under `docs/superpowers/specs/` and in git history.
+**No comments in config files.** Single-user repo — the reasoning lives in `docs/`, and in this file only for what applies everywhere, rather than alongside the code. Do not add explanatory comments back when editing; put the finding in the file that loads for that area. Documents describe the current state and the reason for each departure from a tool's default; rejected alternatives and measurements live in git history.
 
 **Scripts in this repo run under BSD tools** — `sed -i ''`, not `sed -i`. The GNU versions are installed only under their `g`-prefixed names (`docs/homebrew.md`).
 
