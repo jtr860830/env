@@ -30,6 +30,7 @@ Files under `config/` are linked into `$HOME`, so editing them takes effect imme
 | `just clean` | remove installed packages that are no longer in `brewfile` |
 | `just check` | verify docs references, packages are installed and up to date, and links are clean |
 | `just relink` | after moving the repo to another directory |
+| `just rex` | set Rex's themes, font, line height and Option key — needs Rex open with Remote Control on |
 
 Run `just` on its own to list every recipe.
 
@@ -46,4 +47,4 @@ To add a tool's configuration, create `config/<tool>/` with the file at its path
 
 ## Not automated
 
-App licences and preferences — Alfred, macOS system settings — are set by hand; see `.pi/skills/manual-setup/SKILL.md`.
+App licences and preferences — Alfred, macOS system settings — are set by hand, and so is installing Rex, the terminal, which has no Homebrew cask yet; see `.pi/skills/manual-setup/SKILL.md`.

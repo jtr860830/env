@@ -40,6 +40,15 @@ etc:
     [ ! -x "{{rex_bin}}" ] || { sudo mkdir -p /usr/local/share/terminfo && "{{rex_bin}}" terminfo show | sudo /usr/bin/tic -x -o /usr/local/share/terminfo /dev/stdin; }
     [ "$(dscl . -read ~ UserShell | cut -d' ' -f2)" = /opt/homebrew/bin/fish ] || chsh -s /opt/homebrew/bin/fish
 
+rex:
+    "{{rex_bin}}" do client.setting.themes.dark.palette value="Rose Pine" 2>/dev/null || { "{{rex_bin}}" do client.theme.import --args '{"path":"{{rex_themes}}/Rose Pine"}' && "{{rex_bin}}" do client.setting.themes.dark.palette value="Rose Pine"; }
+    "{{rex_bin}}" do client.setting.themes.light.palette value="Rose Pine Dawn" 2>/dev/null || { "{{rex_bin}}" do client.theme.import --args '{"path":"{{rex_themes}}/Rose Pine Dawn"}' && "{{rex_bin}}" do client.setting.themes.light.palette value="Rose Pine Dawn"; }
+    "{{rex_bin}}" do client.setting.interface.appearance.scheme value=auto
+    "{{rex_bin}}" do client.setting.terminal.typography.font value="Maple Mono NF CN"
+    "{{rex_bin}}" do client.setting.terminal.typography.size value=14
+    "{{rex_bin}}" do client.setting.terminal.typography.line_height value=24
+    "{{rex_bin}}" do client.setting.terminal.keyboard.option value=sends_alt
+
 check: check-docs
     brew bundle check --file brewfile
     ! grep -rlF "{{justfile_directory()}}" config/
