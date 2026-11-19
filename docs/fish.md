@@ -14,7 +14,7 @@ It lives in `conf.d/` rather than `config.fish` so it is set for every fish — 
 | `/opt/homebrew/bin`, `/opt/homebrew/sbin` | the brewfile |
 | `/usr/local/bin`, `/usr/local/sbin`, `/usr/bin`, `/usr/sbin`, `/bin`, `/sbin` | the system, locality-first |
 
-**Keg-only formulae are linked (`link: true` in the brewfile), not added to `PATH`** — `curl`, `llvm` and `rustup` are, so their binaries resolve from `/opt/homebrew/bin`. `ncurses` and `openjdk` are deliberately not linked, and the gnubin formulae are reached by their `g`-prefixed names; the reasons are in `docs/homebrew.md`. `man` needs no `MANPATH` (`docs/env.md`, `## Man Pages`).
+**Keg-only formulae are linked (`link: true` in the brewfile), not added to `PATH`** — `curl`, `llvm` and `rustup` are, so their binaries resolve from `/opt/homebrew/bin`. `ncurses` is deliberately not linked, and the gnubin formulae are reached by their `g`-prefixed names; the reasons are in `docs/homebrew.md`. `man` needs no `MANPATH` (`docs/env.md`, `## Man Pages`).
 
 **The system part is six hardcoded directories, locality-first, and `path_helper` is deliberately not used.** Its output is twelve entries here — `/System/Cryptexes/App/usr/bin`, three `cryptexd` bootstrap directories, `/pkg/env/global/bin` and Wireshark's `Contents/MacOS` on top of the six — and the owner chose a short, predictable list over following whatever `/etc/paths.d` accumulates. Anything that needs one of those is called by full path or added here explicitly. Across the six there are 1,273 distinct names (2026-10-21) and **zero collisions**, so locality-first versus bin-then-sbin changes nothing about which binary wins; re-check before reopening it:
 
