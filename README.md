@@ -40,6 +40,7 @@ Run `just` on its own to list every recipe.
 |---|---|
 | `config/<package>/` | dotfiles, laid out as they appear under `$HOME` — `config/fish/.config/fish/config.fish` becomes `~/.config/fish/config.fish` |
 | `brewfile` | formulae, casks and Mac App Store apps |
+| `fish_plugins` | fish plugins, installed by fisher |
 | `justfile` | every operation |
 | `bootstrap.sh` | first-run setup on a fresh machine |
 

@@ -25,7 +25,7 @@ A small hand-written config in `config/nvim/.config/nvim/`, stowed to `~/.config
 - **The mode letter's colour is the background Rosé Pine defines for `MiniStatuslineMode*`**, reused as a foreground and read again on `ColorScheme`. The groups exist without mini.statusline's `setup()` because the theme defines them, and `require("mini.statusline").section_mode` supplies the mode's name, so there is no mode table here. mini.statusline is not set up.
 - **The diagnostic counts come from `vim.diagnostic.status()`**, formatted in `lua/diagnostics.lua` (`status.format`) to `● 2 ● 1` with the sign column's own dot, in place of Neovim's default letters and colons.
 - **`<Esc>` is a function**, `nohlsearch` and then a scheduled `redrawstatus`, or the search count lingers. The `<cmd>nohlsearch<Bar>redrawstatus<CR>` form leaves `~@<fd>` in the statusline.
-- **LSP loading progress is not shown.** Neovim's default statusline has it; this one does not.
+- **LSP loading progress is not shown.** Nothing here listens for `LspProgress`. Neovim's default statusline would not show it either: its `vim.ui.progress_status()` tracks `Progress` events, which the LSP client does not emit.
 
 **Messages use Neovim 0.12's new message UI**, `require("vim._core.ui2").enable { msg = { targets = "msg" } }` in `options.lua`. It is experimental. Without it `cmdheight = 0` makes every error and multi-line message wait for Enter. With it messages and `vim.notify` appear in a box at the bottom right, and a prompt such as `:q` on a modified buffer takes the bottom rows while it is open. When it becomes Neovim's default, delete the line.
 

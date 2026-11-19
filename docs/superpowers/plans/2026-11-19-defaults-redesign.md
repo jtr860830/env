@@ -36,6 +36,7 @@ Found while checking the spec against the machine on 2026-11-19; the owner agree
 6. **The entry is compiled with `/usr/bin/tic`**, never Homebrew's: Homebrew's `tic` writes a newer format once an entry holds a number above 32767, which Apple's ncurses cannot read (`alacritty` from Homebrew's database is "unknown terminal" to `/usr/bin/tput`), while both read Apple's output. For today's `xterm-rex` the two write byte-identical files; this guards a later change to the entry.
 7. **pure takes two settings.** The owner wants `$` as the prompt symbol in every vi mode, with the mode told by the cursor's shape alone, so `pure_symbol_prompt` and `pure_symbol_reverse_prompt` are both `$` (Task 3). The spec's "unconfigured" and its `❯`/`❮` no longer hold.
 8. **dropbar's symbols are not clickable.** The owner wants the breadcrumb only: `symbol = { on_click = false }` (Task 4). Nothing else opens dropbar's menu; no key is bound to it.
+9. **`fish_plugins` is at the repository's root and copied, not stowed** (found by the final review, after Task 3 as written below). fisher rewrites the file from what it managed to install and still exits 0 when a download fails, which through a link dropped the plugin from the repository's list. `just plugins` copies the list into `~/.config/fish`, runs `fisher update </dev/null` and checks every listed plugin is installed.
 
 ## Review Focus
 

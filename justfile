@@ -17,7 +17,9 @@ update:
     just plugins
 
 plugins:
-    fish -c 'fisher update'
+    mkdir -p ~/.config/fish && rm -f ~/.config/fish/fish_plugins && cp fish_plugins ~/.config/fish/fish_plugins
+    fish -c 'fisher update </dev/null'
+    fish -c 'for p in (cat fish_plugins); contains -- $p (fisher list); or begin; echo "just plugins: $p is not installed" >&2; exit 1; end; end'
     @echo >&2
     nvim --headless '+lua vim.pack.update(nil, { force = true })' +qa
     @echo >&2
