@@ -26,7 +26,7 @@ Deliberately not linked: `ncurses` (only its terminfo database is wanted; linkin
 
 ## Brewfile Shape
 
-`brewfile` is one flat alphabetical list per kind (`brew`, then `cask`, then `mas`), no category headers. Categories were tried and dropped: they invited endless boundary arguments (is `atac` networking or API tooling? is `gnu-sed` a build tool?), and only 2 of 17 groups ever stayed sorted. Flat keeps lookup and insertion predictable. The file is lowercase `brewfile`; Homebrew only auto-discovers `Brewfile`, so every call passes `--file`, and `HOMEBREW_BUNDLE_FILE` is deliberately not set because it would hardcode the repo path.
+`brewfile` is one flat alphabetical list per kind (`brew`, then `cask`, then `mas`), no category headers. Categories were tried and dropped: they invited endless boundary arguments (is `curl` networking or API tooling? is `gnu-sed` a build tool?), and only 2 of 17 groups ever stayed sorted. Flat keeps lookup and insertion predictable. The file is lowercase `brewfile`; Homebrew only auto-discovers `Brewfile`, so every call passes `--file`, and `HOMEBREW_BUNDLE_FILE` is deliberately not set because it would hardcode the repo path.
 
 ## Container Formulae
 

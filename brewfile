@@ -1,4 +1,3 @@
-brew "atac"
 brew "basedpyright"
 brew "bash"
 brew "bash-language-server"
