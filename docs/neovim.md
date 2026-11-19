@@ -84,7 +84,7 @@ Nothing here configures them. nvim-lspconfig's `gopls` config turns them on, and
 
 `nvim-treesitter` (the `main` branch) supplies parsers and queries; highlighting is native. `lua/treesitter.lua` calls `require("nvim-treesitter").install { … }` and then `vim.treesitter.start()` per buffer. Parsers are compiled locally into `~/.local/share/nvim/site/parser/`. `install()` is async; with no UI the file waits on it, so `nvim --headless +qa` installs every parser, which `just plugins` relies on. `install()` skips parsers that exist, so `just plugins` also runs `update():wait()`, or updated queries can outrun stale parsers.
 
-`tmux` is registered by hand in a `User TSUpdate` autocmd at the top of the file, because nvim-treesitter dropped it when upstream stopped committing the generated `src/`. The registration sets `generate = true` and takes upstream's own queries.
+A language taken out of the list keeps its parser: nvim-treesitter's `uninstall` only knows languages it still ships, so for one it has dropped, remove `parser/<lang>.so`, `queries/<lang>` and `parser-info/<lang>.revision` under `~/.local/share/nvim/site` by hand.
 
 ### Modules
 
