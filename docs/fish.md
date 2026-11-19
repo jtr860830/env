@@ -42,7 +42,7 @@ Everything else there is written by fisher or by fish and is a real file outside
 
 ## Plugins
 
-fisher comes from the `brewfile`, so `fish_plugins` lists only the two plugins, `pure-fish/pure` and `rose-pine/fish`, with no line for fisher itself. `just plugins` runs `fisher update`, which installs whatever the list names. fisher rewrites `fish_plugins` through its link each time; the content does not change.
+fisher comes from the `brewfile`, so `fish_plugins` lists only the two plugins, `pure-fish/pure` and `rose-pine/fish`, with no line for fisher itself. `just plugins` runs `fisher update`, which installs whatever the list names. fisher rewrites `fish_plugins` through its link each time. The content stays the same as long as every plugin installs. A plugin whose download fails is left out of the rewritten list while fisher still exits 0, which shows as a change in git: restore the file and run `just plugins` again.
 
 **A plugin must never find a link where it wants to write.** fisher copies with `cp -f`, which follows a link, a dangling one included, and would write the plugin's file into the repository. pure ships `fish_prompt.fish`, `fish_mode_prompt.fish` and `fish_title.fish`. So no file under `config/fish` may carry a name a plugin ships, and after deleting one run `just link` before fisher runs again (`docs/setup.md`).
 
