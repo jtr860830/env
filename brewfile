@@ -61,7 +61,6 @@ brew "qemu"
 brew "rip2"
 brew "ripgrep"
 brew "ripgrep-all"
-brew "rtk"
 brew "ruff"
 brew "rustup", link: true
 brew "shellcheck"

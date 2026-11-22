@@ -21,10 +21,9 @@ Outside the XDG directories (`.config`, `.cache`, `.local`), `$HOME` holds only 
 - `GOCACHE=$XDG_CACHE_HOME/go-build` and `GOPLSCACHE=$XDG_CACHE_HOME/gopls` — both had been under `~/Library/Caches`
 - `GOMODCACHE=$XDG_CACHE_HOME/go/mod` — the module cache defaults to `$GOPATH/pkg/mod`, i.e. DATA, but it is a re-downloadable cache
 - `_ZO_DATA_DIR=$XDG_DATA_HOME/zoxide` — zoxide kept `db.zo` in `~/Library/Application Support/zoxide`; it was moved, not recreated
-- `RTK_DB_PATH=$XDG_STATE_HOME/rtk/history.db` and `RTK_TEE_DIR=$XDG_CACHE_HOME/rtk/tee` — rtk's 90-day savings history is action history, so STATE; the tee spool of failed commands' full output is disposable, so CACHE. Both read from `src/core/user_dirs.rs`; `RTK_CONFIG_DIR` looks like the config override but only redirects pipeline loading, verified — `rtk config` still names `~/Library/Application Support/rtk/config.toml`
 - `HOMEBREW_CACHE=$HOME/.cache/homebrew` — in `/etc/homebrew/brew.env` beside `HOMEBREW_XDG_CONFIG_HOME`, not in fish, because brew also runs without fish's environment (`bootstrap.sh` under `/bin/bash`, `sudo brew`, launchd); see `docs/homebrew.md`
 
-Left as is: the rest of rtk's directory (`config.toml`, hook markers, trust store — `dirs::config_dir()`/`data_local_dir()`, which read no `XDG_*` on macOS and have no override), lima's download cache (`~/Library/Caches/lima` — the binary reads no cache variable), `~/Library/Caches/goimports` (no variable found), Go's own `env` file (see `## Go`), and Claude Code and Codex, which take one directory each and keep transcripts and caches inside it. Like `GOPATH`, the fish-set variables reach only processes started from fish.
+Left as is: lima's download cache (`~/Library/Caches/lima` — the binary reads no cache variable), `~/Library/Caches/goimports` (no variable found), Go's own `env` file (see `## Go`), and Claude Code and Codex, which take one directory each and keep transcripts and caches inside it. Like `GOPATH`, the fish-set variables reach only processes started from fish.
 
 ## pi
 

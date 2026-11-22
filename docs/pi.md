@@ -1,5 +1,5 @@
 ---
-paths: ["config/pi/.config/pi/*", ".pi/extensions/**"]
+paths: [".pi/extensions/**"]
 ---
 
 ## pi
@@ -35,7 +35,7 @@ OpenAI models use the ChatGPT subscription (`/login openai`, the `openai` provid
 
 ### User-level context file
 
-`~/.config/pi/AGENTS.md` (stowed) is the user-level context file: only the note on condensed command output, nothing about language or delegation. It loads in subagent children too.
+There is no `~/.config/pi/AGENTS.md`: nothing about language, delegation or anything else is wanted in every session, so pi and its subagent children start with the project's context alone.
 
 User-level harness is mechanism, not policy. The `task` tool is available the way an operating system offers system calls, and when to delegate is left to what runs above it: delegation should be optional rather than the default working mode, and policy changes faster than mechanism. The accepted cost is that the main session delegates only when asked or when it judges the tool description applies. Each result carries the subagent's session id, so its transcript can be inspected. The extension itself is in `docs/pi-subagents.md`.
 

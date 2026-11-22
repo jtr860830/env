@@ -1,6 +1,6 @@
 ---
 name: manual-setup
-description: Steps `just setup` cannot perform on this Mac and the local settings that are deliberately set — macOS settings, OmniWM permissions and Start at Login, Rex, pi, rtk, Claude Code's and Codex's local settings and what is turned off in them and why, Alfred. Load when setting up a machine or before changing any of those tools' settings.
+description: Steps `just setup` cannot perform on this Mac and the local settings that are deliberately set — macOS settings, OmniWM permissions and Start at Login, Rex, pi, Claude Code's and Codex's local settings and what is turned off in them and why, Alfred. Load when setting up a machine or before changing any of those tools' settings.
 ---
 
 # Manual Setup
@@ -36,19 +36,9 @@ Then:
 - Packages, recorded in that file's `packages` list by `pi install`: `https://github.com/earendil-works/pi-claude-code` (needs `claude auth login` done in Claude Code) and `npm:pi-web-access` (no key).
 - `/trust` once in this repo so `.pi/` loads, including for subagent children; the decision lives in `~/.config/pi/trust.json`.
 
-## rtk
-
-`rtk init -g`, `rtk init -g --codex` and `rtk init -g --agent pi`. Each writes local files only (a `PreToolUse` Bash hook in Claude's `settings.json`; `~/.config/codex/{AGENTS.md,hooks.json,RTK.md}`; `~/.config/pi/extensions/rtk.ts`), except Claude's `RTK.md` and the `@RTK.md` line it appends to `CLAUDE.md`: both are stowed, so rtk writes them through the links into the repo and an upgrade that rewords them shows up as a diff.
-
-- `RTK.md` is what tells the agent its output is condensed and that `rtk bypass <cmd>` returns it raw, so `--hook-only` is not used.
-- **`RTK.md` must sit beside the real `CLAUDE.md`.** Claude Code resolves `@RTK.md` from the directory of the link's target, the repo, so a local `~/.config/claude/RTK.md` next to the link is silently not loaded.
-- **The pi install writes only the extension, no such file.** The same text, plus `rtk recall`, is hand-copied into the stowed `config/pi/.config/pi/AGENTS.md` as `## Command Output`. An rtk upgrade that rewords `RTK.md` does not update that copy; keep it close to `RTK.md` so the two can be compared.
-- **Answer no to "Delegate oversize reads to a cheaper model".** It writes a `pipeline.toml` that routes any large whole-file read to another model, sending the file out and keeping it from the agent. With no `pipeline.toml` rtk is on `rtk:default` (`rtk pipeline status`).
-- The telemetry prompt is moot: the Homebrew build has no telemetry endpoint (`rtk telemetry status`).
-
 ## Claude Code
 
-`CLAUDE_CONFIG_DIR=~/.config/claude` is set in `conf.d/env.fish`. The stowed files there are the user-scope `~/.config/claude/CLAUDE.md` and the `RTK.md` it imports, writable links into the repo: `#` and `/memory` edit the repo file, and the repo is public. At user scope Claude Code reads only a file of that name. Hand-set values in `~/.config/claude/settings.json`:
+`CLAUDE_CONFIG_DIR=~/.config/claude` is set in `conf.d/env.fish`. No user-scope `CLAUDE.md` is stowed: nothing is wanted in every session. `#` or `/memory` at user scope would create a local `~/.config/claude/CLAUDE.md`, outside the repo. Hand-set values in `~/.config/claude/settings.json`:
 
 - `pluginConfigs["cc-plugin-agents-md@builtin"].options.instructionFiles = "claude-md-and-agents-md"`. Claude Code's default loads a project's `AGENTS.md` only when there is no `CLAUDE.md`, and `/init`, `/revise-claude-md` and the `#` shortcut all write `CLAUDE.md` by name. With this value a stray `CLAUDE.md` loads beside `AGENTS.md` instead of replacing it. It is an option of the built-in plugin, not a top-level key.
 - `autoMemoryEnabled` and `autoDreamEnabled` unset, so Claude Code run on its own keeps its default memory in `~/.config/claude/projects/<cwd>/memory/`, outside the repo. pi stays stateless: `pi-claude-code` starts `claude` with `CLAUDE_CODE_DISABLE_AUTO_MEMORY=1`.
@@ -60,7 +50,7 @@ Then:
 - No `advisorModel`, which is the default and leaves the advisor off. `/advisor` writes the key into `settings.json`, so it stays on in every later session until `/advisor off`; an advisor call re-reads the whole transcript uncached at the advisor model's rates.
 - `env.CLAUDE_CODE_SUBAGENT_MODEL = "sonnet"`: a subagent with no `model` of its own runs on Sonnet instead of inheriting the main model. It sits in `settings.json` rather than `env.fish` so `claude -p` from `pi-claude-code` is unaffected.
 - `env.CLAUDE_CODE_DISABLE_FAST_MODE = "1"`: removes `/fast`, which bills the same model at a higher per-token rate and is not used.
-- `env.CLAUDE_CODE_EXPERIMENTAL_CODE_MODE = "1"`: Code Mode, in which the model writes JavaScript that makes several tool calls in one `REPL` step. Its first start asks for confirmation and restarts. Each call inside still passes the rtk `PreToolUse` hook under its own tool name, but auto mode's classifier reviews the code as a whole and cannot see values computed at run time. A session started with it resumes only with it on. Like the subagent model it sits in `settings.json`, so `claude -p` from `pi-claude-code` is unaffected.
+- `env.CLAUDE_CODE_EXPERIMENTAL_CODE_MODE = "1"`: Code Mode, in which the model writes JavaScript that makes several tool calls in one `REPL` step. Its first start asks for confirmation and restarts. Permission rules and hooks still see each call inside under its own tool name, but auto mode's classifier reviews the code as a whole and cannot see values computed at run time. A session started with it resumes only with it on. Like the subagent model it sits in `settings.json`, so `claude -p` from `pi-claude-code` is unaffected.
 - `attribution` as `{"commit": "", "pr": "", "sessionUrl": false}`: no Co-Authored-By trailer, PR footer or session link.
 - `model: "opus"`, the same model as pi's main session.
 - `switchModelsOnFlag: true`: when safeguards flag a message the session continues on another model instead of pausing. The safeguards are deliberately broad and flag ordinary system work as cyber; a pause would only lead to the same switch by hand.
