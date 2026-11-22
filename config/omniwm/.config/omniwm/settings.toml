@@ -220,7 +220,7 @@ weather = true
 [statusBar]
 showAppNames = false
 showIcon = false
-showWorkspaceName = true
+showWorkspaceName = false
 useWorkspaceId = false
 
 [statusMenu]

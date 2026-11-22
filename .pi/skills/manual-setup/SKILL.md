@@ -1,6 +1,6 @@
 ---
 name: manual-setup
-description: Steps `just setup` cannot perform on this Mac and the local settings that are deliberately set — macOS settings, OmniWM permissions and Start at Login, Rex, pi, Claude Code's and Codex's local settings and what is turned off in them and why, Alfred. Load when setting up a machine or before changing any of those tools' settings.
+description: Steps `just setup` cannot perform on this Mac and the local settings that are deliberately set — macOS settings, OmniWM permissions and Start at Login, Rex, pi, Claude Code's and Codex's local settings and what is turned off in them and why, Alfred, Bartender. Load when setting up a machine or before changing any of those tools' settings.
 ---
 
 # Manual Setup
@@ -70,6 +70,10 @@ Then:
 Alfred's config is **deliberately not in this repo**. Its sync folder moves the whole `Alfred.alfredpreferences` bundle, app-owned state that Alfred writes to directly, which is a different model from the declarative source the rest of the repo holds. The licence, clipboard database and usage data sit outside that bundle, so nothing secret travels with it.
 
 **Do not try to disable the Spotlight hotkey declaratively.** It is one entry of the `AppleSymbolicHotKeys` dictionary in `com.apple.symbolichotkeys`, and `defaults write` replaces the whole dictionary, which would wipe every other hotkey. Editing it in place with `PlistBuddy` works but needs the preference cache restarted, which is not worth a recipe for a one-time toggle.
+
+## Bartender
+
+Installed from the brewfile to keep the menu bar down to what is needed. Enter the licence, grant the permissions it asks for on first launch, and turn on Launch at Login. Its layout is app-owned state, like Alfred's, and is not in this repo.
 
 ## Notes
 

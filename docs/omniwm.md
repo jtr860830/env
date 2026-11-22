@@ -47,9 +47,9 @@ The bar is OmniShell: widgets drawn by a style. Its configuration resolves in th
 
 `position`, `notchMode` and `windowLevel` are deliberately not in the profile; the lower layers' values apply. The window level must stay `popup`: `normal` would sit under the menu bar on a display without a notch.
 
-The menu bar item shows only the active workspace's number (`statusBar.showIcon = false`, `showWorkspaceName = true`). Its dropdown is trimmed by `[statusMenu]`: the control tiles are hidden because they toggle things this file decides, and a GUI toggle writes straight into the repo.
+The menu bar item shows neither an icon nor the workspace (`statusBar.showIcon = false`, `showWorkspaceName = false`), to keep the menu bar down to what is needed; the workspace bar and `⌥` already show where you are. Its dropdown is trimmed by `[statusMenu]`: the control tiles are hidden because they toggle things this file decides, and a GUI toggle writes straight into the repo.
 
-**Hidden Bar is off**, here and in the profile. It conceals menu-bar icons only with Full Disk Access granted to OmniWM, which is not worth giving a window manager.
+**Hidden Bar is off**, here and in the profile. It conceals menu-bar icons only with Full Disk Access granted to OmniWM, which is not worth giving a window manager. Bartender hides menu-bar icons instead (the `manual-setup` skill).
 
 ### Window switcher, Quake, launcher
 
