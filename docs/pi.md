@@ -27,7 +27,7 @@ Two settings live in the repo instead and must not be set in that file: the edit
 
 ### pi is the harness
 
-The main session runs on `claude-fable-5-2` through the `anthropic` provider (the company's API key). When that credit runs out the owner switches by hand with `/model` to the same model on `claude-code`, the Claude subscription through the `pi-claude-code` package, and continues. Nothing switches automatically: the main session always has a person in front of it.
+The main session runs on `claude-opus-5-5` through the `anthropic` provider (the company's API key). When that credit runs out the owner switches by hand with `/model` to the same model on `claude-code`, the Claude subscription through the `pi-claude-code` package, and continues. Nothing switches automatically: the main session always has a person in front of it.
 
 OpenAI models use the ChatGPT subscription (`/login openai`, the `openai` provider). Codex CLI has no role in pi. Claude Code and Codex CLI are both still installed and runnable on their own.
 

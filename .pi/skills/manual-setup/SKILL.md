@@ -24,7 +24,7 @@ Install by hand into `/Applications` (a preview with no cask yet) and open it on
 Hand-set values in `~/.config/pi/settings.json` (why they are local is in `docs/pi.md`):
 
 - `"shellPath": "/opt/homebrew/bin/bash"`.
-- `"defaultModel": "claude-fable-5-2"`, with `"defaultProvider"` `anthropic` (the API key) or, once that credit has run out, `claude-code` (the subscription). `/model` switches, and pi saves the choice.
+- `"defaultModel": "claude-opus-5-5"`, with `"defaultProvider"` `anthropic` (the API key) or, once that credit has run out, `claude-code` (the subscription). `/model` switches, and pi saves the choice.
 - `modelThinkingLevels`: `high` for fable-5-2, fable-5-1, opus-5-5 and gpt-6-astra; `medium` for sonnet-5-5 and gpt-6.1-sol; `low` for haiku-5-5, gpt-6.1-terra and gpt-6-luna. Each Anthropic model is listed under both `anthropic/` and `claude-code/`, so a provider switch keeps the depth.
 - `"skills": ["~/.local/share/agents/skills"]`, the one place skills are installed to.
 - No `theme` key, so pi uses its built-in `system` theme (`docs/pi-ui.md`).
@@ -51,15 +51,21 @@ Then:
 `CLAUDE_CONFIG_DIR=~/.config/claude` is set in `conf.d/env.fish`. The stowed files there are the user-scope `~/.config/claude/CLAUDE.md` and the `RTK.md` it imports, writable links into the repo: `#` and `/memory` edit the repo file, and the repo is public. At user scope Claude Code reads only a file of that name. Hand-set values in `~/.config/claude/settings.json`:
 
 - `pluginConfigs["cc-plugin-agents-md@builtin"].options.instructionFiles = "claude-md-and-agents-md"`. Claude Code's default loads a project's `AGENTS.md` only when there is no `CLAUDE.md`, and `/init`, `/revise-claude-md` and the `#` shortcut all write `CLAUDE.md` by name. With this value a stray `CLAUDE.md` loads beside `AGENTS.md` instead of replacing it. It is an option of the built-in plugin, not a top-level key.
-- `autoMemoryEnabled` and `autoDreamEnabled` set to `false`, so `~/.config/claude/projects/<cwd>/memory/` is neither read nor written.
-- Plugins: only `codex@openai-codex` at user scope, so Claude Code run on its own can reach Codex; how to use it comes from the plugin's own skills and agent, and the stowed `CLAUDE.md` holds no delegation policy; `pi-claude-code` loads no setting sources, so none of this reaches pi. superpowers, security-guidance and the LSP plugins are uninstalled: in a direct session they cost context every turn, and security-guidance ran a background LLM review on every stop, commit and push. A plugin needed for one project is installed there with `--scope local`.
+- `autoMemoryEnabled` and `autoDreamEnabled` unset, so Claude Code run on its own keeps its default memory in `~/.config/claude/projects/<cwd>/memory/`, outside the repo. pi stays stateless: `pi-claude-code` starts `claude` with `CLAUDE_CODE_DISABLE_AUTO_MEMORY=1`.
+- Plugins: only `codex@openai-codex` at user scope, so Claude Code run on its own can reach Codex; how to use it comes from the plugin's own skills and agent, and the stowed `CLAUDE.md` holds no delegation policy; `pi-claude-code` loads no setting sources, so none of this reaches pi. superpowers, security-guidance and the LSP plugins are uninstalled: in a direct session they cost context every turn, and security-guidance ran a background LLM review on every stop, commit and push. A plugin needed for one project is installed there with `--scope local`. The built-in `cc-plugin-plugin-authoring` is disabled: its skills and agent cost context every session and no plugins are written here. The `claude-community` marketplace (anthropics/claude-plugins-community) stays registered so `/plugin` can browse it; nothing is installed from it.
 - The `remember` plugin uninstalled, not merely disabled (`claude plugin uninstall remember@claude-plugins-official`): a disabled one still fires its hooks in the session that disabled it, and it keeps a per-project `.remember/` store.
-- `syncClaudeAiSkills` and `syncClaudeAiPlugins` set to `false`: the skills claude.ai syncs cost their descriptions in every session and were almost never used. When a Word, Excel, PowerPoint or PDF job comes up, copy that one skill's directory from anthropics/skills into the project's `.pi/skills/` for the duration.
+- `syncClaudeAiSkills` and `syncClaudeAiPlugins` set to `false`: the skills claude.ai syncs cost their descriptions in every session and were almost never used. When a Word, Excel, PowerPoint or PDF job comes up, copy that one skill's directory from anthropics/skills into the project's `.pi/skills/` for the duration. `disableClaudeAiConnectors: true` for the same reason: claude.ai's connectors would add their tool definitions to every session and reach private data.
 - `enableArtifact: false`, `disableBundledSkills: true` and `disableWorkflows: true`: tool and skill definitions that cost tokens every turn and were not used; `/init` and `/doctor` stay typable. `CLAUDE_CODE_SEND_FEEDBACK=0` in `conf.d/env.fish` is there for the same reason.
-- No `advisorModel` and `awaySummaryEnabled: false`: background calls that spend tokens unasked. An advisor call re-reads the whole transcript uncached at the advisor model's rates. `/advisor` writes the key back, so `/advisor off` after use.
+- `awaySummaryEnabled: false` and `promptSuggestionEnabled: false`: background calls that spend tokens unasked.
+- No `advisorModel`, which is the default and leaves the advisor off. `/advisor` writes the key into `settings.json`, so it stays on in every later session until `/advisor off`; an advisor call re-reads the whole transcript uncached at the advisor model's rates.
 - `env.CLAUDE_CODE_SUBAGENT_MODEL = "sonnet"`: a subagent with no `model` of its own runs on Sonnet instead of inheriting the main model. It sits in `settings.json` rather than `env.fish` so `claude -p` from `pi-claude-code` is unaffected.
 - `env.CLAUDE_CODE_DISABLE_FAST_MODE = "1"`: removes `/fast`, which bills the same model at a higher per-token rate and is not used.
-- `attribution: false`: no Co-Authored-By trailer or PR footer.
+- `env.CLAUDE_CODE_EXPERIMENTAL_CODE_MODE = "1"`: Code Mode, in which the model writes JavaScript that makes several tool calls in one `REPL` step. Its first start asks for confirmation and restarts. Each call inside still passes the rtk `PreToolUse` hook under its own tool name, but auto mode's classifier reviews the code as a whole and cannot see values computed at run time. A session started with it resumes only with it on. Like the subagent model it sits in `settings.json`, so `claude -p` from `pi-claude-code` is unaffected.
+- `attribution` as `{"commit": "", "pr": "", "sessionUrl": false}`: no Co-Authored-By trailer, PR footer or session link.
+- `model: "opus"`, the same model as pi's main session.
+- `switchModelsOnFlag: true`: when safeguards flag a message the session continues on another model instead of pausing. The safeguards are deliberately broad and flag ordinary system work as cyber; a pause would only lead to the same switch by hand.
+- `permissions.defaultMode: "auto"`: every session starts in auto mode, the classifier deciding what needs a prompt. One user on one machine, and every change here is a git revert away.
+- No `autoMode` section, so the classifier uses Claude Code's current defaults. `/auto-mode-setup` writes a frozen `environment` naming this repo as the trusted repo and source control, which at user scope applies to every project; `claude auto-mode reset -y` removes it.
 
 ## Codex
 
@@ -77,6 +83,6 @@ Alfred's config is **deliberately not in this repo**. Its sync folder moves the 
 
 ## Notes
 
-Session transcripts are conversation continuity, not memory, and are kept: Claude Code's `--resume` ages them out with `cleanupPeriodDays`, and pi never prunes them (`docs/pi.md`). Auto-memory, the `remember` plugin and Codex memories are off, as above.
+Session transcripts are conversation continuity, not memory, and are kept: Claude Code's `--resume` ages them out after `cleanupPeriodDays`, left at its default of 30, and pi never prunes them (`docs/pi.md`). Claude Code's own auto memory is on, as above; the `remember` plugin and Codex memories are off.
 
 `⌘` combinations never reach programs inside the terminal (macOS handles them at the app layer), so they are the safe modifier for global hotkeys. `⌃` and `⌥` do reach the terminal and Neovim: `⌃Space` is blink.cmp's completion trigger and `⌥hjkl` is mini.move.

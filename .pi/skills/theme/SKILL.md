@@ -1,6 +1,6 @@
 ---
 name: theme
-description: Where each tool gets Rosé Pine and the rule against overriding it — nvim, the terminal (Rex, Ghostty), fish, pi, Alfred, OmniWM. Load before changing any colour or adding a themed element.
+description: Where each tool gets Rosé Pine and the rule against overriding it — nvim, the terminal (Rex, Ghostty), fish, pi, Claude Code, Alfred, OmniWM. Load before changing any colour or adding a themed element.
 ---
 
 # Theme
@@ -16,6 +16,7 @@ The colour scheme is Rosé Pine everywhere: Main when the system is dark, Dawn w
 | fish | `rose-pine/fish`, theme `Rosé Pine Auto` | the name, in `functions/__apply_theme.fish` |
 | fish prompt | pure, coloured by `rose-pine/fish` | nothing |
 | pi | pi's built-in `system` theme, derived from the terminal | nothing; no `theme` key in pi's local settings |
+| Claude Code | its own `auto` theme; no Rosé Pine port, and its `*-ansi` themes take the terminal's colours but are fixed to one side | nothing; `theme: "auto"` in Claude Code's local settings |
 | `ls`, `eza`, other programs | the terminal's sixteen colours | nothing |
 | Alfred | `rose-pine/alfred`, imported by hand | a step in `manual-setup` |
 | OmniWM | two hand-copied values | `borders.color` and `borders.darkColor` in `settings.toml` |
@@ -29,7 +30,8 @@ The colour scheme is Rosé Pine everywhere: Main when the system is dark, Dawn w
   - keywords in nvim and the terminal's "green" are pine, `#31748f`, low in contrast on Main;
   - dropbar has no groups of its own in `rose-pine/neovim` and takes the defaults it links to;
   - Dawn's terminal text, `#575279`, is slightly lighter than nvim's;
-  - pi's `system` theme computes its own lightness, so its colours are near Rosé Pine rather than equal to it.
+  - pi's `system` theme computes its own lightness, so its colours are near Rosé Pine rather than equal to it;
+  - Claude Code's `auto` uses its own palette, not Rosé Pine: following light and dark outranks taking the terminal's colours.
 
 A new themed element follows the same order: use the tool's official Rosé Pine port if there is one and it follows the system's light and dark, otherwise let it take the terminal's colours, and only then ask the owner whether a hand-copied value is worth it.
 
@@ -44,6 +46,7 @@ Each tool follows the system on its own; nothing here switches them.
 | nvim | sets `background` from what the terminal reports, and the scheme follows `background` |
 | fish | `__apply_theme` runs when `fish_terminal_color_theme` changes (`docs/fish.md`) |
 | pi | `system` asks the terminal again when it switches (`docs/pi-ui.md`) |
+| Claude Code | `auto` follows the terminal's light or dark |
 | Alfred | one theme chosen for each appearance |
 | OmniWM | `color` is used in light, `darkColor` in dark |
 

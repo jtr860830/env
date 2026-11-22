@@ -41,7 +41,7 @@ pi is the harness (decided 2026-11-10), Claude Code is a backend through `pi-cla
 
 **Never let a `CLAUDE.md` appear at the repo root.** Claude Code's default loads `AGENTS.md` only when there is no `CLAUDE.md`, so one written by `/init`, `/revise-claude-md` or the `#` shortcut would silently shadow this file. The local setting that guards against it and the verifications are in the `manual-setup` skill. The settings files of all three tools stay local, since the tools write them.
 
-**Stateless model (decided 2026-11-09).** The model carries nothing of its own between sessions: everything persistent lives in files the user edits — this file, `docs/`, `.pi/skills/`, the user-level `AGENTS.md` and `CLAUDE.md` — so what the model knows at session start is exactly what is in the repo. Memory switches and transcript retention are in `.pi/skills/manual-setup/SKILL.md` and `docs/pi.md`.
+**Stateless model in pi (decided 2026-11-09, scoped to pi 2026-11-22).** In pi the model carries nothing of its own between sessions: everything persistent lives in files the user edits — this file, `docs/`, `.pi/skills/`, the user-level `AGENTS.md` and `CLAUDE.md` — so what it knows at session start is exactly what is in the repo. Claude Code run on its own keeps its own auto memory; pi is where the setup follows the owner's design. Memory switches and transcript retention are in `.pi/skills/manual-setup/SKILL.md` and `docs/pi.md`.
 
 ## Path-Scoped Documentation
 

@@ -10,7 +10,7 @@ pi's appearance is its own, with two small extensions: `extensions/editor.ts` ad
 ── ⠴ Working ─────────────────────────────────────────────────────────────────────
 ❯ first line
   second line
-───── ↑9.0k ↓2.1k R206k W4.5k CH93.8%  $0.320  4.8%/1.0M  anthropic/claude-fable-5-2 high ──
+───── ↑9.0k ↓2.1k R206k W4.5k CH93.8%  $0.320  4.8%/1.0M  anthropic/claude-opus-5-5 high ──
  ● parallel-1
  ├ ● runner  openai/gpt-6-luna  1 turn  15s  $ go test ./...
 ```
