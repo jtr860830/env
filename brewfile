@@ -110,3 +110,4 @@ cask "zen"
 
 mas "LINE", id: 539883307
 mas "Windows App", id: 1295203466
+mas "Xcode", id: 497799835
