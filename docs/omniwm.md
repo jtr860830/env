@@ -19,6 +19,7 @@ One window fills each screen. Workspaces 1 to 3 live on the built-in display (1 
 - **The focus border is off**: with one window per screen it marks nothing and costs space on each edge.
 - **A workspace cannot exist only while its display is connected.** When its display is missing OmniWM places it on the nearest connected one, so unplugged, 4 and 5 join the built-in display. `workspaceBar.hideEmptyWorkspaces = true` keeps empty ones out of the bar, Overview and next/previous navigation; `⌥1-5` and `⌥⇧1-5` still reach them.
 - **Names**: a workspace with no name has no `displayName` key at all. Nerd Font glyphs do not work as names, since the bar and menu bar draw in the system font.
+- **Resting the pointer on a screen edge does not scroll to the neighbouring column.** With focus following the mouse, OmniWM does that after `focus.edgeNavigationInterval`; `focus.followsMouseOnlyFullyVisible = true` stops it, because hover focus then reaches only fully visible windows and a column parked off screen never is one. Hover focus between windows on screen still works, and the tab OmniWM shows at the edge still scrolls on a click.
 - **`niri.infiniteLoop = true` wraps keyboard navigation only.** `⌥←→` past the last column returns to the first; the three-finger column scroll drags a bounded strip and does not wrap. The three-finger workspace swipe wraps through `gestures.workspaceSwipeEdgeBehavior = "cycle"`.
 
 ### App rules
