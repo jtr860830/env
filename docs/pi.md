@@ -21,7 +21,8 @@ Like the Go variables, these reach only processes started from fish. pi looks fo
 
 - `shellPath` has no extension API and no variable. Without it pi's `bash` tool runs `/bin/bash` 3.2, and models routinely write bash 4 and later; `brew "bash"` is in the brewfile for that.
 - `defaultProvider` and `defaultModel` are what pi itself writes on a saved model switch.
-- `modelThinkingLevels` could only be copied by an extension, a second implementation that `/settings` would then disagree with.
+
+There is no `modelThinkingLevels` and no `defaultThinkingLevel`: the main session starts at pi's default, `medium`, and is changed by hand. Subagents pin their level in the agent files (`docs/pi-subagents.md`).
 
 Two settings live in the repo instead and must not be set in that file: the editor's padding is fixed in `extensions/editor.ts`, and the hardware cursor comes from `PI_HARDWARE_CURSOR` in `env.fish` (`docs/pi-ui.md`). There is no `theme` key.
 

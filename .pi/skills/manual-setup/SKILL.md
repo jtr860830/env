@@ -25,7 +25,7 @@ Hand-set values in `~/.config/pi/settings.json` (why they are local is in `docs/
 
 - `"shellPath": "/opt/homebrew/bin/bash"`.
 - `"defaultModel": "claude-opus-5-5"`, with `"defaultProvider"` `anthropic` (the API key) or, once that credit has run out, `claude-code` (the subscription). `/model` switches, and pi saves the choice.
-- `modelThinkingLevels`: `high` for fable-5-2, fable-5-1, opus-5-5 and gpt-6-astra; `medium` for sonnet-5-5 and gpt-6.1-sol; `low` for haiku-5-5, gpt-6.1-terra and gpt-6-luna. Each Anthropic model is listed under both `anthropic/` and `claude-code/`, so a provider switch keeps the depth.
+- No `modelThinkingLevels` and no `defaultThinkingLevel`, so every model starts at pi's default `medium` (`docs/pi.md`).
 - `"skills": ["~/.local/share/agents/skills"]`, the one place skills are installed to.
 - No `theme` key, so pi uses its built-in `system` theme (`docs/pi-ui.md`).
 - `editorPaddingX` and `showHardwareCursor` must not be set: the first is fixed in `extensions/editor.ts`, the second comes from `PI_HARDWARE_CURSOR` in `env.fish`, which a key in the file would override.

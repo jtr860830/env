@@ -79,9 +79,7 @@ export function registerFallback(pi: ExtensionAPI, agentName: string): void {
 				const provider = providerOf(current);
 				const model = ctx.modelRegistry.find(provider, current.slice(provider.length + 1));
 				if (model && ctx.modelRegistry.hasConfiguredAuth(model)) {
-					const thinkingLevel =
-						pinnedThinking ?? pi.getSettings().modelThinkingLevels?.[current] ?? request.thinkingLevel;
-					return { model, thinkingLevel };
+					return { model, thinkingLevel: pinnedThinking ?? request.thinkingLevel };
 				}
 				unavailable.add(current);
 			}
