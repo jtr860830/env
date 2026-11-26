@@ -19,7 +19,6 @@ export interface AgentConfig {
 	fallback?: string[];
 	thinking?: ThinkingLevel;
 	systemPrompt: string;
-	filePath: string;
 }
 
 type AgentFrontmatter = {
@@ -42,10 +41,6 @@ function parseToolList(value: unknown): string[] | undefined {
 
 function loadAgentsFromDir(dir: string): AgentConfig[] {
 	const agents: AgentConfig[] = [];
-
-	if (!fs.existsSync(dir)) {
-		return agents;
-	}
 
 	let entries: fs.Dirent[];
 	try {
@@ -80,7 +75,6 @@ function loadAgentsFromDir(dir: string): AgentConfig[] {
 			fallback: parseToolList(frontmatter.fallback),
 			thinking: parseThinkingLevel(frontmatter.thinking),
 			systemPrompt: body,
-			filePath,
 		});
 	}
 

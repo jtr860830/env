@@ -77,7 +77,7 @@ When the last assistant message is a quota error (the pattern at the top of `fal
 - **Continuing across vendors works** because pi skips errored assistant messages, drops another model's thinking and normalises tool calls. The new model loses the old one's reasoning and keeps every tool call, result and visible text.
 - **Once switched, a child stays on the new model**; going back mid-task would lose the prompt cache a second time.
 - **Spent providers are shared** through `$XDG_STATE_HOME/pi/extensions/subagent/exhausted-providers.json` (provider to expiry, 15 minutes). A new child skips a listed provider; after expiry the first child tries it again. The lifetime is fixed because the error text carries no reset time, and short because staying on the second subscription after the first has recovered spends the one that may be needed later. The key is the provider, not the model: a subscription's limit covers all its models.
-- **The thinking level** comes from the parent, which passes the agent file's `thinking:` or a per-task value as `PI_SUBAGENT_THINKING`; `route()` applies it to whichever model it returns, so both models of a chain run at the same level.
+- **The thinking level** is selected with `--thinking`: the per-task value overrides the agent file's `thinking:`. `route()` passes `request.thinkingLevel` to whichever physical model it returns; pi clamps the level to that model's capabilities.
 - **The parent reports what happened** from the child's messages: the result says "ran on X after quota errors on Y" and carries one session id.
 
 ### Child identity and sessions

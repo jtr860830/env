@@ -3,7 +3,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { type ExtensionAPI, type ExtensionContext, parseFrontmatter } from "@earendil-works/pi-coding-agent";
 
-const RULE_DIRS = ["docs"];
+const RULE_DIR = "docs";
 const PATH_TOOLS = new Set(["read", "edit", "write"]);
 const CUSTOM_TYPE = "rule";
 
@@ -61,16 +61,14 @@ function findRoot(cwd: string): string | undefined {
 
 function loadRules(root: string): Rule[] {
 	const rules: Rule[] = [];
-	for (const dir of RULE_DIRS) {
-		const abs = path.join(root, dir);
-		if (!fs.existsSync(abs)) continue;
-		for (const entry of fs.readdirSync(abs).sort()) {
-			if (!entry.endsWith(".md")) continue;
-			const { frontmatter, body } = parseFrontmatter<{ paths?: unknown }>(fs.readFileSync(path.join(abs, entry), "utf-8"));
-			const globs = Array.isArray(frontmatter.paths) ? frontmatter.paths.filter((p): p is string => typeof p === "string") : [];
-			if (globs.length === 0) continue;
-			rules.push({ id: `${dir}/${entry}`, patterns: globs.map(globToRegExp), body: body.trim() });
-		}
+	const abs = path.join(root, RULE_DIR);
+	if (!fs.existsSync(abs)) return rules;
+	for (const entry of fs.readdirSync(abs).sort()) {
+		if (!entry.endsWith(".md")) continue;
+		const { frontmatter, body } = parseFrontmatter<{ paths?: unknown }>(fs.readFileSync(path.join(abs, entry), "utf-8"));
+		const globs = Array.isArray(frontmatter.paths) ? frontmatter.paths.filter((p): p is string => typeof p === "string") : [];
+		if (globs.length === 0) continue;
+		rules.push({ id: `${RULE_DIR}/${entry}`, patterns: globs.map(globToRegExp), body: body.trim() });
 	}
 	return rules;
 }
@@ -79,7 +77,7 @@ export default function (pi: ExtensionAPI) {
 	let root: string | undefined;
 	let rules: Rule[] = [];
 	const injected = new Set<string>();
-	let watchers: fs.FSWatcher[] = [];
+	let watcher: fs.FSWatcher | undefined;
 	let reloadTimer: ReturnType<typeof setTimeout> | undefined;
 
 	const reload = () => {
@@ -91,20 +89,15 @@ export default function (pi: ExtensionAPI) {
 	};
 
 	const watch = () => {
-		for (const w of watchers) w.close();
-		watchers = [];
+		watcher?.close();
+		watcher = undefined;
 		if (!root) return;
-		for (const dir of [".", ...RULE_DIRS]) {
-			const abs = path.join(root, dir);
-			if (!fs.existsSync(abs)) continue;
-			watchers.push(
-				fs.watch(abs, (_event, filename) => {
-					if (dir === "." && filename !== "docs") return;
-					clearTimeout(reloadTimer);
-					reloadTimer = setTimeout(reload, 200);
-				}),
-			);
-		}
+		const abs = path.join(root, RULE_DIR);
+		if (!fs.existsSync(abs)) return;
+		watcher = fs.watch(abs, () => {
+			clearTimeout(reloadTimer);
+			reloadTimer = setTimeout(reload, 200);
+		});
 	};
 
 	let pending: { rule: Rule; rel: string }[] = [];
@@ -114,9 +107,9 @@ export default function (pi: ExtensionAPI) {
 		injected.clear();
 		for (const entry of ctx.sessionManager.buildContextEntries()) {
 			if (entry.type !== "custom_message" || entry.customType !== CUSTOM_TYPE) continue;
-			const details = entry.details as { id?: string; ids?: string[] } | undefined;
+			const details = entry.details as { ids?: string[] } | undefined;
 			const text = typeof entry.content === "string" ? entry.content : "";
-			for (const id of details?.ids ?? (details?.id ? [details.id] : [])) {
+			for (const id of details?.ids ?? []) {
 				const rule = rules.find((r) => r.id === id);
 				if (rule && text.includes(rule.body)) injected.add(id);
 			}
@@ -124,8 +117,8 @@ export default function (pi: ExtensionAPI) {
 	};
 
 	pi.on("session_shutdown", async () => {
-		for (const w of watchers) w.close();
-		watchers = [];
+		watcher?.close();
+		watcher = undefined;
 		clearTimeout(reloadTimer);
 		clearTimeout(flushTimer);
 		flushTimer = undefined;

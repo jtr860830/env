@@ -3,7 +3,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 import type { AssistantMessage } from "@earendil-works/pi-ai";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import { type AgentConfig, discoverAgents, parseThinkingLevel, THINKING_LEVELS } from "./agents.ts";
+import { type AgentConfig, discoverAgents, THINKING_LEVELS } from "./agents.ts";
 
 const QUOTA_ERROR =
 	/usage limit|credit balance|billing|insufficient_quota|out of budget|quota exceeded|available balance|spend limit/i;
@@ -58,7 +58,6 @@ export function registerFallback(pi: ExtensionAPI, agentName: string): void {
 
 	const unavailable = new Set<string>();
 	const spentProviders = new Set<string>();
-	const pinnedThinking = parseThinkingLevel(process.env.PI_SUBAGENT_THINKING);
 	let current: string | undefined;
 
 	const pick = (): string | undefined => {
@@ -79,7 +78,7 @@ export function registerFallback(pi: ExtensionAPI, agentName: string): void {
 				const provider = providerOf(current);
 				const model = ctx.modelRegistry.find(provider, current.slice(provider.length + 1));
 				if (model && ctx.modelRegistry.hasConfiguredAuth(model)) {
-					return { model, thinkingLevel: pinnedThinking ?? request.thinkingLevel };
+					return { model, thinkingLevel: request.thinkingLevel };
 				}
 				unavailable.add(current);
 			}

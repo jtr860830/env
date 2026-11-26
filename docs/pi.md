@@ -17,9 +17,9 @@ Like the Go variables, these reach only processes started from fish. pi looks fo
 
 ### Local settings
 
-`~/.config/pi/settings.json` stays local, as Claude's and Codex's do: pi writes it itself, including a device id, the last changelog version and the `packages` list that `pi install` maintains, and those writes would otherwise land in this public repo. `auth.json` and `trust.json` are credentials and a per-directory decision, also local. The hand-set values are listed in `.pi/skills/manual-setup/SKILL.md`. What stays there has no other home:
+`~/.config/pi/settings.json` stays local, as Claude's and Codex's do: pi writes it itself, including a device id, the last changelog version and the `packages` list that `pi install` maintains, and those writes would otherwise land in this public repo. `auth.json` and `trust.json` are credentials and a per-directory decision, also local. The hand-set values are listed in `.pi/skills/manual-setup/SKILL.md`. These stay there:
 
-- `shellPath` has no extension API and no variable. Without it pi's `bash` tool runs `/bin/bash` 3.2, and models routinely write bash 4 and later; `brew "bash"` is in the brewfile for that.
+- `shellPath` covers both the `bash` tool and the user's `!` commands. Replacing the tool in an extension is more code and does not change the shell for `!`, which would need a separate hook. Without the setting pi's `bash` tool runs `/bin/bash` 3.2, and models routinely write bash 4 and later; `brew "bash"` is in the brewfile for that.
 - `defaultProvider` and `defaultModel` are what pi itself writes on a saved model switch.
 
 There is no `modelThinkingLevels` and no `defaultThinkingLevel`: the main session starts at pi's default, `medium`, and is changed by hand. Subagents pin their level in the agent files (`docs/pi-subagents.md`).
@@ -53,10 +53,10 @@ User-level harness is mechanism, not policy. The `task` tool is available the wa
 - At `session_start` it walks up from the working directory to the nearest ancestor holding `.git`, reads `docs/*.md` non-recursively and parses each file's `paths` globs.
 - The globs are turned into regular expressions by its own code. Node's `path.matchesGlob` cannot replace it: its `**` does not enter dot-directories, and every stowed path has a `.config` segment.
 - On `read`, `edit` or `write` of a matching path it injects the document as a hidden `rule` message, once for as long as that message is in the context. `edit` and `write` are blocked the first time, with a reason telling the model the content is already in its context and to retry.
-- **What counts as injected is rebuilt from the session**, from `buildContextEntries()` (the branch with compaction applied) at `session_start`, `session_compact` and `session_tree`, and a rule counts only when the entry holds the rule's current body. So a document that has left the context, or changed since it was injected, is injected again.
+- **What counts as injected is rebuilt from the session**, from `buildContextEntries()` (the branch with compaction applied) at `session_start`, `session_compact` and `session_tree`, and a rule counts only when the entry lists it in `details.ids` and holds its current body. So a document that has left the context, or changed since it was injected, is injected again.
 - Paths are resolved as pi's own tools resolve them, a leading `@` dropped and `~` expanded, and then through `realpath`, because every stowed file under `~` is a link into the repo. So `~/.config/fish/conf.d/env.fish` loads `docs/fish.md` and `docs/env.md`.
-- **All rules hit by one tool batch go out as one message.** pi delivers queued messages one per turn, so separate messages would reach a subagent after it had written its report, and its answer to the last one would replace the report.
-- It watches `docs/` and reloads on change, re-arming only the rules whose body changed.
+- **All rules hit by one tool batch go out as one message.** `pi.sendMessage` defaults to `deliverAs: "steer"`, and the default `steeringMode: "one-at-a-time"` delivers one queued steering message per turn. With that setting, separate messages would reach a subagent after it had written its report, and its answer to the last one would replace the report.
+- It watches only `docs/` and reloads on change, re-arming only the rules whose body changed. If `docs/` is missing at startup or removed during a session, `/reload` after it exists again.
 
 Skills in `.pi/skills/` are discovered by pi natively.
 
