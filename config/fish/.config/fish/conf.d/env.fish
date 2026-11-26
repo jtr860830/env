@@ -21,6 +21,7 @@ set -gx VISUAL nvim
 set -gx MANPAGER 'nvim +Man!'
 set -gx TERMINFO_DIRS /opt/homebrew/opt/ncurses/share/terminfo:/usr/local/share/terminfo
 
+set -gx AGENT_SKILLS_HOME $XDG_DATA_HOME/agents/skills
 set -gx CARGO_HOME $XDG_DATA_HOME/cargo
 set -gx CARGO_INSTALL_ROOT $HOME/.local
 set -gx CLAUDE_CONFIG_DIR $XDG_CONFIG_HOME/claude
@@ -41,4 +42,6 @@ set -gx PI_CODING_AGENT_SESSION_DIR $XDG_DATA_HOME/pi/sessions
 set -gx PI_HARDWARE_CURSOR 1
 set -gx RUSTUP_HOME $XDG_DATA_HOME/rustup
 set -gx SSH_AUTH_SOCK "$HOME/Library/Group Containers/2BUA8C4S2C.com.1password/t/agent.sock"
+set -gx TERMINAL_BROWSER_APPDATA $XDG_DATA_HOME/terminal-browser
+set -gx TERMINAL_BROWSER_NO_TELEMETRY 1
 set -gx _ZO_DATA_DIR $XDG_DATA_HOME/zoxide

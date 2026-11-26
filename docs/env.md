@@ -29,6 +29,15 @@ Left as is: lima's download cache (`~/Library/Caches/lima` — the binary reads 
 
 `PI_CODING_AGENT_DIR=$XDG_CONFIG_HOME/pi` and `PI_CODING_AGENT_SESSION_DIR=$XDG_DATA_HOME/pi/sessions`: pi has no XDG handling and upstream closed the request as wontfix, so these two variables are the permanent answer. Why sessions go to DATA rather than STATE, and everything else about pi, is in `docs/pi.md`. `PI_HARDWARE_CURSOR=1` is the terminal's cursor in pi's input, a setting kept here rather than in pi's local `settings.json` (`docs/pi-ui.md`).
 
+## terminal-browser
+
+terminal-browser (the `terminal-browser` cask) honours `XDG_*` for its settings (`~/.config/terminal-browser`), logs and sockets (`~/.local/state/terminal-browser*`, `~/.local/state/pixel`) and history database (`~/.local/share/terminal-browser-<hash>`). The hash comes from the install path with the version stripped, so it survives upgrades. Two places needed a variable, both read from its bundled JavaScript (`cli/dist/main.js`, `browser/dist/main.js`) and verified by launching it from a fresh fish on 2026-11-26:
+
+- `TERMINAL_BROWSER_APPDATA=$XDG_DATA_HOME/terminal-browser`: the Chromium profile (cookies, cache, local storage) goes to Electron's `appData`, which is `~/Library/Application Support` on Darwin. The variable replaces that parent directory, and the profile becomes `terminal-browser-<hash>` inside it. It gets a directory of its own rather than `$XDG_DATA_HOME` itself, so it never shares a name with the history database. `~/Library/Preferences/dev.zenbu.terminal-browser.plist` is written by macOS for any app and is left alone.
+- `AGENT_SKILLS_HOME=$XDG_DATA_HOME/agents/skills`: the first run of each version runs `terminal-browser setup` without asking. Setup links its skill into `~/.agents/skills`, which pi also reads, and into `~/.claude/skills`, `~/.codex/skills`, `~/.cursor/skills` and `~/.gemini/skills` when their parent directory exists. None of those exist here, because `CLAUDE_CONFIG_DIR` and `CODEX_HOME` move them. The variable points the shared link at pi's one skills directory (`.pi/skills/manual-setup/SKILL.md`). The link names the versioned Caskroom path, and setup relinks it when the version changes.
+
+`TERMINAL_BROWSER_NO_TELEMETRY=1` turns off usage events and crash reports. It is the tool's own variable, chosen over `DO_NOT_TRACK`, which other tools read too. Update checks (`updates.check`) stay at the default, on. Upgrade with `brew upgrade`, never `terminal-browser upgrade`, which runs the curl installer outside Homebrew. A GUI-launched process does not get these variables, but the browser only starts from a terminal.
+
 ## npm and Node
 
 npm reads `NPM_CONFIG_USERCONFIG=~/.config/npm/npmrc` (stowed), with `NODE_REPL_HISTORY` beside it in `env.fish`. `COREPACK_HOME` was dropped on 2026-10-28: Node 25 stopped bundling corepack, `corepack` is not on `PATH` under Node 26, and nothing reads the variable. `WGETRC` went the same day — it pointed at an empty, unmanaged `~/.config/wgetrc` from 2023; wget's one XDG need, the HSTS file, is the `--hsts-file=$XDG_CACHE_HOME/wget-hsts` in `functions/wget.fish`.

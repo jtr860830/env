@@ -105,6 +105,7 @@ cask "signal"
 cask "slack"
 cask "tailscale-app"
 cask "telegram"
+cask "terminal-browser"
 cask "zed"
 cask "zen"
 
